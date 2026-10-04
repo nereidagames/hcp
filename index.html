@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#2c3e50" />
+  <meta name="background-color" content="#87CEEB" />
+
+  <title>HyperCubesPlanet</title>
+
+  <!-- Ikona -->
+  <link rel="icon" type="image/png" href="icons/favicon.png" />
+  <link rel="apple-touch-icon" href="icons/favicon.png" />
+
+  <!-- Manifest -->
+  <link rel="manifest" href="./manifest.json" crossorigin="use-credentials" />
+
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <link rel="stylesheet" href="style.css" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Titan+One&display=swap" rel="stylesheet" />
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+        "nipplejs": "https://esm.sh/nipplejs@0.10.2"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!--STUDIO SCREEN -->
+  <div id="studio-screen">
+    <div id="game-version" class="version-black">v.0.6.9 alpha</div>
+    <img id="studio-logo" src="icons/nereidastudio.png" alt="Nereida Studio">
+  </div>
+
+  <div id="loading-screen" style="display: none;">
+    <!-- Tło gradientowe -->
+    <div class="loading-bg"></div>
+    
+    <div class="clouds-bsp-container">
+      <img src="icons/loading/Cloud1.png" class="cloud-bsp cloud-bsp-1" alt="">
+      <img src="icons/loading/Cloud2.png" class="cloud-bsp cloud-bsp-2" alt="">
+      <img src="icons/loading/Cloud3.png" class="cloud-bsp cloud-bsp-3" alt="">
+      <img src="icons/loading/Cloud4.png" class="cloud-bsp cloud-bsp-4" alt="">
+      <img src="icons/loading/Cloud5.png" class="cloud-bsp cloud-bsp-5" alt="">
+      <img src="icons/loading/Cloud6.png" class="cloud-bsp cloud-bsp-6" alt="">
+      <img src="icons/loading/Cloud7.png" class="cloud-bsp cloud-bsp-7" alt="">
+      <img src="icons/loading/Cloud8.png" class="cloud-bsp cloud-bsp-8" alt="">
+      <img src="icons/loading/Cloud9.png" class="cloud-bsp cloud-bsp-9" alt="">
+      <img src="icons/loading/Cloud10.png" class="cloud-bsp cloud-bsp-10" alt="">
+    </div>
+   
+    <div class="loading-content-bsp">
+      <div class="bsp-logo">
+        <img id="loading-logo-bsp" src="icons/favicon.png" alt="HyperCubesPlanet">
+      </div>
+      
+      <div class="bsp-progress-container">
+        <div class="bsp-progress-border">
+          <div class="bsp-progress-bar">
+            <div class="bsp-progress-fill" id="progress-bar-fill-bsp"></div>
+          </div>
+        </div>
+        <div class="bsp-progress-text" id="loading-text-bsp">Dziurkowanie kawałków Sera</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reszta kontenerów -->
+  <div id="auth-layer" style="display:block; position:relative; z-index:99998;"></div>
+  <div id="gameContainer"></div>
+  <div id="ui-layer"></div>
+  <div id="build-ui-container"></div>
+  <div id="modals-layer"></div>
+
+  <script type="module" src="main.js"></script>
+
+  <!-- Rejestracja SW -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker zarejestrowany → scope:', reg.scope))
+          .catch(err => console.error('Błąd rejestracji SW:', err));
+      });
+    }
+  </script>
+</body>
+</html>
