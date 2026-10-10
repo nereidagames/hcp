@@ -1,11 +1,12 @@
 /* PLIK: character.js */
+
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-// Funkcja tworzy model nóg.
 export function createBaseCharacter(parentContainer) {
-    const legMaterial = new THREE.MeshLambertMaterial({ color: 0x2c3e50 });
-    const bootMaterial = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+    // POPRAWKA: Ujednolicenie na MeshBasicMaterial (brak niespójnego cieniowania nóg względem reszty ciała)
+    const legMaterial = new THREE.MeshBasicMaterial({ color: 0x2c3e50 });
+    const bootMaterial = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
 
     const legWidth = 0.25;
     const legHeight = 0.8;
@@ -19,7 +20,6 @@ export function createBaseCharacter(parentContainer) {
     const bootCenterY = (bootHeight / 2) + verticalOffset;
     const legCenterY = (bootHeight + legHeight / 2) + verticalOffset;
 
-    // Lewa noga i but
     const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(legWidth, legHeight, legDepth), legMaterial);
     leftLeg.position.set(-legSeparation, legCenterY, 0);
     parentContainer.add(leftLeg);
@@ -28,7 +28,6 @@ export function createBaseCharacter(parentContainer) {
     leftBoot.position.set(-legSeparation, bootCenterY, 0.025);
     parentContainer.add(leftBoot);
 
-    // Prawa noga i but
     const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(legWidth, legHeight, legDepth), legMaterial);
     rightLeg.position.set(legSeparation, legCenterY, 0);
     parentContainer.add(rightLeg);
@@ -67,7 +66,6 @@ export class CharacterManager {
     this.character.position.set(0, 5, 0); 
     this.scene.add(this.character);
     this.setupShadow();
-    console.log("Postać gracza załadowana.");
   }
   
   applySkin(skinData) {
@@ -115,7 +113,6 @@ export class CharacterManager {
     }
   }
 
-  // --- POPRAWIONA LOGIKA ZANIKANIA ---
   updateTransparency(camera) {
       if (!this.character) return;
 
