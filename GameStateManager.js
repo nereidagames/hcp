@@ -1,3 +1,5 @@
+/* PLIK: GameStateManager.js */
+
 import * as THREE from 'three';
 
 export class GameStateManager {
@@ -37,9 +39,17 @@ export class GameStateManager {
         const hasMovement = ['MainMenu', 'ExploreMode', 'DiggingMode'].includes(this.currentState);
         
         if (hasMovement) {
-            const { playerController, cameraController, character, multiplayer, coin, parkour } = this.managers;
+            const { 
+                playerController, 
+                cameraController, 
+                character, 
+                multiplayer, 
+                coin, 
+                parkour, 
+                digging 
+            } = this.managers;
 
-            // WAŻNE: aktualizuj kamerkę i player controller ZAWSZE gdy są włączone
+            // 1. Aktualizacja kamery i fizyki ruchu gracza
             if (playerController && cameraController && cameraController.update) {
                 const rot = cameraController.update(deltaTime);
                 if (playerController.update) {
@@ -47,23 +57,33 @@ export class GameStateManager {
                 }
             }
             
+            // 2. Aktualizacja wizualna postaci
             if (character && character.update) character.update(deltaTime);
-            if (multiplayer && multiplayer.update) multiplayer.update(deltaTime);
-            if (coin && coin.update) coin.update(deltaTime);
-            
-            if (parkour && this.currentState === 'ExploreMode' && parkour.update) {
-                parkour.update(deltaTime);
+
+            // 3. Aktualizacje modułów zależne od stanu
+            if (this.currentState === 'DiggingMode') {
+                // Logika kopania (oświetlenie, chunki, remote players kopalni)
+                if (digging && digging.update) {
+                    digging.update(deltaTime);
+                }
+            } else if (this.currentState === 'ExploreMode') {
+                if (parkour && parkour.update) parkour.update(deltaTime);
+                if (multiplayer && multiplayer.update) multiplayer.update(deltaTime);
+            } else if (this.currentState === 'MainMenu') {
+                if (multiplayer && multiplayer.update) multiplayer.update(deltaTime);
+                if (coin && coin.update) coin.update(deltaTime);
             }
 
-            // Wybór sceny do renderowania
-            let targetScene = this.core.scene; // domyślnie główna scena
+            // 4. JEDNOKROTNY RENDER WŁAŚCIWEJ SCENY
+            let targetScene = this.core.scene; // domyślnie główna scena (Nexus)
             
             if (this.currentState === 'ExploreMode' && this.exploreScene) {
                 targetScene = this.exploreScene;
-            } else if (this.currentState === 'DiggingMode' && this.managers.digging) {
-                targetScene = this.managers.digging.scene;
+            } else if (this.currentState === 'DiggingMode' && digging && digging.scene) {
+                targetScene = digging.scene;
             }
             
+            // Jedyne wywołanie renderera w klatce dla stanów z ruchem
             this.core.render(targetScene);
         }
         else if (this.currentState === 'BuildMode' && this.managers.build) {
@@ -93,15 +113,12 @@ export class GameStateManager {
         
         this.currentState = 'DiggingMode';
         
-        // NIE wyłączamy kontrolek - one mają działać
-        // this.toggleGameControls(false); - TO BYŁ BŁĄD!
-        
         document.querySelector('.ui-overlay').style.display = 'none';
         
         const buttons = document.querySelector('.game-buttons');
         if (buttons) buttons.style.display = 'none';
         
-        // Upewnij się że kontrolery są włączone
+        // Kontrolery kamery i gracza pozostają aktywne
         if (this.managers.cameraController) {
             this.managers.cameraController.enabled = true;
         }
@@ -145,7 +162,7 @@ export class GameStateManager {
         if (buttons) buttons.style.display = 'none';
         this.ui.toggleMobileControls(true);
         const joystickZone = document.getElementById('joystick-zone');
-        if(joystickZone) joystickZone.style.display = 'block'; 
+        if (joystickZone) joystickZone.style.display = 'block'; 
     }
 
     cleanUpMultiplayerEntities() {
@@ -233,7 +250,7 @@ export class GameStateManager {
                 this.onRecreateController(null);
             }
 
-            if(this.audioManager) this.audioManager.playNexusMusic();
+            if (this.audioManager) this.audioManager.playNexusMusic();
         } 
         else {
             if (this.currentState === 'BuildMode') this.managers.build.exitBuildMode();
@@ -252,17 +269,16 @@ export class GameStateManager {
                 this.onRecreateController(null);
             }
 
-            if(this.audioManager) this.audioManager.playNexusMusic();
+            if (this.audioManager) this.audioManager.playNexusMusic();
         }
     }
 
     toggleGameControls(visible) {
         const overlay = document.querySelector('.ui-overlay');
-        if(overlay) overlay.style.display = visible ? 'block' : 'none';
+        if (overlay) overlay.style.display = visible ? 'block' : 'none';
         const buttons = document.querySelector('.game-buttons');
         if (buttons) buttons.style.display = visible ? 'flex' : 'none';
         
-        // WAŻNE: nie wyłączamy kontrolek całkowicie, tylko ich widoczność UI
         if (this.managers.cameraController) {
             this.managers.cameraController.enabled = visible;
             if (visible && this.managers.cameraController.reset) {
