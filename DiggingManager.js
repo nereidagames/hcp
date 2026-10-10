@@ -1,4 +1,4 @@
-/* PLIK: DiggingManager.js - Z EFEKTYWNYM USUWANIEM BLOKÓW I NOWYM SYSTEMEM XP */
+/* PLIK: DiggingManager.js - Z EFEKTYWNYM USUWANIEM BLOKÓW I POPRAWIONYM ZARZĄDZANIEM PAMIĘCIĄ */
 
 import * as THREE from 'three';
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
@@ -417,7 +417,7 @@ const DIGGING_UI_HTML = `
     </div>
 `;
 
-// Paleta kolorów (bez tekstur!)
+// Paleta kolorów (bez tekstur)
 const COLORS = {
     stone: 0x808080,
     bedrock: 0x1E90FF,
@@ -472,11 +472,11 @@ const LAVA_SURGE_DEPTHS = [16, 48, 80];
 // ROZMIAR CHUNKA - 16x16x16 bloków
 const CHUNK_SIZE = 16;
 
-// Dystans renderowania - osobno dla każdej osi
+// Dystans renderowania
 const RENDER_DISTANCE = {
     x: 2,  // szerokość
     z: 2,  // głębokość
-    y: 1   // wysokość (zmniejszone dla oszczędności)
+    y: 1   // wysokość
 };
 
 export class DiggingManager {
@@ -518,7 +518,7 @@ export class DiggingManager {
         this.dummy = new THREE.Object3D();
         
         // Kolizje
-        this.collisionMap = new Map(); // szybka mapa dla kolizji
+        this.collisionMap = new Map();
         
         // Pozycja gracza
         this.playerPos = new THREE.Vector3(0, this.worldHeight - 1, 0);
@@ -562,24 +562,20 @@ export class DiggingManager {
         this.timerInterval = null;
         this.timeRemaining = 1800;
         
-        // Bindowanie
+        // Bindowanie zdarzeń
         this.onMouseDown = this.onMouseDown.bind(this);
         this.onMouseUp = this.onMouseUp.bind(this);
         this.onMouseMove = this.onMouseMove.bind(this);
         this.onContextMenu = this.onContextMenu.bind(this);
         
-        // Setup oświetlenia
+        // Oświetlenie i środowisko
         this.setupLighting();
-        
-        // Ustaw domyślną panoramę nieba
         this.setSky(200);
         this.renderDiggingUI();
         this.setupDiggingUI();
     }
     
     setupLighting() {
-        console.log("💡 Setting up lighting");
-        
         const ambient = new THREE.AmbientLight(0x606080);
         this.scene.add(ambient);
         
@@ -595,9 +591,7 @@ export class DiggingManager {
         this.scene.add(this.playerLight);
     }
 
-    // Ustawianie panoramy nieba
     setSky(skyId) {
-        // Usuń starą panoramę
         if (this.skyMesh) {
             this.scene.remove(this.skyMesh);
             if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
@@ -610,7 +604,6 @@ export class DiggingManager {
             }
         }
 
-        // Dla ID 200 (Clouds) - nasza domyślna panorama
         if (skyId === 200) {
             const geometry = new THREE.SphereGeometry(500, 60, 40);
             const texture = new THREE.TextureLoader().load('textures/sky/clouds.png');
@@ -621,9 +614,7 @@ export class DiggingManager {
             this.skyMesh = new THREE.Mesh(geometry, material);
             this.scene.add(this.skyMesh);
             this.currentSkyId = 200;
-            console.log("☁️ Digging: Ustawiono panoramę Clouds");
         }
-        // Tutaj można dodać kolejne panoramy w przyszłości
     }
 
     renderDiggingUI() {
@@ -682,7 +673,6 @@ export class DiggingManager {
         };
     }
 
-    // Funkcja do obliczania klucza chunka na podstawie pozycji bloku
     getChunkKeyFromPosition(x, y, z) {
         const cx = Math.floor(x / CHUNK_SIZE);
         const cy = Math.floor(y / CHUNK_SIZE);
@@ -690,7 +680,6 @@ export class DiggingManager {
         return `${cx},${cy},${cz}`;
     }
     
-    // Funkcja do obliczania klucza chunka na podstawie pozycji gracza
     getChunkKeyFromPlayer(pos) {
         const cx = Math.floor(pos.x / CHUNK_SIZE);
         const cy = Math.floor(pos.y / CHUNK_SIZE);
@@ -698,20 +687,13 @@ export class DiggingManager {
         return { cx, cy, cz, key: `${cx},${cy},${cz}` };
     }
     
-    // Aktualizacja widocznych chunków na podstawie pozycji gracza
     updateVisibleChunks() {
         const playerChunk = this.getChunkKeyFromPlayer(this.playerPos);
-        
-        // Sprawdź czy gracz przeszedł do innego chunka
         if (this.lastPlayerChunk === playerChunk.key) return;
         
         this.lastPlayerChunk = playerChunk.key;
-        console.log(`📍 Player moved to chunk ${playerChunk.key}`);
-        
-        // Oblicz które chunki powinny być widoczne
         const shouldBeVisible = new Set();
         
-        // Używamy osobnych dystansów dla każdej osi
         for (let dx = -RENDER_DISTANCE.x; dx <= RENDER_DISTANCE.x; dx++) {
             for (let dy = -RENDER_DISTANCE.y; dy <= RENDER_DISTANCE.y; dy++) {
                 for (let dz = -RENDER_DISTANCE.z; dz <= RENDER_DISTANCE.z; dz++) {
@@ -720,7 +702,6 @@ export class DiggingManager {
                     const cz = playerChunk.cz + dz;
                     const key = `${cx},${cy},${cz}`;
                     
-                    // Sprawdź czy chunk istnieje
                     if (this.chunks.has(key)) {
                         shouldBeVisible.add(key);
                     }
@@ -728,9 +709,6 @@ export class DiggingManager {
             }
         }
         
-        console.log(`👁️ Visible chunks: ${shouldBeVisible.size}`);
-        
-        // Ukryj chunki które nie powinny być widoczne
         this.activeChunks.forEach(key => {
             if (!shouldBeVisible.has(key)) {
                 const chunk = this.chunks.get(key);
@@ -743,7 +721,6 @@ export class DiggingManager {
             }
         });
         
-        // Pokaż chunki które powinny być widoczne
         shouldBeVisible.forEach(key => {
             const chunk = this.chunks.get(key);
             if (chunk && chunk.meshes) {
@@ -758,7 +735,6 @@ export class DiggingManager {
     }
     
     async startDiggingMode() {
-        console.log("🪣 Starting digging mode...");
         this.isActive = true;
         this.resetRound();
         
@@ -813,7 +789,6 @@ export class DiggingManager {
         this.miningProgress = 0;
         this.miningTarget = null;
         
-        // Wyczyść chunki
         this.clearAllChunks();
     }
     
@@ -825,7 +800,6 @@ export class DiggingManager {
                 this.ws = new WebSocket(`wss://hypercubes-nexus-server.onrender.com?token=${token}`);
                 
                 this.ws.onopen = () => {
-                    console.log("🔌 Connected to digging server");
                     resolve();
                 };
                 
@@ -839,9 +813,7 @@ export class DiggingManager {
                     reject(error);
                 };
                 
-                this.ws.onclose = () => {
-                    console.log("🔌 Disconnected from digging server");
-                };
+                this.ws.onclose = () => {};
             } catch (error) {
                 console.error("Failed to connect WebSocket:", error);
                 reject(error);
@@ -873,8 +845,6 @@ export class DiggingManager {
                         this.maxPlayers = data.maxPlayers;
                         this.roomPlayers = data.players || [];
                         
-                        console.log(`🚪 Joined existing room: ${this.roomId} (${data.playerCount}/${data.maxPlayers})`);
-                        
                         this.ws.send(JSON.stringify({
                             type: 'joinDigging',
                             roomId: this.roomId
@@ -902,8 +872,6 @@ export class DiggingManager {
                 this.halfSize = Math.floor(this.worldSize / 2);
                 this.maxPlayers = data.maxPlayers;
                 
-                console.log(`🏠 Created new room: ${this.roomId}`);
-                
                 this.ws.send(JSON.stringify({
                     type: 'joinDigging',
                     roomId: this.roomId
@@ -918,11 +886,8 @@ export class DiggingManager {
     }
     
     handleMessage(data) {
-        console.log("📨 Received:", data.type);
-        
         switch(data.type) {
             case 'diggingWorld':
-                console.log("🌍 Building world from server data...");
                 this.worldSize = data.worldSize;
                 this.worldHeight = data.worldHeight;
                 this.halfSize = Math.floor(this.worldSize / 2);
@@ -965,14 +930,9 @@ export class DiggingManager {
         }
     }
     
-    // Budowanie świata z podziałem na chunki
     buildWorldAsChunks(worldData) {
-        console.log("🏗️ Building world chunks...");
-        const startTime = performance.now();
-        
         this.clearAllChunks();
         
-        // Grupuj bloki według chunków
         const blocksByChunk = new Map();
         
         for (const [key, block] of Object.entries(worldData.blocks)) {
@@ -990,34 +950,26 @@ export class DiggingManager {
                 key
             });
             
-            // Zapisz informację o bloku dla szybkiego dostępu
             this.chunkData.set(key, {
                 chunkKey,
                 type: block.type
             });
             
-            // Dodaj do mapy kolizji
             this.collisionMap.set(key, true);
         }
         
-        console.log(`📦 Created ${blocksByChunk.size} chunks`);
-        
-        // Stwórz InstancedMesh dla każdego chunka
         blocksByChunk.forEach((blocks, chunkKey) => {
             this.buildChunk(chunkKey, blocks);
         });
         
-        // Ustaw pozycję gracza
         this.playerPos.set(0, this.worldHeight - 1, 0);
         if (this.game.characterManager?.character) {
             this.game.characterManager.character.position.copy(this.playerPos);
         }
         
-        // WYMUŚ aktualizację widocznych chunków
-        this.lastPlayerChunk = null; // Reset żeby wymusić aktualizację
+        this.lastPlayerChunk = null;
         this.updateVisibleChunks();
         
-        // Aktualizuj kolizje w playerController
         if (this.game.playerController) {
             this.game.playerController.collidableObjects = this.getAllVisibleCollidables();
             this.game.playerController.collisionMap = this.collisionMap;
@@ -1026,14 +978,9 @@ export class DiggingManager {
         if (this.game.cameraController) {
             this.game.cameraController.collidableObjects = this.getAllVisibleCollidables();
         }
-        
-        const endTime = performance.now();
-        console.log(`✅ World built in ${(endTime - startTime).toFixed(0)}ms`);
     }
     
-    // Budowanie pojedynczego chunka
     buildChunk(chunkKey, blocks) {
-        // Grupuj bloki w chunku według typu (dla InstancedMesh)
         const blocksByType = new Map();
         
         blocks.forEach(block => {
@@ -1043,7 +990,6 @@ export class DiggingManager {
             blocksByType.get(block.type).push(block);
         });
         
-        // Stwórz InstancedMesh dla każdego typu w tym chunku
         const chunkMeshes = [];
         let totalBlocks = 0;
         
@@ -1052,7 +998,8 @@ export class DiggingManager {
             const color = COLORS[type] || 0x808080;
             
             const material = new THREE.MeshBasicMaterial({ color });
-            const mesh = new THREE.InstancedMesh(this.geometry, material, count);
+            // POPRAWKA: użycie this.sharedGeometry zamiast niezdefiniowanego this.geometry
+            const mesh = new THREE.InstancedMesh(this.sharedGeometry, material, count);
             
             mesh.castShadow = true;
             mesh.receiveShadow = true;
@@ -1064,7 +1011,6 @@ export class DiggingManager {
                 this.dummy.updateMatrix();
                 mesh.setMatrixAt(index, this.dummy.matrix);
                 
-                // ZAPISUJEMY INDEKS INSTANCJI!
                 this.chunkData.set(pos.key, {
                     chunkKey,
                     type,
@@ -1078,21 +1024,18 @@ export class DiggingManager {
             totalBlocks += count;
         });
         
-        // Zapisz chunk
         this.chunks.set(chunkKey, {
             meshes: chunkMeshes,
             blockCount: totalBlocks,
             visible: false
         });
         
-        // Dodaj meshe do sceny (na razie niewidoczne)
         chunkMeshes.forEach(mesh => {
             mesh.visible = false;
             this.scene.add(mesh);
         });
     }
     
-    // Pobierz wszystkie widoczne obiekty do kolizji
     getAllVisibleCollidables() {
         const collidables = [];
         this.activeChunks.forEach(chunkKey => {
@@ -1106,15 +1049,19 @@ export class DiggingManager {
         return collidables;
     }
     
-    // Usuń wszystkie chunki
     clearAllChunks() {
-        console.log("🧹 Clearing all chunks...");
-        
         this.chunks.forEach(chunk => {
             if (chunk.meshes) {
                 chunk.meshes.forEach(mesh => {
                     this.scene.remove(mesh);
-                    mesh.dispose();
+                    // POPRAWKA: InstancedMesh nie ma metody dispose(), czyścimy tylko unikalny materiał
+                    if (mesh.material) {
+                        if (Array.isArray(mesh.material)) {
+                            mesh.material.forEach(m => m.dispose());
+                        } else {
+                            mesh.material.dispose();
+                        }
+                    }
                 });
             }
         });
@@ -1149,6 +1096,14 @@ export class DiggingManager {
         const player = this.remotePlayers.get(playerId);
         if (player) {
             this.scene.remove(player.mesh);
+            if (player.mesh.geometry) player.mesh.geometry.dispose();
+            if (player.mesh.material) {
+                if (Array.isArray(player.mesh.material)) {
+                    player.mesh.material.forEach(m => m.dispose());
+                } else {
+                    player.mesh.material.dispose();
+                }
+            }
             this.remotePlayers.delete(playerId);
         }
     }
@@ -1170,35 +1125,26 @@ export class DiggingManager {
         }
     }
     
-    // EFEKTYWNE USUWANIE BLOKA - Z INDEKSAMI INSTANCJI
     removeBlockLocally(x, y, z) {
         const key = `${x},${y},${z}`;
         const blockInfo = this.chunkData.get(key);
         if (!blockInfo) return false;
         
-        const { chunkKey, type, instanceIndex, mesh } = blockInfo;
+        const { chunkKey, instanceIndex, mesh } = blockInfo;
         
-        // Usuń z mapy kolizji
         this.collisionMap.delete(key);
-        
-        // Usuń z chunkData
         this.chunkData.delete(key);
         
         if (!mesh) return false;
-        
-        // Sprawdź czy mesh jeszcze istnieje w scenie
         if (!mesh.parent) return false;
         
-        // Przesuń ostatnią instancję na miejsce usuwanej
         const lastIndex = mesh.count - 1;
         
         if (instanceIndex !== lastIndex && lastIndex >= 0) {
-            // Skopiuj macierz ostatniej instancji
             const tempMatrix = new THREE.Matrix4();
             mesh.getMatrixAt(lastIndex, tempMatrix);
             mesh.setMatrixAt(instanceIndex, tempMatrix);
             
-            // Zaktualizuj dane bloku który został przeniesiony
             for (const [otherKey, otherInfo] of this.chunkData.entries()) {
                 if (otherInfo.mesh === mesh && otherInfo.instanceIndex === lastIndex) {
                     otherInfo.instanceIndex = instanceIndex;
@@ -1208,11 +1154,9 @@ export class DiggingManager {
             }
         }
         
-        // Zmniejsz liczbę instancji
         mesh.count--;
         mesh.instanceMatrix.needsUpdate = true;
         
-        // Jeśli chunk stał się pusty, możemy go usunąć
         if (mesh.count === 0) {
             const chunk = this.chunks.get(chunkKey);
             if (chunk) {
@@ -1220,10 +1164,16 @@ export class DiggingManager {
                 if (meshIndex !== -1) {
                     chunk.meshes.splice(meshIndex, 1);
                     this.scene.remove(mesh);
-                    mesh.dispose();
+                    // POPRAWKA: Zwalniamy materiał pustego mesha bez błędu mesh.dispose()
+                    if (mesh.material) {
+                        if (Array.isArray(mesh.material)) {
+                            mesh.material.forEach(m => m.dispose());
+                        } else {
+                            mesh.material.dispose();
+                        }
+                    }
                 }
                 
-                // Jeśli chunk nie ma już żadnych meshy, usuń go
                 if (chunk.meshes.length === 0) {
                     this.chunks.delete(chunkKey);
                 }
@@ -1236,7 +1186,6 @@ export class DiggingManager {
     getBlockUnderCursor() {
         this.raycaster.setFromCamera(this.mouse, this.game.camera);
         
-        // Zbierz wszystkie widoczne meshe
         const visibleMeshes = [];
         this.activeChunks.forEach(chunkKey => {
             const chunk = this.chunks.get(chunkKey);
@@ -1246,14 +1195,12 @@ export class DiggingManager {
         });
         
         const intersects = this.raycaster.intersectObjects(visibleMeshes);
-        
         if (intersects.length === 0) return null;
         
         for (const hit of intersects) {
             const mesh = hit.object;
             const instanceIndex = hit.instanceId;
             
-            // Pobierz pozycję z macierzy instancji
             const matrix = new THREE.Matrix4();
             mesh.getMatrixAt(instanceIndex, matrix);
             const position = new THREE.Vector3().setFromMatrixPosition(matrix);
@@ -1263,7 +1210,6 @@ export class DiggingManager {
             const z = Math.round(position.z);
             const key = `${x},${y},${z}`;
             
-            // Sprawdź czy blok nadal istnieje
             if (!this.chunkData.has(key)) continue;
             
             const type = mesh.userData.type;
@@ -1423,7 +1369,6 @@ export class DiggingManager {
             this.ui.showCrystalFound(crystal);
         }
         
-        // Wyślij do serwera
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({
                 type: 'blockMined',
@@ -1432,7 +1377,6 @@ export class DiggingManager {
             }));
         }
         
-        // Usuń lokalnie
         this.removeBlockLocally(x, y, z);
         
         if (type === 'lava') {
@@ -1453,7 +1397,6 @@ export class DiggingManager {
         this.miningTargetKey = null;
         
         document.getElementById('dig-mining-progress').style.display = 'none';
-        
         this.updateUI();
     }
     
@@ -1516,364 +1459,3 @@ export class DiggingManager {
                 this.ws.send(JSON.stringify({
                     type: 'blockMined',
                     x: block.x,
-                    y: block.y,
-                    z: block.z,
-                    crystal: block.crystal
-                }));
-            });
-        }
-        
-        this.dynamite--;
-        
-        if (crystalsFound > 0) {
-            this.ui.showMessage(`Dynamit! Znaleziono kryształy o wartości ${crystalsFound} Zoins!`, "success");
-        }
-        
-        this.updateUI();
-    }
-    
-    redeemCrystals() {
-        const depth = this.worldHeight - 1 - this.playerPos.y;
-        if (depth > 2) {
-            this.ui.showMessage("Musisz być na powierzchni przy Ziggi!", "error");
-            return;
-        }
-        
-        if (this.crystals.length === 0) {
-            this.ui.showMessage("Nie masz kryształów!", "error");
-            return;
-        }
-        
-        let totalValue = 0;
-        this.crystals.forEach(c => totalValue += c.value);
-        
-        this.zoins += totalValue;
-        this.score += totalValue;
-        this.crystals = [];
-        
-        this.ui.showMessage(`Zredeemowano! Zdobyto: ${totalValue} Zoins!`, "success");
-        this.updateUI();
-    }
-    
-    upgradeLaser() {
-        if (this.laserLevel >= LASER_UPGRADES.length - 1) {
-            this.ui.showMessage("Maksymalny laser!", "error");
-            return;
-        }
-        
-        const next = LASER_UPGRADES[this.laserLevel + 1];
-        if (this.zoins < next.cost) {
-            this.ui.showMessage(`Potrzebujesz ${next.cost} Zoins!`, "error");
-            return;
-        }
-        
-        this.zoins -= next.cost;
-        this.laserLevel++;
-        this.ui.showMessage(`Ulepszono do: ${next.name}!`, "success");
-        this.updateUI();
-    }
-    
-    upgradeStorage() {
-        if (this.storageLevel >= STORAGE_UPGRADES.length - 1) {
-            this.ui.showMessage("Maksymalny ekwipunek!", "error");
-            return;
-        }
-        
-        const next = STORAGE_UPGRADES[this.storageLevel + 1];
-        if (this.zoins < next.cost) {
-            this.ui.showMessage(`Potrzebujesz ${next.cost} Zoins!`, "error");
-            return;
-        }
-        
-        this.zoins -= next.cost;
-        this.storageLevel++;
-        this.ui.showMessage(`Ulepszono do: ${next.name}! Pojemność: ${next.capacity}`, "success");
-        this.updateUI();
-    }
-    
-    startTimer() {
-        if (this.timerInterval) clearInterval(this.timerInterval);
-        
-        this.timerInterval = setInterval(() => {
-            this.timeRemaining--;
-            
-            const mins = Math.floor(this.timeRemaining / 60);
-            const secs = this.timeRemaining % 60;
-            const timerEl = document.getElementById('dig-timer');
-            if (timerEl) {
-                timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-            }
-            
-            if (this.timeRemaining <= 0) {
-                this.endRound();
-            }
-        }, 1000);
-    }
-    
-    // NOWA METODA: Wysyłanie wyników kopania do serwera
-    async submitDiggingResults() {
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            console.warn("WebSocket not connected");
-            return;
-        }
-        
-        const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
-        
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/digging/complete`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    score: this.score,
-                    depth: this.worldHeight - 1 - this.playerPos.y,
-                    crystals: this.crystals.length,
-                    zoins: this.zoins,
-                    xpReward: Math.floor(this.score / 10),
-                    coinReward: Math.floor(this.score / 5)
-                })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.levelUp) {
-                    this.ui.showMessage(`Awans na poziom ${data.newLevel}!`, 'success');
-                }
-                // Aktualizuj UI z nowymi danymi
-                if (this.ui.updateLevelInfo) {
-                    this.ui.updateLevelInfo(data.newLevel, data.newXp, data.maxXp);
-                }
-                if (this.ui.updateCoinCounter) {
-                    this.ui.updateCoinCounter(data.newCoins);
-                }
-            }
-        } catch (error) {
-            console.error("Error submitting digging results:", error);
-        }
-    }
-    
-    endRound() {
-        clearInterval(this.timerInterval);
-        clearInterval(this.miningInterval);
-        this.isActive = false;
-        
-        // Oblicz nagrody
-        const xpReward = Math.floor(this.score / 10);
-        const coinReward = Math.floor(this.score / 5);
-        
-        // Wyślij wyniki do serwera
-        this.submitDiggingResults();
-        
-        this.ui.showMessage(`Koniec rundy! Zdobyto: ${this.score} punktów!`, "success");
-        this.ui.showMessage(`Nagroda: ${xpReward} XP, ${coinReward} monet!`, "success");
-        
-        setTimeout(() => this.exitDiggingMode(), 5000);
-    }
-    
-    exitDiggingMode() {
-        console.log("🚪 Exiting digging mode...");
-        this.isActive = false;
-        this.isMiningPressed = false;
-        this.stopMining();
-        
-        clearInterval(this.timerInterval);
-        clearInterval(this.miningInterval);
-        clearTimeout(this.lavaWarningTimer);
-        
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({ type: 'leaveDigging' }));
-            this.ws.close();
-        }
-        
-        window.removeEventListener('mousedown', this.onMouseDown);
-        window.removeEventListener('mouseup', this.onMouseUp);
-        window.removeEventListener('mousemove', this.onMouseMove);
-        window.removeEventListener('contextmenu', this.onContextMenu);
-        
-        if (this.game.characterManager?.character) {
-            this.scene.remove(this.game.characterManager.character);
-            if (this.game.characterManager.shadow) {
-                this.scene.remove(this.game.characterManager.shadow);
-            }
-            this.game.scene.add(this.game.characterManager.character);
-            if (this.game.characterManager.shadow) {
-                this.game.scene.add(this.game.characterManager.shadow);
-            }
-        }
-        
-        if (this.game.characterManager?.character && this.originalPlayerPos) {
-            this.game.characterManager.character.position.copy(this.originalPlayerPos);
-        }
-        
-        this.clearAllChunks();
-        
-        // Usuń panoramę nieba
-        if (this.skyMesh) {
-            this.scene.remove(this.skyMesh);
-            if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
-            if (this.skyMesh.material) {
-                if (Array.isArray(this.skyMesh.material)) {
-                    this.skyMesh.material.forEach(m => m.dispose());
-                } else {
-                    this.skyMesh.material.dispose();
-                }
-            }
-            this.skyMesh = null;
-        }
-        
-        this.remotePlayers.forEach(player => {
-            this.scene.remove(player.mesh);
-        });
-        this.remotePlayers.clear();
-        
-        if (this.game.playerController) {
-            this.game.playerController.collidableObjects = this.originalCollidables;
-            this.game.playerController.collisionMap = this.originalCollisionMap;
-        }
-        
-        if (this.game.cameraController) {
-            this.game.cameraController.collidableObjects = this.originalCollidables;
-        }
-        
-        document.getElementById('digging-ui-container').style.display = 'none';
-        document.querySelector('.ui-overlay').style.display = 'block';
-        
-        if (this.game.isMobile) {
-            document.getElementById('joystick-zone').style.display = 'block';
-        }
-        
-        const jumpButton = document.getElementById('jump-button');
-        if (jumpButton) {
-            jumpButton.style.display = this.game.isMobile ? 'block' : 'none';
-        }
-    }
-    
-    cleanup() {
-        console.log("🧹 Cleanup called");
-        this.exitDiggingMode();
-    }
-    
-    takeDamage(amount) {
-        this.health = Math.max(0, this.health - amount);
-        this.updateUI();
-        
-        if (this.health <= 0) {
-            this.die();
-        }
-    }
-    
-    die() {
-        const droppedValue = this.crystals.reduce((sum, c) => sum + c.value, 0);
-        this.crystals = [];
-        
-        this.playerPos.set(0, this.worldHeight - 1, 0);
-        if (this.game.characterManager?.character) {
-            this.game.characterManager.character.position.copy(this.playerPos);
-        }
-        this.health = this.maxHealth;
-        
-        this.ui.showMessage(`Zginąłeś! Straciłeś kryształy o wartości ${droppedValue} Zoins!`, "error");
-        this.updateUI();
-    }
-    
-    updateUI() {
-        const maxCap = STORAGE_UPGRADES[this.storageLevel].capacity;
-        const laser = LASER_UPGRADES[this.laserLevel];
-        
-        const crystalCount = document.getElementById('dig-crystal-count');
-        const crystalMax = document.getElementById('dig-crystal-max');
-        const crystalBar = document.getElementById('dig-crystal-bar');
-        
-        if (crystalCount) crystalCount.textContent = this.crystals.length;
-        if (crystalMax) crystalMax.textContent = maxCap;
-        if (crystalBar) crystalBar.style.width = `${(this.crystals.length / maxCap) * 100}%`;
-        
-        const zoinsEl = document.getElementById('dig-zoins');
-        if (zoinsEl) zoinsEl.textContent = this.zoins;
-        
-        const dynamiteEl = document.getElementById('dig-dynamite-count');
-        if (dynamiteEl) dynamiteEl.textContent = this.dynamite;
-        
-        const healthBar = document.getElementById('dig-health-bar');
-        const healthText = document.getElementById('dig-health-text');
-        if (healthBar) healthBar.style.width = `${(this.health / this.maxHealth) * 100}%`;
-        if (healthText) healthText.textContent = `${this.health}/${this.maxHealth}`;
-        
-        const laserName = document.getElementById('dig-laser-name');
-        const laserPower = document.getElementById('dig-laser-power');
-        if (laserName) laserName.textContent = laser.name;
-        if (laserPower) laserPower.textContent = `${Math.round(laser.power * 100)}%`;
-        
-        const storageName = document.getElementById('dig-storage-name');
-        const storageCapacity = document.getElementById('dig-storage-capacity');
-        if (storageName) storageName.textContent = STORAGE_UPGRADES[this.storageLevel].name;
-        if (storageCapacity) storageCapacity.textContent = maxCap;
-        
-        const depthEl = document.getElementById('dig-depth');
-        if (depthEl) {
-            const depth = this.worldHeight - 1 - this.playerPos.y;
-            depthEl.textContent = `${depth}m`;
-        }
-    }
-    
-    update(deltaTime) {
-        if (!this.isActive) return;
-        
-        if (this.playerLight) {
-            this.playerLight.position.copy(this.playerPos);
-        }
-        
-        if (this.game.characterManager?.character) {
-            // Zapamiętaj starą pozycję
-            const oldPos = this.playerPos.clone();
-            this.playerPos.copy(this.game.characterManager.character.position);
-            
-            // Sprawdź czy gracz zmienił chunk
-            const oldChunk = this.getChunkKeyFromPosition(oldPos.x, oldPos.y, oldPos.z);
-            const newChunk = this.getChunkKeyFromPosition(this.playerPos.x, this.playerPos.y, this.playerPos.z);
-            
-            if (oldChunk !== newChunk) {
-                this.updateVisibleChunks();
-                
-                // Aktualizuj obiekty kolizji w playerController
-                if (this.game.playerController) {
-                    this.game.playerController.collidableObjects = this.getAllVisibleCollidables();
-                }
-                if (this.game.cameraController) {
-                    this.game.cameraController.collidableObjects = this.getAllVisibleCollidables();
-                }
-            }
-            
-            const depth = this.worldHeight - 1 - this.playerPos.y;
-            const depthEl = document.getElementById('dig-depth');
-            if (depthEl) depthEl.textContent = `${depth}m`;
-            
-            const key = `${Math.floor(this.playerPos.x)},${Math.floor(this.playerPos.y)},${Math.floor(this.playerPos.z)}`;
-            const block = this.chunkData.get(key);
-            if (block && block.type === 'lava' && !this.lavaSurgeActive) {
-                this.takeDamage(1);
-            }
-            
-            // Wyślij pozycję do serwera (co 100ms)
-            if (this.ws && this.ws.readyState === WebSocket.OPEN && Math.random() < 0.1) {
-                this.ws.send(JSON.stringify({
-                    type: 'playerMove',
-                    position: {
-                        x: this.playerPos.x,
-                        y: this.playerPos.y,
-                        z: this.playerPos.z
-                    },
-                    rotation: this.game.characterManager.character.quaternion
-                }));
-            }
-        }
-        
-        this.remotePlayers.forEach(player => {
-            player.mesh.position.lerp(player.position, 0.1);
-        });
-        
-        this.game.core.render(this.scene);
-    }
-}
