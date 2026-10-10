@@ -39,12 +39,26 @@ export class PlayerController {
     this.playerBox = new THREE.Box3();
     this.objectBox = new THREE.Box3();
     
+    // Zoptymalizowana pula obiektów Box3 i kandydatów do kolizji (Zero-Allocation)
+    this.candidateBoxes = [];
+    this.boxPool = Array.from({ length: 64 }, () => new THREE.Box3());
+    this.boxPoolIndex = 0;
+    this.boxUnitSize = new THREE.Vector3(1, 1, 1);
+
     // Dla InstancedMesh
     this.tempMatrix = new THREE.Matrix4();
     this.tempPosition = new THREE.Vector3();
     this.tempBox = new THREE.Box3();
     
     this.setupInput();
+  }
+
+  // Pobranie Box3 z prealokowanej puli bez tworzenia instancji na stercie
+  getPooledBox() {
+    if (this.boxPoolIndex >= this.boxPool.length) {
+      this.boxPool.push(new THREE.Box3());
+    }
+    return this.boxPool[this.boxPoolIndex++];
   }
 
   setMode(mode) {
@@ -120,6 +134,8 @@ export class PlayerController {
       this.jumpsRemaining = this.maxJumps;
       this.isOnGround = true;
       this.mode = 'explore';
+      this.candidateBoxes.length = 0;
+      this.boxPoolIndex = 0;
       
       if (this.joystick) {
           this.joystickDirection.set(0, 0);
@@ -179,14 +195,14 @@ export class PlayerController {
     this.applyMovementAndCollisions(timeStep);
   }
 
-  // Pomocnicza do obliczania bounding box dla instancji
   getInstanceBoundingBox(mesh, instanceId) {
     mesh.getMatrixAt(instanceId, this.tempMatrix);
     this.tempPosition.setFromMatrixPosition(this.tempMatrix);
     
+    // Użycie współdzielonego wektora rozmiaru zamiast alokacji
     return this.tempBox.setFromCenterAndSize(
       this.tempPosition,
-      new THREE.Vector3(1, 1, 1)
+      this.boxUnitSize
     );
   }
 
@@ -196,28 +212,29 @@ export class PlayerController {
     const halfDepth = this.playerDimensions.z / 2;
     const epsilon = 0.001;
 
-    // Zbierz kandydatów do kolizji
-    const candidates = [];
+    // Reset listy kandydatów i indeksu puli Box3 (bez alokacji pamięci)
+    this.candidateBoxes.length = 0;
+    this.boxPoolIndex = 0;
     
-    // Dodaj zwykłe obiekty (nie-instanced)
+    // 1. Zwykłe obiekty (obliczamy bounding box tylko raz dla każdego)
     for (let i = 0; i < this.collidableObjects.length; i++) {
       const obj = this.collidableObjects[i];
+      if (obj.isInstancedMesh) continue;
       
-      if (obj.isInstancedMesh) {
-        continue; // InstancedMesh obsłużymy przez collisionMap
-      } else {
-        candidates.push({ type: 'object', object: obj });
-      }
+      const box = this.getPooledBox();
+      box.setFromObject(obj);
+      this.candidateBoxes.push(box);
     }
 
-    // Dodaj bloki z collisionMap (instancje)
+    // 2. Klocki z mapy kolizji (zoptymalizowany zakres sprawdzania: 3x3x5 = 45 bloków zamiast 150)
     if (this.collisionMap && this.collisionMap.size > 0) {
         const playerX = Math.floor(this.player.position.x);
         const playerY = Math.floor(this.player.position.y);
         const playerZ = Math.floor(this.player.position.z);
-        const rangeH = 2;
+        
+        const rangeH = 1;
         const rangeV_Down = 2;
-        const rangeV_Up = 3;
+        const rangeV_Up = 2;
         
         for (let x = playerX - rangeH; x <= playerX + rangeH; x++) {
             for (let z = playerZ - rangeH; z <= playerZ + rangeH; z++) {
@@ -226,13 +243,13 @@ export class PlayerController {
                     const block = this.collisionMap.get(key);
                     if (block) {
                         if (typeof block === 'object' && block.boundingBox) {
-                            candidates.push({ type: 'block', boundingBox: block.boundingBox });
+                            this.candidateBoxes.push(block.boundingBox);
                         } else {
-                            const box = new THREE.Box3().setFromCenterAndSize(
-                                new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5),
-                                new THREE.Vector3(1, 1, 1)
-                            );
-                            candidates.push({ type: 'block', boundingBox: box });
+                            // Bezpośrednie ustawienie min/max z zerową alokacją
+                            const box = this.getPooledBox();
+                            box.min.set(x, y, z);
+                            box.max.set(x + 1, y + 1, z + 1);
+                            this.candidateBoxes.push(box);
                         }
                     }
                 }
@@ -241,20 +258,15 @@ export class PlayerController {
     }
 
     let landedOnBlock = false;
+    const numCandidates = this.candidateBoxes.length;
 
-    // Y Axis
+    // --- OŚ Y ---
     const verticalMovement = this.velocity.y * deltaTime;
     this.player.position.y += verticalMovement;
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    for (const candidate of candidates) {
-        let box;
-        if (candidate.type === 'object') {
-            this.objectBox.setFromObject(candidate.object);
-            box = this.objectBox;
-        } else {
-            box = candidate.boundingBox;
-        }
+    for (let i = 0; i < numCandidates; i++) {
+        const box = this.candidateBoxes[i];
 
         if (this.playerBox.intersectsBox(box)) {
             if (verticalMovement < 0) { 
@@ -273,19 +285,13 @@ export class PlayerController {
     
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    // X Axis
+    // --- OŚ X ---
     const horizontalMovementX = this.velocity.x * deltaTime;
     this.player.position.x += horizontalMovementX;
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    for (const candidate of candidates) {
-        let box;
-        if (candidate.type === 'object') {
-            this.objectBox.setFromObject(candidate.object);
-            box = this.objectBox;
-        } else {
-            box = candidate.boundingBox;
-        }
+    for (let i = 0; i < numCandidates; i++) {
+        const box = this.candidateBoxes[i];
         
         if (box.max.y < this.playerBox.min.y + epsilon) continue;
 
@@ -303,19 +309,13 @@ export class PlayerController {
         }
     }
 
-    // Z Axis
+    // --- OŚ Z ---
     const horizontalMovementZ = this.velocity.z * deltaTime;
     this.player.position.z += horizontalMovementZ;
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    for (const candidate of candidates) {
-        let box;
-        if (candidate.type === 'object') {
-            this.objectBox.setFromObject(candidate.object);
-            box = this.objectBox;
-        } else {
-            box = candidate.boundingBox;
-        }
+    for (let i = 0; i < numCandidates; i++) {
+        const box = this.candidateBoxes[i];
 
         if (box.max.y < this.playerBox.min.y + epsilon) continue;
 
@@ -333,7 +333,7 @@ export class PlayerController {
         }
     }
 
-    // Sprawdź podłogę
+    // Sprawdzenie podłogi świata
     if (this.player.position.y <= this.groundRestingY + halfHeight) {
         if (!landedOnBlock) {
             this.player.position.y = this.groundRestingY + halfHeight;
@@ -528,7 +528,6 @@ export class ThirdPersonCameraController {
         if (!this.enabled || !this.target) return 0;
         
         let currentDistance = this.distance;
-        
         const targetHeight = 1.0; 
         
         const targetPosition = this.targetPosition.set(
@@ -548,7 +547,7 @@ export class ThirdPersonCameraController {
         
         const idealCameraPosition = this.cameraPosition.copy(targetPosition).add(offset);
 
-        // KOLIZJA KAMERY - pełna, z instancjami
+        // Kolizja kamery
         const direction = this.direction.subVectors(idealCameraPosition, targetPosition).normalize();
         this.raycaster.set(targetPosition, direction);
         this.raycaster.far = currentDistance;
