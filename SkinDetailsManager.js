@@ -1,13 +1,11 @@
 /* PLIK: SkinDetailsManager.js */
 
-import * as THREE from 'three';
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 import { SkinStorage } from './SkinStorage.js';
 import { PrefabStorage } from './PrefabStorage.js';
 import { HyperCubePartStorage } from './HyperCubePartStorage.js';
-import { createBaseCharacter } from './character.js';
+import { modalPreview } from './ModalPreview.js';
 
-// Szablon HTML dla szczegółów skina
 const SKIN_DETAILS_TEMPLATE = `
     <style>
         #skin-details-modal .panel-content {
@@ -210,33 +208,21 @@ export class SkinDetailsManager {
     constructor(uiManager) {
         this.ui = uiManager;
         
-        // Elementy DOM
         this.modal = null;
         this.commentsPanel = null;
         
-        // Stan
         this.currentDetailsId = null;
         this.currentDetailsType = null;
         
-        // Preview 3D
-        this.sharedPreviewRenderer = null;
-        this.previewScene = null;
-        this.previewCamera = null;
-        this.previewCharacter = null;
-        this.previewAnimId = null;
-        
-        // Callbacki
         this.onSkinSelect = null;
         this.onUsePrefab = null;
         this.onUsePart = null;
         
-        // Bindowanie
         this.closeModal = this.closeModal.bind(this);
         this.closeComments = this.closeComments.bind(this);
     }
     
     initialize() {
-        // Wstrzyknij HTML do modals-layer
         const modalsLayer = document.getElementById('modals-layer');
         if (modalsLayer) {
             modalsLayer.insertAdjacentHTML('beforeend', SKIN_DETAILS_TEMPLATE);
@@ -246,55 +232,19 @@ export class SkinDetailsManager {
         this.modal = document.getElementById('skin-details-modal');
         this.commentsPanel = document.getElementById('skin-comments-panel');
         
-        this.initPreviewRenderer();
         this.setupEventListeners();
     }
     
-    initPreviewRenderer() {
-        this.sharedPreviewRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
-        this.sharedPreviewRenderer.setSize(300, 300);
-        this.sharedPreviewRenderer.setPixelRatio(window.devicePixelRatio);
-        
-        this.previewScene = new THREE.Scene();
-        this.previewCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-        this.previewCamera.position.set(0, 1, 6);
-        this.previewCamera.lookAt(0, 0.5, 0);
-        
-        const ambient = new THREE.AmbientLight(0xffffff, 0.9);
-        this.previewScene.add(ambient);
-        const directional = new THREE.DirectionalLight(0xffffff, 0.6);
-        directional.position.set(2, 5, 3);
-        this.previewScene.add(directional);
-        
-        this.previewCharacter = new THREE.Group();
-        if (typeof createBaseCharacter !== 'undefined') {
-            createBaseCharacter(this.previewCharacter);
-        }
-        this.previewScene.add(this.previewCharacter);
-        
-        const animate = () => {
-            this.previewAnimId = requestAnimationFrame(animate);
-            if (this.previewCharacter && this.sharedPreviewRenderer.domElement.parentNode) {
-                this.previewCharacter.rotation.y += 0.01;
-                this.sharedPreviewRenderer.render(this.previewScene, this.previewCamera);
-            }
-        };
-        animate();
-    }
-    
     setupEventListeners() {
-        // Zamknięcie modala przez przycisk X
         const closeBtn = this.modal?.querySelector('.skin-close-btn');
         if (closeBtn) closeBtn.onclick = this.closeModal;
         
-        // Zamknięcie przez kliknięcie w tło
         if (this.modal) {
             this.modal.addEventListener('click', (e) => {
                 if (e.target === this.modal) this.closeModal();
             });
         }
         
-        // Zamknięcie panelu komentarzy
         const closeCommentsBtn = document.getElementById('close-comments-btn');
         if (closeCommentsBtn) closeCommentsBtn.onclick = this.closeComments;
         
@@ -303,62 +253,6 @@ export class SkinDetailsManager {
                 if (e.target === this.commentsPanel) this.closeComments();
             });
         }
-        
-        // Przycisk komentarzy - ustawiamy w showItemDetails
-    }
-    
-    attachPreviewTo(containerId, characterYOffset = 0, scale = 1) {
-        const container = document.getElementById(containerId);
-        if (!container || !this.sharedPreviewRenderer) return;
-        
-        container.innerHTML = '';
-        
-        const width = container.clientWidth || 300;
-        const height = container.clientHeight || 300;
-        this.sharedPreviewRenderer.setSize(width, height);
-        this.previewCamera.aspect = width / height;
-        this.previewCamera.updateProjectionMatrix();
-        
-        container.appendChild(this.sharedPreviewRenderer.domElement);
-        
-        this.previewCharacter.position.y = characterYOffset;
-        this.previewCharacter.scale.setScalar(scale);
-        this.previewCharacter.rotation.y = 0;
-        
-        // Usuń stare skiny
-        for (let i = this.previewCharacter.children.length - 1; i >= 0; i--) {
-            const child = this.previewCharacter.children[i];
-            if (child.type === 'Group') {
-                this.previewCharacter.remove(child);
-            }
-        }
-    }
-    
-    applySkinToPreview(blocksData) {
-        // Usuń stare skiny
-        for (let i = this.previewCharacter.children.length - 1; i >= 0; i--) {
-            const child = this.previewCharacter.children[i];
-            if (child.type === 'Group') {
-                this.previewCharacter.remove(child);
-            }
-        }
-        
-        if (!blocksData) return;
-        
-        const loader = new THREE.TextureLoader();
-        const blockGroup = new THREE.Group();
-        blockGroup.scale.setScalar(0.125);
-        blockGroup.position.y = 0.5;
-        
-        blocksData.forEach(b => {
-            const geometry = new THREE.BoxGeometry(1, 1, 1);
-            const material = new THREE.MeshLambertMaterial({ map: loader.load(b.texturePath) });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(b.x, b.y, b.z);
-            blockGroup.add(mesh);
-        });
-        
-        this.previewCharacter.add(blockGroup);
     }
     
     async showItemDetails(item, type, keepOpen = false) {
@@ -372,7 +266,6 @@ export class SkinDetailsManager {
         this.ui.bringToFront(this.modal);
         this.modal.style.display = 'flex';
         
-        // Wypełnij dane
         const headerName = this.modal.querySelector('.skin-name-header');
         const creatorName = this.modal.querySelector('.skin-creator-name');
         const creatorLevel = this.modal.querySelector('.skin-creator-level-val');
@@ -410,7 +303,6 @@ export class SkinDetailsManager {
         const myId = parseInt(localStorage.getItem(STORAGE_KEYS.USER_ID) || "0");
         const isOwner = item.owner_id === myId;
         
-        // Przycisk UŻYJ
         if (btnUse) {
             if (type === 'skin' && isOwner) {
                 btnUse.style.display = 'flex';
@@ -435,7 +327,6 @@ export class SkinDetailsManager {
             }
         }
         
-        // Przycisk Lajk
         if (btnLike) {
             btnLike.onclick = async () => {
                 const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
@@ -458,15 +349,14 @@ export class SkinDetailsManager {
             };
         }
         
-        // Podgląd 3D
-        this.attachPreviewTo('skin-preview-canvas', type === 'skin' ? -0.8 : 0, 1.3);
+        modalPreview.attachTo('skin-preview-canvas', type === 'skin' ? -0.8 : 0, 1.3);
         
         let blocksData = null;
         if (type === 'skin') blocksData = await SkinStorage.loadSkinData(item.id);
         else if (type === 'prefab') blocksData = await PrefabStorage.loadPrefab(item.id);
         else if (type === 'part') blocksData = await HyperCubePartStorage.loadPart(item.id);
         
-        this.applySkinToPreview(blocksData);
+        modalPreview.applySkin(blocksData);
     }
     
     async openComments(itemId, type) {
@@ -495,7 +385,6 @@ export class SkinDetailsManager {
             listContainer.innerHTML = '<p class="text-outline" style="text-align:center; color:red;">Błąd ładowania</p>';
         }
         
-        // Obsługa wysyłania komentarza
         const submitBtn = document.getElementById('comment-submit-btn');
         const commentInput = document.getElementById('comment-input');
         
@@ -586,7 +475,6 @@ export class SkinDetailsManager {
                         });
                         const data = await response.json();
                         if (data.success) {
-                            const currentLikes = parseInt(likeBtn.textContent.replace('👍 ', '')) || 0;
                             likeBtn.textContent = `👍 ${data.likes}`;
                         }
                     } catch (error) {
@@ -603,7 +491,7 @@ export class SkinDetailsManager {
         if (this.modal) {
             this.modal.style.display = 'none';
         }
-        this.disposePreview();
+        modalPreview.stop();
     }
     
     closeComments() {
@@ -612,23 +500,7 @@ export class SkinDetailsManager {
         }
     }
     
-    disposePreview() {
-        if (this.previewCharacter) {
-            for (let i = this.previewCharacter.children.length - 1; i >= 0; i--) {
-                const child = this.previewCharacter.children[i];
-                if (child.type === 'Group') {
-                    this.previewCharacter.remove(child);
-                }
-            }
-        }
-    }
-    
     cleanup() {
-        if (this.previewAnimId) {
-            cancelAnimationFrame(this.previewAnimId);
-        }
-        if (this.sharedPreviewRenderer) {
-            this.sharedPreviewRenderer.dispose();
-        }
+        modalPreview.stop();
     }
 }
