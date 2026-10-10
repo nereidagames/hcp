@@ -35,7 +35,6 @@ const urlsToCache = [
   './PrefabStorage.js',
   './HyperCubePartStorage.js',
   './Config.js',
-  './GameCore.js',
   './GameStateManager.js',
   './AssetLoader.js',
   './ModalPreview.js', // NOWY PLIK ZMODALOWEGO PODGLĄDU
