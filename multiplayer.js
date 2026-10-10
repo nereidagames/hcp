@@ -33,8 +33,8 @@ export class MultiplayerManager {
   }
 
   setScene(newScene) {
-      this.scene = newScene;
       this.removeAllRemotePlayers(); 
+      this.scene = newScene;
   }
 
   initialize(token) {
@@ -191,7 +191,6 @@ export class MultiplayerManager {
     }
   }
 
-  // --- Helper dla lokalnego gracza ---
   displayLocalChatBubble(message) {
       if (!this.localCharacter) return;
 
@@ -208,7 +207,6 @@ export class MultiplayerManager {
       div.textContent = message;
 
       const bubble = new CSS2DObject(div);
-      // ZMIANA: Obniżono do 1.9
       bubble.position.set(0, 1.9, 0); 
       this.localCharacter.add(bubble);
       this.localCharacter.chatBubble = bubble;
@@ -261,6 +259,7 @@ export class MultiplayerManager {
         skinContainer.scale.setScalar(0.125);
         skinContainer.position.y = 0.5;
         const geometriesByTexture = {};
+        
         data.skinData.forEach(block => {
             if (!block.texturePath) return;
             if (!geometriesByTexture[block.texturePath]) geometriesByTexture[block.texturePath] = [];
@@ -268,16 +267,26 @@ export class MultiplayerManager {
             geometry.translate(block.x, block.y, block.z);
             geometriesByTexture[block.texturePath].push(geometry);
         });
+
         for (const [texturePath, geometries] of Object.entries(geometriesByTexture)) {
             if (geometries.length === 0) continue;
+            
             const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries);
+            
+            // POPRAWKA: Natychmiastowe zwolnienie tymczasowych instancji geometrii z RAM/GPU
+            geometries.forEach(g => g.dispose());
+
+            if (!mergedGeometry) continue;
+
             let material = this.materialsCache[texturePath];
             if (!material) {
                 const tex = this.textureLoader.load(texturePath);
-                tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+                tex.magFilter = THREE.NearestFilter; 
+                tex.minFilter = THREE.NearestFilter;
                 material = new THREE.MeshBasicMaterial({ map: tex });
                 this.materialsCache[texturePath] = material;
             }
+            
             const mesh = new THREE.Mesh(mergedGeometry, material);
             mesh.castShadow = true;
             skinContainer.add(mesh);
@@ -294,7 +303,9 @@ export class MultiplayerManager {
     const div = document.createElement('div');
     div.className = 'text-outline';
     div.textContent = data.nickname || data.username || "Gracz";
-    div.style.color = 'white'; div.style.fontSize = '14px'; div.style.fontWeight = 'bold';
+    div.style.color = 'white'; 
+    div.style.fontSize = '14px'; 
+    div.style.fontWeight = 'bold';
     const label = new CSS2DObject(div);
     label.position.set(0, 2.2, 0);
     group.add(label);
@@ -320,18 +331,45 @@ export class MultiplayerManager {
   removeRemotePlayer(id) {
       const p = this.remotePlayers[id];
       if (p) {
+          // POPRAWKA: Usunięcie ewentualnego dymka czatu
+          if (p.chatBubble) {
+              if (p.chatBubble.element && p.chatBubble.element.parentNode) {
+                  p.chatBubble.element.parentNode.removeChild(p.chatBubble.element);
+              }
+              p.mesh.remove(p.chatBubble);
+              p.chatBubble = null;
+          }
+
           this.scene.remove(p.mesh);
+
+          // POPRAWKA: Bezpieczne czyszczenie geometrii oraz nie-cache'owanych materiałów
           p.mesh.traverse(child => {
-              if (child.isMesh && child.geometry) child.geometry.dispose();
-              if (child.isCSS2DObject && child.element && child.element.parentNode) child.element.parentNode.removeChild(child.element);
+              if (child.isMesh) {
+                  if (child.geometry) child.geometry.dispose();
+
+                  // Jeśli materiał nie należy do współdzielonego materialsCache, zwalniamy go
+                  if (child.material && !Object.values(this.materialsCache).includes(child.material)) {
+                      if (Array.isArray(child.material)) {
+                          child.material.forEach(m => m.dispose());
+                      } else {
+                          child.material.dispose();
+                      }
+                  }
+              }
+              if (child.isCSS2DObject && child.element && child.element.parentNode) {
+                  child.element.parentNode.removeChild(child.element);
+              }
           });
+
           delete this.remotePlayers[id];
       }
   }
   
-  removeAllRemotePlayers() { Object.keys(this.remotePlayers).forEach(id => this.removeRemotePlayer(id)); this.remotePlayers = {}; }
+  removeAllRemotePlayers() { 
+      Object.keys(this.remotePlayers).forEach(id => this.removeRemotePlayer(id)); 
+      this.remotePlayers = {}; 
+  }
 
-  // --- ZMODYFIKOWANA METODA DLA INNYCH GRACZY ---
   displayChatBubble(id, message) {
     const p = this.remotePlayers[id];
     if (!p) return;
@@ -348,7 +386,6 @@ export class MultiplayerManager {
     div.textContent = message;
     
     const bubble = new CSS2DObject(div);
-    // ZMIANA: Obniżono do 1.9
     bubble.position.set(0, 1.9, 0); 
     p.mesh.add(bubble);
     p.chatBubble = bubble;
