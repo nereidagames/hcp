@@ -13,7 +13,7 @@ const AUTH_HTML = `
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: transparent;
         z-index: 99998;
-        display: none; /* ZMIANA: Domyślnie ukryte, włączane dopiero w metodzie start() */
+        display: none;
         flex-direction: column; justify-content: space-between;
         font-family: 'Titan One', cursive;
         pointer-events: none;
@@ -308,7 +308,6 @@ export class IntroManager {
         
         this.skyMesh = null;
         
-        // Wstrzykujemy HTML tylko RAZ
         this.injectAuthHTML();
     }
     
@@ -339,7 +338,6 @@ export class IntroManager {
     start() {
         this.isIntroActive = true;
         
-        // ZMIANA: Pokazujemy główny kontener ekranu logowania dopiero w tym momencie
         const authScreen = document.getElementById('auth-screen');
         if (authScreen) authScreen.style.display = 'flex';
 
@@ -379,28 +377,21 @@ export class IntroManager {
         });
         this.skyMesh = new THREE.Mesh(geometry, material);
         this.scene.add(this.skyMesh);
-        console.log("☁️ Intro: Ustawiono panoramę Clouds");
     }
 
     setupScene() {
-        // NIE czyścimy całej sceny! Tylko dodajemy elementy
-        
         this.camera.position.copy(this.defaultCamPos);
         this.camera.lookAt(this.defaultLookAt);
         this.targetCamPos.copy(this.defaultCamPos);
         this.currentLookAt.copy(this.defaultLookAt);
         this.targetLookAt.copy(this.defaultLookAt);
 
-        // Dodajemy tylko to co potrzebujemy, nie usuwamy istniejących elementów UI
-        // Usuwamy tylko poprzednie elementy 3D (mapGroup, previewCharacter, skyMesh)
         if (this.mapGroup.parent) this.scene.remove(this.mapGroup);
         if (this.previewCharacter) this.scene.remove(this.previewCharacter);
         if (this.skyMesh) this.scene.remove(this.skyMesh);
 
-        // Dodajemy grupę mapy
         this.scene.add(this.mapGroup);
 
-        // Światła - dodajemy tylko jeśli nie istnieją
         let amb = this.scene.children.find(c => c instanceof THREE.AmbientLight);
         if (!amb) {
             amb = new THREE.AmbientLight(0xffffff, 0.7);
@@ -411,19 +402,14 @@ export class IntroManager {
         if (!dir) {
             dir = new THREE.DirectionalLight(0xffffff, 0.8);
             dir.position.set(10, 20, 10);
-            dir.castShadow = true;
-            dir.shadow.mapSize.width = 512;
-            dir.shadow.mapSize.height = 512;
             this.scene.add(dir);
         }
 
-        // Postać
         this.previewCharacter = new THREE.Group();
         this.scene.add(this.previewCharacter);
         createBaseCharacter(this.previewCharacter);
         this.previewCharacter.position.y = 1; 
 
-        // Ładuj mapę i skiny
         this.loadLoginMap();
         this.fetchStarterSkins();
     }
@@ -444,23 +430,20 @@ export class IntroManager {
     }
 
     async loadLoginMap() {
-        // Czyścimy tylko mapGroup, nie całą scenę
         while(this.mapGroup.children.length > 0) {
             const child = this.mapGroup.children[0];
             this.mapGroup.remove(child);
         }
 
         try {
-            console.log("Ładowanie mapy logowania...");
             const res = await fetch(`${API_BASE_URL}/api/login-map`);
-            let blocksData =[];
+            let blocksData = [];
             
             if (res.ok) {
                 blocksData = await res.json();
             }
 
             if (!Array.isArray(blocksData) || blocksData.length === 0) {
-                console.log("Mapa logowania pusta, generuję domyślną.");
                 this.createDefaultFloor();
                 return;
             }
@@ -476,7 +459,7 @@ export class IntroManager {
                 if (!block.texturePath) return;
                 
                 if (!blocksByTexture[block.texturePath]) {
-                    blocksByTexture[block.texturePath] =[];
+                    blocksByTexture[block.texturePath] = [];
                 }
                 blocksByTexture[block.texturePath].push(block);
 
@@ -506,13 +489,14 @@ export class IntroManager {
                     const tex = this.textureLoader.load(texturePath);
                     tex.magFilter = THREE.NearestFilter;
                     tex.minFilter = THREE.NearestFilter; 
+                    // Spójny MeshBasicMaterial
                     material = new THREE.MeshBasicMaterial({ map: tex });
                     this.materials[texturePath] = material;
                 }
 
                 const instancedMesh = new THREE.InstancedMesh(this.sharedGeometry, material, blocks.length);
-                instancedMesh.castShadow = true;
-                instancedMesh.receiveShadow = true;
+                instancedMesh.castShadow = false;
+                instancedMesh.receiveShadow = false;
 
                 blocks.forEach((block, index) => {
                     dummy.position.set(block.x, block.y, block.z);
@@ -533,7 +517,8 @@ export class IntroManager {
     createDefaultFloor() {
         const tex = this.textureLoader.load('textures/trawa.png');
         tex.magFilter = THREE.NearestFilter;
-        const mat = new THREE.MeshLambertMaterial({ map: tex });
+        // POPRAWKA: MeshBasicMaterial zamiast MeshLambertMaterial dla zachowania spójności oświetlenia
+        const mat = new THREE.MeshBasicMaterial({ map: tex });
         
         const size = 10;
         const instancedMesh = new THREE.InstancedMesh(this.sharedGeometry, mat, size * size);
@@ -633,9 +618,19 @@ export class IntroManager {
     updateSkinPreview() {
         if (!this.previewCharacter) return;
 
+        // Czyszczenie poprzednich części ze zwolnieniem geometrii i materiałów
         for (let i = this.previewCharacter.children.length - 1; i >= 0; i--) {
             const child = this.previewCharacter.children[i];
             if (child.type === 'Group') {
+                child.traverse(c => {
+                    if (c.isMesh) {
+                        if (c.geometry) c.geometry.dispose();
+                        if (c.material) {
+                            if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+                            else c.material.dispose();
+                        }
+                    }
+                });
                 this.previewCharacter.remove(child);
             }
         }
@@ -648,13 +643,12 @@ export class IntroManager {
         skinGroup.scale.setScalar(0.125); 
         skinGroup.position.y = 0.5;
 
-        const loader = new THREE.TextureLoader();
-
         skinData.blocks.forEach(b => {
             const geo = new THREE.BoxGeometry(1, 1, 1);
-            const tex = loader.load(b.texturePath);
+            const tex = this.textureLoader.load(b.texturePath);
             tex.magFilter = THREE.NearestFilter;
-            const mat = new THREE.MeshLambertMaterial({ map: tex });
+            // POPRAWKA: MeshBasicMaterial zamiast MeshLambertMaterial
+            const mat = new THREE.MeshBasicMaterial({ map: tex });
             const mesh = new THREE.Mesh(geo, mat);
             mesh.position.set(b.x, b.y, b.z);
             skinGroup.add(mesh);
@@ -751,13 +745,21 @@ export class IntroManager {
         this.isIntroActive = false;
         if (this.introAnimId) cancelAnimationFrame(this.introAnimId);
         
-        // Nie usuwamy auth-screen, tylko je chowamy
         const authScreen = document.getElementById('auth-screen');
         if (authScreen) {
             authScreen.style.display = 'none';
         }
 
         if (this.previewCharacter) {
+            this.previewCharacter.traverse(c => {
+                if (c.isMesh) {
+                    if (c.geometry) c.geometry.dispose();
+                    if (c.material) {
+                        if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+                        else c.material.dispose();
+                    }
+                }
+            });
             this.scene.remove(this.previewCharacter);
             this.previewCharacter = null;
         }
@@ -784,7 +786,7 @@ export class IntroManager {
             }
         }
         
-        const ids =['btn-show-login', 'btn-show-register', 'btn-login-cancel', 'btn-register-cancel', 'skin-prev', 'skin-next'];
+        const ids = ['btn-show-login', 'btn-show-register', 'btn-login-cancel', 'btn-register-cancel', 'skin-prev', 'skin-next'];
         ids.forEach(id => {
             const el = document.getElementById(id);
             if(el) el.onclick = null;
