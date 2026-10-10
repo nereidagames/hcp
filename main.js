@@ -6,7 +6,6 @@ import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { createBaseCharacter } from './character.js';
 
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
-import { GameCore } from './GameCore.js';
 import { AuthManager } from './AuthManager.js';
 import { AssetLoader } from './AssetLoader.js';
 import { GameStateManager } from './GameStateManager.js';
