@@ -1,13 +1,7 @@
 /* PLIK: ui.js */
 
-import * as THREE from 'three';
-import { createBaseCharacter } from './character.js';
-import { SkinStorage } from './SkinStorage.js';
-import { WorldStorage } from './WorldStorage.js';
-import { PrefabStorage } from './PrefabStorage.js';
-import { HyperCubePartStorage } from './HyperCubePartStorage.js';
-
 import { STORAGE_KEYS } from './Config.js';
+import { modalPreview } from './ModalPreview.js';
 
 const HUD_HTML = `
     <div class="top-bar ui-element">
@@ -64,7 +58,6 @@ const GLOBAL_MODALS_HTML = `
         
         #more-options-panel .panel-content, #play-choice-panel .panel-content, #build-choice-panel .panel-content { background: rgba(0,0,0,0.6) !important; border: none !important; box-shadow: none !important; width: 95vw !important; max-width: 800px !important; display: flex; flex-direction: column; align-items: center; }
         
-        /* Styl dla okna wpisywania nazwy */
         #name-input-panel-container { background: #3498db; border: 4px solid white; border-radius: 15px; padding: 20px; display: flex; flex-direction: column; gap: 15px; width: 300px; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.5); pointer-events: auto; }
         #name-input-field { width: 100%; height: 40px; border-radius: 8px; border: none; padding: 0 10px; font-family: 'Titan One', cursive; font-size: 16px; }
         #name-submit-btn { padding: 10px 30px; background: #2ecc71; color: white; border: 2px solid white; border-radius: 8px; cursor: pointer; font-family: 'Titan One', cursive; font-size: 18px; }
@@ -78,11 +71,8 @@ const GLOBAL_MODALS_HTML = `
 
     <div id="explore-exit-button"></div>
     
-    <!-- PANELE GLOBALNE -->
     <div id="world-size-panel" class="panel-modal"><div class="panel-content"><h2>Rozmiar</h2><div class="build-choice-grid"><div id="size-choice-new-small" class="build-choice-item"><div class="build-choice-icon" style="background-image: url('icons/icon-smallworld.png');"></div><span>Mały</span></div><div id="size-choice-new-medium" class="build-choice-item"><div class="build-choice-icon" style="background-image: url('icons/icon-mediumworld.png');"></div><span>Średni</span></div><div id="size-choice-new-large" class="build-choice-item"><div class="build-choice-icon" style="background-image: url('icons/icon-bigworld.png');"></div><span>Duży</span></div></div><button class="panel-close-button">Anuluj</button></div></div>
-    <div id="player-preview-panel" class="panel-modal" style="display:none;"><div class="panel-content"><h2>Podgląd</h2><div id="player-preview-renderer-container"></div><button class="panel-close-button">Zamknij</button></div></div>
     
-    <!-- OKNO WPISYWANIA NAZWY -->
     <div id="name-input-panel" class="panel-modal" style="display:none;">
         <div id="name-input-panel-container">
             <h2 class="text-outline">Wpisz nazwę</h2>
@@ -92,7 +82,6 @@ const GLOBAL_MODALS_HTML = `
     </div>
 `;
 
-// Import managerów
 import { FriendsManager } from './FriendsManager.js';
 import { MailManager } from './MailManager.js';
 import { NewsManager } from './NewsManager.js';
@@ -104,14 +93,11 @@ import { SkinDetailsManager } from './SkinDetailsManager.js';
 import { DiscoverManager } from './DiscoverManager.js';
 import { ProfileManager } from './ProfileManager.js';
 
-const API_BASE_URL = 'https://hypercubes-nexus-server.onrender.com';
-
 export class UIManager {
   constructor(onSendMessage) {
     this.onSendMessage = onSendMessage;
     this.isMobile = false;
     
-    // Callbacki główne
     this.onWorldSizeSelected = null;
     this.onSkinBuilderClick = null;
     this.onPrefabBuilderClick = null;
@@ -139,7 +125,6 @@ export class UIManager {
     this.onOpenOtherProfile = null;
     this.onVictoryScreenOpen = null;
     
-    // Callbacki dla trybu kopania
     this.onDiggingClick = null;
     this.onDiggingMove = null;
     this.onDiggingMine = null;
@@ -147,7 +132,6 @@ export class UIManager {
     this.onDiggingUpgrade = null;
     this.onDiggingUseDynamite = null;
     
-    // Managerzy
     this.friendsManager = new FriendsManager(this);
     this.mailManager = new MailManager(this);
     this.newsManager = new NewsManager(this);
@@ -163,21 +147,13 @@ export class UIManager {
     this.pendingNewsCount = 0;
     this.activeZIndex = 20000; 
     this.myProfileData = null;
-
-    this.sharedPreviewRenderer = null;
-    this.previewScene = null;
-    this.previewCamera = null;
-    this.previewCharacter = null;
-    this.previewAnimId = null;
   }
   
   initialize(isMobile) {
     this.isMobile = isMobile;
     try {
         this.renderUI();
-        this.initSharedRenderer();
 
-        // Inicjalizacja managerów
         if (this.friendsManager.initialize) this.friendsManager.initialize();
         if (this.mailManager.initialize) this.mailManager.initialize();
         if (this.newsManager.initialize) this.newsManager.initialize();
@@ -189,9 +165,7 @@ export class UIManager {
         if (this.discoverManager.initialize) this.discoverManager.initialize();
         if (this.profileManager.initialize) this.profileManager.initialize();
 
-        // Ustaw callbacki dla managerów
         this.setupManagerCallbacks();
-        
         this.setupButtonHandlers();
         this.setupChatSystem(); 
         this.loadFriendsData(); 
@@ -203,7 +177,6 @@ export class UIManager {
   }
   
   setupManagerCallbacks() {
-    // SkinDetailsManager callbacki
     this.skinDetailsManager.onSkinSelect = (skinId, skinName, thumbnail, ownerId) => {
       if (this.onSkinSelect) this.onSkinSelect(skinId, skinName, thumbnail, ownerId);
     };
@@ -214,7 +187,6 @@ export class UIManager {
       if (this.onUsePart) this.onUsePart(item);
     };
     
-    // DiscoverManager callbacki
     this.discoverManager.onWorldSelect = (worldItem) => {
       if (this.onWorldSelect) this.onWorldSelect(worldItem);
     };
@@ -222,7 +194,6 @@ export class UIManager {
       this.skinDetailsManager.showItemDetails(item, type, true);
     };
     
-    // ProfileManager callbacki
     this.profileManager.onOpenWall = (userId, username) => {
       this.wallManager.open(userId, username);
     };
@@ -231,16 +202,13 @@ export class UIManager {
       this.mailManager.openConversation(username);
     };
     
-    // NavigationManager - przekaż callbacki
     this.navigationManager.ui = this;
     
-    // Aktualizuj dane profilu
     if (this.myProfileData) {
       this.profileManager.updateMyProfileData(this.myProfileData);
     }
   }
   
-  // --- UI KOPANIA ---
   showDiggingMode() {
     document.getElementById('digging-ui-container').style.display = 'block';
     const overlay = document.querySelector('.ui-overlay');
@@ -271,7 +239,6 @@ export class UIManager {
     this.showMessage(`Znaleziono: ${crystal.name} (${crystal.value} Zoins)`, 'success');
   }
   
-  // --- METODY POMOCNICZE ---
   async askForInput(title, defaultValue = "") {
       return new Promise((resolve) => {
           const panel = document.getElementById('name-input-panel');
@@ -280,7 +247,6 @@ export class UIManager {
           const titleEl = document.querySelector('#name-input-panel-container h2');
 
           if (!panel || !input || !btn) {
-              console.error("Brak elementów panelu wpisywania!");
               resolve(null);
               return;
           }
@@ -310,11 +276,8 @@ export class UIManager {
           };
 
           btn.onclick = submit;
-
           input.onkeydown = (e) => {
-              if (e.key === 'Enter') {
-                  submit();
-              }
+              if (e.key === 'Enter') submit();
           };
           
           panel.onclick = (e) => {
@@ -389,110 +352,12 @@ export class UIManager {
       const uiLayer = document.getElementById('ui-layer');
       const modalsLayer = document.getElementById('modals-layer');
 
-      // Zostawiamy authLayer w spokoju, zarządza nim teraz IntroManager!
-      
       if (uiLayer) uiLayer.innerHTML = `<div class="ui-overlay">${HUD_HTML}</div>`;
       if (modalsLayer) {
           modalsLayer.innerHTML = GLOBAL_MODALS_HTML;
       }
   }
   
-  initSharedRenderer() {
-      this.sharedPreviewRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
-      this.sharedPreviewRenderer.setSize(300, 300);
-      this.sharedPreviewRenderer.setPixelRatio(window.devicePixelRatio);
-
-      this.previewScene = new THREE.Scene();
-      this.previewCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-      this.previewCamera.position.set(0, 1, 6);
-      this.previewCamera.lookAt(0, 0.5, 0);
-
-      const amb = new THREE.AmbientLight(0xffffff, 0.9);
-      this.previewScene.add(amb);
-      const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-      dir.position.set(2, 5, 3);
-      this.previewScene.add(dir);
-
-      this.previewCharacter = new THREE.Group();
-      if (typeof createBaseCharacter !== 'undefined') {
-          createBaseCharacter(this.previewCharacter);
-      }
-      this.previewScene.add(this.previewCharacter);
-
-      const animate = () => {
-          this.previewAnimId = requestAnimationFrame(animate);
-          if (this.previewCharacter && this.sharedPreviewRenderer.domElement.parentNode) {
-              this.previewCharacter.rotation.y += 0.01;
-              this.sharedPreviewRenderer.render(this.previewScene, this.previewCamera);
-          }
-      };
-      animate();
-  }
-  
-  attachRendererTo(containerId, characterYOffset = 0, scale = 1) {
-      const container = document.getElementById(containerId);
-      if (!container || !this.sharedPreviewRenderer) return;
-
-      container.innerHTML = '';
-      
-      const width = container.clientWidth || 300;
-      const height = container.clientHeight || 300;
-      this.sharedPreviewRenderer.setSize(width, height);
-      this.previewCamera.aspect = width / height;
-      this.previewCamera.updateProjectionMatrix();
-
-      container.appendChild(this.sharedPreviewRenderer.domElement);
-
-      this.previewCharacter.position.y = characterYOffset;
-      this.previewCharacter.scale.setScalar(scale);
-      this.previewCharacter.rotation.y = 0;
-      
-      const children = this.previewCharacter.children;
-      for (let i = children.length - 1; i >= 0; i--) {
-          const child = children[i];
-          if (child.type === 'Group') {
-              this.previewCharacter.remove(child);
-          }
-      }
-  }
-  
-  applySkinToPreview(blocksData) {
-      for (let i = this.previewCharacter.children.length - 1; i >= 0; i--) {
-          const child = this.previewCharacter.children[i];
-          if (child.type === 'Group') {
-              this.previewCharacter.remove(child);
-          }
-      }
-
-      if (!blocksData) return;
-
-      const loader = new THREE.TextureLoader();
-      const blockGroup = new THREE.Group();
-      blockGroup.scale.setScalar(0.125);
-      blockGroup.position.y = 0.5;
-
-      blocksData.forEach(b => {
-          const geo = new THREE.BoxGeometry(1, 1, 1);
-          const mat = new THREE.MeshLambertMaterial({ map: loader.load(b.texturePath) });
-          const mesh = new THREE.Mesh(geo, mat);
-          mesh.position.set(b.x, b.y, b.z);
-          blockGroup.add(mesh);
-      });
-      this.previewCharacter.add(blockGroup);
-  }
-  
-  disposeCurrentPreview() {
-      if (this.previewCharacter) {
-          for (let i = this.previewCharacter.children.length - 1; i >= 0; i--) {
-              const child = this.previewCharacter.children[i];
-              if (child.type === 'Group') {
-                  this.previewCharacter.remove(child);
-              }
-          }
-      }
-  }
-  
-  // --- HUD UPDATE ---
   updatePlayerName(name) { 
       const nameDisplay = document.getElementById('player-name-display'); 
       if (nameDisplay) nameDisplay.textContent = name;
@@ -569,7 +434,6 @@ export class UIManager {
       }
   }
   
-  // --- CHAT ---
   setupChatSystem() { this.setupChatInput(); }
   
   addChatMessage(m, senderName = null) { 
@@ -615,7 +479,6 @@ export class UIManager {
       }); 
   }
   
-  // --- PARKOUR (przekierowanie do ParkourManager) ---
   setParkourTimerVisible(visible) {
       const timer = document.getElementById('parkour-timer');
       if (timer) timer.style.display = visible ? 'block' : 'none';
@@ -626,7 +489,6 @@ export class UIManager {
       if (timer) timer.textContent = timeString;
   }
   
-  // --- PRZYCISKI I PANELE ---
   checkAdminPermissions(username) {
       const admins = ['nixox2', 'admin'];
       if (admins.includes(username)) {
@@ -689,7 +551,9 @@ export class UIManager {
               const p = btn.closest('.panel-modal') || btn.closest('#skin-comments-panel'); 
               if(p) p.style.display = 'none'; 
           };
-      });['more-options-panel','player-profile-panel','play-choice-panel','build-choice-panel','other-player-profile-panel'].forEach(id=>{
+      });
+
+      ['more-options-panel','player-profile-panel','play-choice-panel','build-choice-panel','other-player-profile-panel'].forEach(id=>{
           const e=document.getElementById(id); 
           if(e) e.addEventListener('click', ev=>{ 
               if(ev.target.id===id){ 
@@ -760,7 +624,6 @@ export class UIManager {
       if (this.onDiscoverClick) {
           return this.onDiscoverClick(type, category);
       }
-      console.warn('Discover panel handler is not available.');
       return null;
   }
   
@@ -776,7 +639,7 @@ export class UIManager {
   closePanel(id) { const p = document.getElementById(id); if(p) p.style.display='none'; }
   
   closeAllPanels() { 
-      this.disposeCurrentPreview(); 
+      modalPreview.stop();
       document.querySelectorAll('.panel-modal').forEach(p => p.style.display='none'); 
       this.newsManager.close(); 
       this.mailManager.close(); 
