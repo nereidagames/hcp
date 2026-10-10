@@ -5,10 +5,10 @@ import * as THREE from 'three';
 const API_BASE_URL = 'https://hypercubes-nexus-server.onrender.com';
 
 export class SceneManager {
-  constructor(scene, loadingManager, blockManager) { // Dodano blockManager
+  constructor(scene, loadingManager, blockManager) {
     this.scene = scene;
     this.loadingManager = loadingManager;
-    this.blockManager = blockManager; // Zapisujemy referencję
+    this.blockManager = blockManager;
     
     this.collidableObjects = []; 
     this.collisionMap = new Map();
@@ -25,46 +25,32 @@ export class SceneManager {
     this.materials = {};
     
     this.sharedCollisionGeometry = new THREE.BoxGeometry(1, 1, 1);
-    
     this.maxAnisotropy = 4; 
-    
     this.environmentObjects = [];
     
-    // NOWE: Sky Manager
     this.skyMesh = null;
-    this.currentSkyId = 200; // Domyślnie Clouds
+    this.currentSkyId = 200;
   }
   
   async initialize() {
     if (this.isInitialized) return;
 
-    const renderer = new THREE.WebGLRenderer();
-    const maxAnisotropyCap = renderer.capabilities.getMaxAnisotropy();
-    this.maxAnisotropy = Math.min(4, maxAnisotropyCap); 
-    renderer.dispose();
-
     this.setupLighting();
     this.setupFog();
-    
-    // NOWE: Ustaw domyślną panoramę nieba
     this.setSky(200);
 
     const nexusLoaded = await this.loadNexusFromDB();
 
     if (!nexusLoaded) {
-        console.log("Generowanie domyślnej podłogi...");
         this.createCheckerboardFloor();
     }
 
     this.createBarrierBlocks();
 
     this.isInitialized = true;
-    console.log("SceneManager zainicjalizowany.");
   }
 
-  // NOWA METODA: Ustawianie panoramy nieba
   setSky(skyId) {
-    // Usuń starą panoramę
     if (this.skyMesh) {
       this.scene.remove(this.skyMesh);
       if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
@@ -89,7 +75,6 @@ export class SceneManager {
       this.skyMesh = new THREE.Mesh(geometry, material);
       this.scene.add(this.skyMesh);
       this.currentSkyId = 200;
-      console.log("☁️ Ustawiono panoramę: Clouds");
     }
   }
   
@@ -126,18 +111,14 @@ export class SceneManager {
           this.collisionMap.clear(); 
 
           blocksData.forEach(block => {
-              // --- FIX: OBSŁUGA ID i KONWERSJA NA TEKSTURĘ ---
-              // Jeśli blok ma ID zamiast texturePath (nowy format), odzyskujemy ścieżkę
               if (block.id !== undefined && !block.texturePath) {
                   if (this.blockManager) {
                       block.texturePath = this.blockManager.getTextureById(block.id);
                   } else {
-                      console.warn("BlockManager not linked in SceneManager!");
-                      block.texturePath = 'textures/ziemia.png'; // Fallback
+                      block.texturePath = 'textures/ziemia.png';
                   }
               }
 
-              // Jeśli nadal nie ma tekstury, pomiń
               if (!block.texturePath) return;
 
               if (!blocksByTexture[block.texturePath]) {
@@ -149,7 +130,6 @@ export class SceneManager {
           const dummy = new THREE.Object3D();
 
           for (const [texturePath, blocks] of Object.entries(blocksByTexture)) {
-              
               let material = this.materials[texturePath];
               if (!material) {
                   const texture = this.textureLoader.load(texturePath);
@@ -223,9 +203,10 @@ export class SceneManager {
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
 
-    const floorMaterial = new THREE.MeshLambertMaterial({ map: texture });
+    // POPRAWKA: MeshBasicMaterial zamiast MeshLambertMaterial dla zachowania spójności
+    const floorMaterial = new THREE.MeshBasicMaterial({ map: texture });
     const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
-    floorMesh.receiveShadow = true;
+    floorMesh.receiveShadow = false;
     floorMesh.position.y = -0.5;
     
     this.scene.add(floorMesh);
