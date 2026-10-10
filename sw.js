@@ -1,5 +1,6 @@
+/* PLIK: sw.js */
 
-const CACHE_NAME = 'hypercubesplanet-dev-v9';
+const CACHE_NAME = 'hypercubesplanet-dev-v10';
 
 const urlsToCache = [
   './',
@@ -37,9 +38,11 @@ const urlsToCache = [
   './GameCore.js',
   './GameStateManager.js',
   './AssetLoader.js',
+  './ModalPreview.js', // NOWY PLIK ZMODALOWEGO PODGLĄDU
 
-  // Muzyka
-  'music/nexus.mp3',
+  // Dźwięki i muzyka (poprawione ścieżki)
+  'sounds/nexus.mp3',
+  'sounds/loginscreen.mp3',
 
   // Grafiki
   'icons/nereidastudio.png',
@@ -108,7 +111,8 @@ const urlsToCache = [
   'textures/metalowaplyta.png',
   'textures/granit.png',
   'textures/cukierek.png',
-  'textures/gladki.png'
+  'textures/gladki.png',
+  'textures/sky/clouds.png'
 ];
 
 self.addEventListener('install', event => {
