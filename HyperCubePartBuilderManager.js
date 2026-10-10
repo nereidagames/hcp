@@ -1,3 +1,4 @@
+/* PLIK: HyperCubePartBuilderManager.js */
 
 import * as THREE from 'three';
 import { BuildCameraController } from './BuildCameraController.js';
@@ -22,6 +23,9 @@ export class HyperCubePartBuilderManager {
     this.recentBlocks = [];
     this.textureLoader = new THREE.TextureLoader(loadingManager);
     this.materials = {};
+
+    // POPRAWKA: Inicjalizacja współdzielonej geometrii dla bloków
+    this.sharedBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
     
     this.onMouseMove = this.onMouseMove.bind(this);
     this.onMouseDown = this.onMouseDown.bind(this);
@@ -96,6 +100,42 @@ export class HyperCubePartBuilderManager {
     this.cameraController.distance = 25;
 
     this.setupBuildEventListeners();
+  }
+
+  // --- POPRAWKA: Wczytywanie istniejącej części do edycji ---
+  async selectPart(partId) {
+    const partData = await HyperCubePartStorage.loadPart(partId);
+    if (!partData) return;
+    
+    const blocks = Array.isArray(partData) ? partData : (partData.blocks || []);
+    
+    // Wyczyść dotychczas postawione klocki
+    this.placedBlocks.forEach(b => this.scene.remove(b));
+    this.placedBlocks = [];
+    this.collidableBuildObjects = this.platform ? [this.platform] : [];
+    
+    // Załaduj klocki wczytanej części
+    blocks.forEach(blockData => {
+        if (!blockData.texturePath) return;
+
+        if (!this.materials[blockData.texturePath]) {
+            const texture = this.textureLoader.load(blockData.texturePath);
+            texture.magFilter = THREE.NearestFilter;
+            texture.minFilter = THREE.NearestFilter;
+            this.materials[blockData.texturePath] = new THREE.MeshBasicMaterial({ map: texture });
+        }
+
+        const blockGeo = this.sharedBoxGeometry;
+        const blockMat = this.materials[blockData.texturePath];
+        const newBlock = new THREE.Mesh(blockGeo, blockMat);
+        newBlock.userData.texturePath = blockData.texturePath;
+        newBlock.position.set(blockData.x, blockData.y, blockData.z);
+        this.scene.add(newBlock);
+        this.placedBlocks.push(newBlock);
+        this.collidableBuildObjects.push(newBlock);
+    });
+
+    this.updateSaveButton();
   }
 
   // --- HOTBAR ---
@@ -254,14 +294,14 @@ export class HyperCubePartBuilderManager {
 
   onMouseDown(event) {
     if (!this.isActive || this.game.isMobile || this.isEventOnUI(event)) return;
-    if (event.button === 0 && this.previewBlock.visible) this.placeBlock();
+    if (event.button === 0 && this.previewBlock && this.previewBlock.visible) this.placeBlock();
     else if (event.button === 2) this.removeBlock();
   }
   
   onMouseUp() {}
 
   placeBlock() {
-    if (!this.selectedBlockType) return;
+    if (!this.selectedBlockType || !this.previewBlock) return;
     const blockGeo = this.sharedBoxGeometry;
     const blockMat = this.materials[this.selectedBlockType.texturePath];
     const newBlock = new THREE.Mesh(blockGeo, blockMat);
@@ -328,11 +368,9 @@ export class HyperCubePartBuilderManager {
     return dataURL;
   }
 
-  // --- ZMIANA: Zastąpiono prompt na askForInput ---
   async savePart() {
     if (this.placedBlocks.length === 0) return;
     
-    // NOWOŚĆ: Użycie custom UI
     const partName = await this.game.ui.askForInput("Nazwa Części:", "Moja Część");
     
     if (partName) {
@@ -366,7 +404,6 @@ export class HyperCubePartBuilderManager {
 
     if (this.game.isMobile) {
         document.getElementById('jump-button').style.display = 'block';
-        // Czyścimy zawartość joysticka przed ukryciem
         const joystickZone = document.getElementById('joystick-zone');
         if (joystickZone) {
             joystickZone.style.display = 'none';
