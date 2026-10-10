@@ -1,5 +1,4 @@
-//PLIK: BuildManager.js
-
+// PLIK: BuildManager.js
 
 import * as THREE from 'three';
 import { BuildCameraController } from './BuildCameraController.js';
@@ -85,7 +84,7 @@ export class BuildManager {
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
     
-    // NOWE: Sky dla buildera
+    // Sky dla buildera
     this.skyMesh = null;
     this.currentSkyId = 200; // Domyślnie Clouds
     
@@ -121,6 +120,11 @@ export class BuildManager {
     
     this.textureLoader = new THREE.TextureLoader(loadingManager);
     this.materials = {};
+
+    // POPRAWKA: Cache materiałów podglądu (zapobiega wyciekom VRAM / shaderów)
+    this.linePreviewMaterials = {};
+    this.blockPreviewMaterials = {};
+
     this.sharedBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
     
     this.onMouseMove = this.onMouseMove.bind(this);
@@ -150,6 +154,30 @@ export class BuildManager {
     });
   }
 
+  // Pomocnicza metoda zwracająca zapamiętany materiał dla linii
+  getLinePreviewMaterial(texturePath) {
+    if (!this.linePreviewMaterials[texturePath]) {
+      const baseMat = this.materials[texturePath];
+      const mat = baseMat ? baseMat.clone() : new THREE.MeshBasicMaterial();
+      mat.transparent = true;
+      mat.opacity = 0.4;
+      this.linePreviewMaterials[texturePath] = mat;
+    }
+    return this.linePreviewMaterials[texturePath];
+  }
+
+  // Pomocnicza metoda zwracająca zapamiętany materiał dla klocka podglądu
+  getBlockPreviewMaterial(texturePath) {
+    if (!this.blockPreviewMaterials[texturePath]) {
+      const baseMat = this.materials[texturePath];
+      const mat = baseMat ? baseMat.clone() : new THREE.MeshBasicMaterial();
+      mat.transparent = true;
+      mat.opacity = 0.5;
+      this.blockPreviewMaterials[texturePath] = mat;
+    }
+    return this.blockPreviewMaterials[texturePath];
+  }
+
   renderBuildUI() {
     const buildContainer = document.getElementById('build-ui-container');
     if (!buildContainer || this.buildUIRendered) return;
@@ -159,9 +187,7 @@ export class BuildManager {
     this.buildUIRendered = true;
   }
 
-  // NOWA METODA: Ustawianie panoramy nieba w builderze
   setSky(skyId) {
-    // Usuń starą panoramę
     if (this.skyMesh) {
       this.scene.remove(this.skyMesh);
       if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
@@ -174,7 +200,6 @@ export class BuildManager {
       }
     }
 
-    // Dla ID 200 (Clouds) - nasza domyślna panorama
     if (skyId === 200) {
       const geometry = new THREE.SphereGeometry(500, 60, 40);
       const texture = this.textureLoader.load('textures/sky/clouds.png');
@@ -185,12 +210,9 @@ export class BuildManager {
       this.skyMesh = new THREE.Mesh(geometry, material);
       this.scene.add(this.skyMesh);
       this.currentSkyId = 200;
-      console.log("☁️ Builder: Ustawiono panoramę Clouds");
     }
-    // Tutaj można dodać kolejne panoramy w przyszłości
   }
 
-  // --- GŁÓWNA METODA WEJŚCIA (POPRAWIONA KOLEJNOŚĆ) ---
   async enterBuildMode(size = 64, isNexusMode = false, isLoginMapMode = false) {
     this.platformSize = size;
     this.isNexusMode = isNexusMode;
@@ -200,7 +222,6 @@ export class BuildManager {
     this.scene.background = new THREE.Color(0x87CEEB);
     this.scene.fog = new THREE.Fog(0x87CEEB, 40, 160);
     
-    // Światła
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     this.scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
@@ -208,21 +229,17 @@ export class BuildManager {
     directionalLight.castShadow = false; 
     this.scene.add(directionalLight);
     
-    // NOWE: Ustaw domyślną panoramę nieba
     this.setSky(200);
     
-    // 1. Pobieramy bloki i ustawiamy domyślny
     this.blockTypes = this.blockManager.getOwnedBlockTypes();
     if (this.blockTypes.length > 0) {
         this.selectedBlockType = this.blockTypes[0];
     }
 
-    // 2. Ładujemy tekstury (TERAZ, zanim stworzymy previewBlock)
     this.preloadTextures();
 
-    // 3. Tworzenie obiektów
     this.createBuildPlatform();
-    this.createPreviewBlock(); // Teraz zadziała, bo materials są załadowane
+    this.createPreviewBlock();
     this.previewPrefab = new THREE.Group();
     this.scene.add(this.previewPrefab);
 
@@ -231,7 +248,6 @@ export class BuildManager {
 
     document.getElementById('build-ui-container').style.display = 'block';
     
-    // ZARZĄDZANIE WIDOCZNOŚCIĄ UI
     const buildElements = [
         '.build-top-left', 
         '.build-sidebar-right', 
@@ -256,7 +272,6 @@ export class BuildManager {
         else saveBtn.textContent = "Zapisz";
     }
 
-    // Odświeżenie Hotbara
     if (this.selectedBlockType) {
         this.selectBlockType(this.selectedBlockType);
     }
@@ -273,7 +288,7 @@ export class BuildManager {
         if (jumpBtn) jumpBtn.style.display = 'none'; 
         if (joystickZone) { 
             joystickZone.style.display = 'block'; 
-            joystickZone.innerHTML = ''; // Czyścimy strefę przed dodaniem joysticka budowania
+            joystickZone.innerHTML = ''; 
         }
     }
 
@@ -286,7 +301,6 @@ export class BuildManager {
     this.isActive = true;
   }
 
-  // --- LOGIKA HOTBARA ---
   addToHotbar(blockType) {
       const idx = this.recentBlocks.findIndex(b => b.name === blockType.name);
       if (idx !== -1) {
@@ -425,7 +439,7 @@ export class BuildManager {
         tabBlocks.onclick = () => { tabBlocks.classList.add('active'); tabAddons.classList.remove('active'); this.currentBlockCategory = 'block'; this.populateBlockSelectionPanel(); };
         tabAddons.onclick = () => { tabAddons.classList.add('active'); tabBlocks.classList.remove('active'); this.currentBlockCategory = 'addon'; this.populateBlockSelectionPanel(); };
     }
-    if (this.cameraController) this.cameraController.destroy();
+    // POPRAWKA: Usunięto niepotrzebne wywołanie niszczące kamerę: if (this.cameraController) this.cameraController.destroy();
   }
   
   async showPrefabSelectionPanel() { 
@@ -464,26 +478,34 @@ export class BuildManager {
       return points; 
   }
 
+  // POPRAWKA: Zoptymalizowana metoda podglądu linii (zero wycieków pamięci i stała alokacja)
   updateLinePreview(targetPos) { 
       if(!this.isDraggingLine || !this.dragStartPos || !this.selectedBlockType) return;
       if (this.lastLineTargetPos && this.lastLineTargetPos.equals(targetPos)) { return; }
       this.lastLineTargetPos = targetPos.clone();
 
-      while(this.previewLineGroup.children.length > 0){ 
-          this.previewLineGroup.remove(this.previewLineGroup.children[0]); 
-      } 
-      
       const points = this.getPointsOnLine(this.dragStartPos, targetPos); 
       const geo = this.sharedBoxGeometry; 
-      const mat = this.materials[this.selectedBlockType.texturePath].clone(); 
-      mat.transparent = true; 
-      mat.opacity = 0.4; 
-      
-      points.forEach(p => { 
-          const mesh = new THREE.Mesh(geo, mat); 
-          mesh.position.copy(p); 
-          this.previewLineGroup.add(mesh); 
-      }); 
+      const mat = this.getLinePreviewMaterial(this.selectedBlockType.texturePath); 
+
+      // Dopasuj liczbę klocków w grupie (zamiast kasować i tworzyć od zera)
+      while (this.previewLineGroup.children.length > points.length) {
+          this.previewLineGroup.remove(this.previewLineGroup.children[this.previewLineGroup.children.length - 1]);
+      }
+
+      while (this.previewLineGroup.children.length < points.length) {
+          const mesh = new THREE.Mesh(geo, mat);
+          this.previewLineGroup.add(mesh);
+      }
+
+      // Aktualizuj pozycje i współdzielony materiał
+      for (let i = 0; i < points.length; i++) {
+          const mesh = this.previewLineGroup.children[i];
+          mesh.position.copy(points[i]);
+          if (mesh.material !== mat) {
+              mesh.material = mat;
+          }
+      }
   }
 
   placeLine() { 
@@ -500,7 +522,8 @@ export class BuildManager {
           this.placedBlocks.push(b); 
           this.collidableBuildObjects.push(b); 
       }); 
-      while(this.previewLineGroup.children.length>0){ 
+
+      while(this.previewLineGroup.children.length > 0){ 
           this.previewLineGroup.remove(this.previewLineGroup.children[0]); 
       } 
       this.updateSaveButton(); 
@@ -517,8 +540,6 @@ export class BuildManager {
                   for(let i=0;i<blocksData.length;i+=batchSize){ 
                       const batch=blocksData.slice(i,i+batchSize); 
                       batch.forEach(blockData=>{ 
-                          
-                          // --- FIX: OBSŁUGA ID ---
                           let texPath = blockData.texturePath;
                           if (blockData.id !== undefined && !texPath) {
                               texPath = this.blockManager.getTextureById(blockData.id);
@@ -532,13 +553,12 @@ export class BuildManager {
                               texture.magFilter=THREE.NearestFilter; 
                               texture.minFilter=THREE.NearestMipmapNearestFilter; 
                               texture.anisotropy=2; 
-                              material=new THREE.MeshLambertMaterial({map:texture}); 
+                              material=new THREE.MeshBasicMaterial({map:texture}); 
                               this.materials[texPath]=material; 
                           } 
                           const mesh=new THREE.Mesh(geometry,material); 
                           mesh.position.set(blockData.x,blockData.y,blockData.z); 
                           
-                          // Zapisz dane do usunięcia/eksportu
                           mesh.userData.texturePath = texPath;
                           if (blockData.id) {
                               const def = this.blockManager.getBlockById(blockData.id);
@@ -576,10 +596,8 @@ export class BuildManager {
   createPreviewBlock() { 
       if(!this.selectedBlockType) return; 
       const previewGeo=new THREE.BoxGeometry(1.01,1.01,1.01); 
-      // Tutaj materials MUSI już być załadowane
-      const previewMat=this.materials[this.selectedBlockType.texturePath].clone(); 
-      previewMat.transparent=true; 
-      previewMat.opacity=0.5; 
+      // POPRAWKA: Użycie cache'owanego materiału zamiast klonowania
+      const previewMat=this.getBlockPreviewMaterial(this.selectedBlockType.texturePath); 
       this.previewBlock=new THREE.Mesh(previewGeo,previewMat); 
       this.previewBlock.visible=false; 
       this.scene.add(this.previewBlock); 
@@ -590,10 +608,7 @@ export class BuildManager {
       this.selectedBlockType=blockType; 
       
       if(this.previewBlock){ 
-          this.previewBlock.material=this.materials[blockType.texturePath].clone(); 
-          this.previewBlock.material.transparent=true; 
-          this.previewBlock.material.opacity=0.5; 
-          this.previewBlock.material.needsUpdate=true; 
+          this.previewBlock.material = this.getBlockPreviewMaterial(blockType.texturePath);
       } 
       
       if(this.previewPrefab) this.previewPrefab.visible=false; 
@@ -611,8 +626,8 @@ export class BuildManager {
           while(this.previewPrefab.children.length){ this.previewPrefab.remove(this.previewPrefab.children[0]); } 
           this.selectedPrefabData.forEach(blockData=>{ 
               const geo=this.sharedBoxGeometry; 
-              const mat=this.materials[blockData.texturePath].clone(); 
-              mat.transparent=true; mat.opacity=0.5; 
+              // POPRAWKA: Użycie materiałów z cache
+              const mat=this.getBlockPreviewMaterial(blockData.texturePath); 
               const block=new THREE.Mesh(geo,mat); 
               block.position.set(blockData.x,blockData.y,blockData.z); 
               this.previewPrefab.add(block); 
@@ -625,9 +640,32 @@ export class BuildManager {
   
   toggleCameraMode() { const button=document.getElementById('build-mode-toggle-new'); if(this.cameraController.mode==='orbital'){ this.cameraController.setMode('free'); button.textContent='Tryb: Zaawansowany'; } else { this.cameraController.setMode('orbital'); button.textContent='Tryb: Łatwy'; } }
   
-  removeBuildEventListeners() { window.removeEventListener('mousemove',this.onMouseMove); window.removeEventListener('mousedown',this.onMouseDown); window.removeEventListener('mouseup',this.onMouseUp); window.removeEventListener('contextmenu',this.onContextMenu); window.removeEventListener('touchstart',this.onTouchStart); window.removeEventListener('touchend',this.onTouchEnd); window.removeEventListener('touchmove',this.onTouchMove); document.getElementById('build-exit-btn-new').onclick=null; document.getElementById('build-mode-toggle-new').onclick=null; document.getElementById('build-add-btn-new').onclick=null; document.getElementById('build-save-btn-new').onclick=null; document.getElementById('add-choice-blocks').onclick=null; document.getElementById('add-choice-prefabs').onclick=null; document.getElementById('add-choice-close').onclick=null; if(this.cameraController) this.cameraController.destroy(); }
+  removeBuildEventListeners() { 
+      window.removeEventListener('mousemove',this.onMouseMove); 
+      window.removeEventListener('mousedown',this.onMouseDown); 
+      window.removeEventListener('mouseup',this.onMouseUp); 
+      window.removeEventListener('contextmenu',this.onContextMenu); 
+      window.removeEventListener('touchstart',this.onTouchStart); 
+      window.removeEventListener('touchend',this.onTouchEnd); 
+      window.removeEventListener('touchmove',this.onTouchMove); 
+      document.getElementById('build-exit-btn-new').onclick=null; 
+      document.getElementById('build-mode-toggle-new').onclick=null; 
+      document.getElementById('build-add-btn-new').onclick=null; 
+      document.getElementById('build-save-btn-new').onclick=null; 
+      document.getElementById('add-choice-blocks').onclick=null; 
+      document.getElementById('add-choice-prefabs').onclick=null; 
+      document.getElementById('add-choice-close').onclick=null; 
+      if(this.cameraController) this.cameraController.destroy(); 
+  }
   
-  onMouseMove(e) { this.mouse.x=(e.clientX/window.innerWidth)*2-1; this.mouse.y=-(e.clientY/window.innerHeight)*2+1; if(this.isDraggingLine){ this.updateRaycast(); if(this.previewBlock && this.previewBlock.visible) this.updateLinePreview(this.previewBlock.position); } }
+  onMouseMove(e) { 
+      this.mouse.x=(e.clientX/window.innerWidth)*2-1; 
+      this.mouse.y=-(e.clientY/window.innerHeight)*2+1; 
+      if(this.isDraggingLine){ 
+          this.updateRaycast(); 
+          if(this.previewBlock && this.previewBlock.visible) this.updateLinePreview(this.previewBlock.position); 
+      } 
+  }
   
   isEventOnUI(event) { 
       const target = event.target; 
@@ -638,8 +676,8 @@ export class BuildManager {
           target.closest('.panel-list') || 
           target.closest('.build-sidebar-right') || 
           target.closest('.build-top-left') || 
-          target.closest('.build-bottom-bar') ||
-          target.closest('#tools-modal') ||
+          target.closest('.build-bottom-bar') || 
+          target.closest('#tools-modal') || 
           target.closest('#block-selection-panel') || 
           target.closest('#prefab-selection-panel') || 
           target.closest('#part-selection-panel') || 
@@ -670,13 +708,72 @@ export class BuildManager {
       } 
   }
   
-  onMouseUp(e) { if(this.isDraggingLine){ this.isDraggingLine=false; this.placeLine(); if(this.previewBlock) this.previewBlock.visible=true; } }
+  onMouseUp(e) { 
+      if(this.isDraggingLine){ 
+          this.isDraggingLine=false; 
+          this.placeLine(); 
+          if(this.previewBlock) this.previewBlock.visible=true; 
+      } 
+  }
   
-  onTouchStart(event) { if(!this.isActive||!this.game.isMobile) return; if(this.isEventOnUI(event)) return; const touch=event.touches[0]; if(event.touches.length>1) return; event.preventDefault(); this.isLongPress=false; this.mouse.x=(touch.clientX/window.innerWidth)*2-1; this.mouse.y=-(touch.clientY/window.innerHeight)*2+1; this.touchStartPosition.x=touch.clientX; this.touchStartPosition.y=touch.clientY; this.updateRaycast(); if(this.currentTool==='line'&&this.previewBlock && this.previewBlock.visible){ this.isDraggingLine=true; this.dragStartPos=this.previewBlock.position.clone(); this.previewBlock.visible=false; this.isLongPress=false; } else { this.isLongPress=false; clearTimeout(this.longPressTimer); this.longPressTimer=setTimeout(()=>{ this.isLongPress=true; this.removeBlock(); },500); } }
+  onTouchStart(event) { 
+      if(!this.isActive||!this.game.isMobile) return; 
+      if(this.isEventOnUI(event)) return; 
+      const touch=event.touches[0]; 
+      if(event.touches.length>1) return; 
+      event.preventDefault(); 
+      this.isLongPress=false; 
+      this.mouse.x=(touch.clientX/window.innerWidth)*2-1; 
+      this.mouse.y=-(touch.clientY/window.innerHeight)*2+1; 
+      this.touchStartPosition.x=touch.clientX; 
+      this.touchStartPosition.y=touch.clientY; 
+      this.updateRaycast(); 
+      if(this.currentTool==='line'&&this.previewBlock && this.previewBlock.visible){ 
+          this.isDraggingLine=true; 
+          this.dragStartPos=this.previewBlock.position.clone(); 
+          this.previewBlock.visible=false; 
+          this.isLongPress=false; 
+      } else { 
+          this.isLongPress=false; 
+          clearTimeout(this.longPressTimer); 
+          this.longPressTimer=setTimeout(()=>{ 
+              this.isLongPress=true; 
+              this.removeBlock(); 
+          },500); 
+      } 
+  }
   
-  onTouchMove(event) { if(!this.isActive||!this.game.isMobile) return; const touch=event.touches[0]; if(this.isDraggingLine){ this.mouse.x=(touch.clientX/window.innerWidth)*2-1; this.mouse.y=-(touch.clientY/window.innerHeight)*2+1; this.updateRaycast(); if(this.previewBlock && this.previewBlock.visible){ this.updateLinePreview(this.previewBlock.position); } } else { const deltaX=touch.clientX-this.touchStartPosition.x; const deltaY=touch.clientY-this.touchStartPosition.y; if(Math.sqrt(deltaX*deltaX+deltaY*deltaY)>10) clearTimeout(this.longPressTimer); } }
+  onTouchMove(event) { 
+      if(!this.isActive||!this.game.isMobile) return; 
+      const touch=event.touches[0]; 
+      if(this.isDraggingLine){ 
+          this.mouse.x=(touch.clientX/window.innerWidth)*2-1; 
+          this.mouse.y=-(touch.clientY/window.innerHeight)*2+1; 
+          this.updateRaycast(); 
+          if(this.previewBlock && this.previewBlock.visible){ 
+              this.updateLinePreview(this.previewBlock.position); 
+          } 
+      } else { 
+          const deltaX=touch.clientX-this.touchStartPosition.x; 
+          const deltaY=touch.clientY-this.touchStartPosition.y; 
+          if(Math.sqrt(deltaX*deltaX+deltaY*deltaY)>10) clearTimeout(this.longPressTimer); 
+      } 
+  }
   
-  onTouchEnd(event) { if(!this.isActive||!this.game.isMobile) return; if(this.isEventOnUI(event)) return; clearTimeout(this.longPressTimer); if(this.isDraggingLine){ this.isDraggingLine=false; this.placeLine(); if(this.previewBlock) this.previewBlock.visible=true; } else if(!this.isLongPress){ if(this.currentBuildMode==='remove') this.removeBlock(); else if(this.currentBuildMode==='block'&&this.previewBlock&&this.previewBlock.visible&&this.currentTool==='single') this.placeBlock(); else if(this.currentBuildMode==='prefab'&&this.previewPrefab&&this.previewPrefab.visible) this.placePrefab(); } }
+  onTouchEnd(event) { 
+      if(!this.isActive||!this.game.isMobile) return; 
+      if(this.isEventOnUI(event)) return; 
+      clearTimeout(this.longPressTimer); 
+      if(this.isDraggingLine){ 
+          this.isDraggingLine=false; 
+          this.placeLine(); 
+          if(this.previewBlock) this.previewBlock.visible=true; 
+      } else if(!this.isLongPress){ 
+          if(this.currentBuildMode==='remove') this.removeBlock(); 
+          else if(this.currentBuildMode==='block'&&this.previewBlock&&this.previewBlock.visible&&this.currentTool==='single') this.placeBlock(); 
+          else if(this.currentBuildMode==='prefab'&&this.previewPrefab&&this.previewPrefab.visible) this.placePrefab(); 
+      } 
+  }
   
   updateRaycast() { 
       this.raycaster.setFromCamera(this.mouse,this.game.camera); 
@@ -718,11 +815,103 @@ export class BuildManager {
       } 
   }
 
-  placeBlock() { if(!this.selectedBlockType || !this.previewBlock) return; const g=this.sharedBoxGeometry; const m=this.materials[this.selectedBlockType.texturePath]; const b=new THREE.Mesh(g,m); b.userData.name=this.selectedBlockType.name; b.userData.texturePath=this.selectedBlockType.texturePath; b.position.copy(this.previewBlock.position); b.castShadow=false; b.receiveShadow=false; this.scene.add(b); this.placedBlocks.push(b); this.collidableBuildObjects.push(b); this.updateSaveButton(); }
-  placePrefab() { if(!this.selectedPrefabData || !this.previewPrefab) return; const l=this.platformSize/2; this.selectedPrefabData.forEach(d=>{ const p=new THREE.Vector3(d.x,d.y,d.z).add(this.previewPrefab.position); if(Math.abs(p.x)<l&&Math.abs(p.z)<l&&p.y>=0){ const g=this.sharedBoxGeometry; const m=this.materials[d.texturePath]; const b=new THREE.Mesh(g,m); b.userData.texturePath=d.texturePath; b.position.copy(p); b.castShadow=false; b.receiveShadow=false; this.scene.add(b); this.placedBlocks.push(b); this.collidableBuildObjects.push(b); } }); this.updateSaveButton(); }
-  removeBlock() { this.raycaster.setFromCamera(this.mouse,this.game.camera); const i=this.raycaster.intersectObjects(this.placedBlocks); if(i.length>0){ const o=i[0].object; this.scene.remove(o); this.placedBlocks=this.placedBlocks.filter(b=>b!==o); this.collidableBuildObjects=this.collidableBuildObjects.filter(b=>b!==o); this.updateSaveButton(); } }
-  updateSaveButton() { const b=document.getElementById('build-save-btn-new'); if(this.placedBlocks.length>0){ b.style.opacity='1'; b.style.cursor='pointer'; } else { if((this.isNexusMode || this.isLoginMapMode) && this.placedBlocks.length===0){ b.style.opacity='1'; b.style.cursor='pointer'; } else { b.style.opacity='0.5'; b.style.cursor='not-allowed'; } } }
-  generateThumbnail() { const width=200; const height=150; const thumbnailRenderer=new THREE.WebGLRenderer({alpha:false,antialias:true}); thumbnailRenderer.setSize(width,height); thumbnailRenderer.setClearColor(0x87CEEB); const thumbnailScene=new THREE.Scene(); const ambLight=new THREE.AmbientLight(0xffffff,0.8); thumbnailScene.add(ambLight); const dirLight=new THREE.DirectionalLight(0xffffff,0.5); dirLight.position.set(50,50,50); thumbnailScene.add(dirLight); const floorGeo=new THREE.BoxGeometry(this.platformSize,1,this.platformSize); const floorMat=new THREE.MeshLambertMaterial({color:0x559022}); const floor=new THREE.Mesh(floorGeo,floorMat); floor.position.y=-0.5; thumbnailScene.add(floor); if(this.placedBlocks.length>0){ this.placedBlocks.forEach(block=>{ const clone=block.clone(); thumbnailScene.add(clone); }); } const thumbnailCamera=new THREE.PerspectiveCamera(45,width/height,0.1,1000); const distance=this.platformSize*1.5; thumbnailCamera.position.set(distance,distance*0.8,distance); thumbnailCamera.lookAt(0,0,0); thumbnailRenderer.render(thumbnailScene,thumbnailCamera); const dataURL=thumbnailRenderer.domElement.toDataURL('image/jpeg',0.8); thumbnailRenderer.dispose(); return dataURL; }
+  placeBlock() { 
+      if(!this.selectedBlockType || !this.previewBlock) return; 
+      const g=this.sharedBoxGeometry; 
+      const m=this.materials[this.selectedBlockType.texturePath]; 
+      const b=new THREE.Mesh(g,m); 
+      b.userData.name=this.selectedBlockType.name; 
+      b.userData.texturePath=this.selectedBlockType.texturePath; 
+      b.position.copy(this.previewBlock.position); 
+      b.castShadow=false; 
+      b.receiveShadow=false; 
+      this.scene.add(b); 
+      this.placedBlocks.push(b); 
+      this.collidableBuildObjects.push(b); 
+      this.updateSaveButton(); 
+  }
+
+  placePrefab() { 
+      if(!this.selectedPrefabData || !this.previewPrefab) return; 
+      const l=this.platformSize/2; 
+      this.selectedPrefabData.forEach(d=>{ 
+          const p=new THREE.Vector3(d.x,d.y,d.z).add(this.previewPrefab.position); 
+          if(Math.abs(p.x)<l&&Math.abs(p.z)<l&&p.y>=0){ 
+              const g=this.sharedBoxGeometry; 
+              const m=this.materials[d.texturePath]; 
+              const b=new THREE.Mesh(g,m); 
+              b.userData.texturePath=d.texturePath; 
+              b.position.copy(p); 
+              b.castShadow=false; 
+              b.receiveShadow=false; 
+              this.scene.add(b); 
+              this.placedBlocks.push(b); 
+              this.collidableBuildObjects.push(b); 
+          } 
+      }); 
+      this.updateSaveButton(); 
+  }
+
+  removeBlock() { 
+      this.raycaster.setFromCamera(this.mouse,this.game.camera); 
+      const i=this.raycaster.intersectObjects(this.placedBlocks); 
+      if(i.length>0){ 
+          const o=i[0].object; 
+          this.scene.remove(o); 
+          this.placedBlocks=this.placedBlocks.filter(b=>b!==o); 
+          this.collidableBuildObjects=this.collidableBuildObjects.filter(b=>b!==o); 
+          this.updateSaveButton(); 
+      } 
+  }
+
+  updateSaveButton() { 
+      const b=document.getElementById('build-save-btn-new'); 
+      if(this.placedBlocks.length>0){ 
+          b.style.opacity='1'; 
+          b.style.cursor='pointer'; 
+      } else { 
+          if((this.isNexusMode || this.isLoginMapMode) && this.placedBlocks.length===0){ 
+              b.style.opacity='1'; 
+              b.style.cursor='pointer'; 
+          } else { 
+              b.style.opacity='0.5'; 
+              b.style.cursor='not-allowed'; 
+          } 
+      } 
+  }
+
+  generateThumbnail() { 
+      const width=200; 
+      const height=150; 
+      const thumbnailRenderer=new THREE.WebGLRenderer({alpha:false,antialias:true}); 
+      thumbnailRenderer.setSize(width,height); 
+      thumbnailRenderer.setClearColor(0x87CEEB); 
+      const thumbnailScene=new THREE.Scene(); 
+      const ambLight=new THREE.AmbientLight(0xffffff,0.8); 
+      thumbnailScene.add(ambLight); 
+      const dirLight=new THREE.DirectionalLight(0xffffff,0.5); 
+      dirLight.position.set(50,50,50); 
+      thumbnailScene.add(dirLight); 
+      const floorGeo=new THREE.BoxGeometry(this.platformSize,1,this.platformSize); 
+      const floorMat=new THREE.MeshLambertMaterial({color:0x559022}); 
+      const floor=new THREE.Mesh(floorGeo,floorMat); 
+      floor.position.y=-0.5; 
+      thumbnailScene.add(floor); 
+      if(this.placedBlocks.length>0){ 
+          this.placedBlocks.forEach(block=>{ 
+              const clone=block.clone(); 
+              thumbnailScene.add(clone); 
+          }); 
+      } 
+      const thumbnailCamera=new THREE.PerspectiveCamera(45,width/height,0.1,1000); 
+      const distance=this.platformSize*1.5; 
+      thumbnailCamera.position.set(distance,distance*0.8,distance); 
+      thumbnailCamera.lookAt(0,0,0); 
+      thumbnailRenderer.render(thumbnailScene,thumbnailCamera); 
+      const dataURL=thumbnailRenderer.domElement.toDataURL('image/jpeg',0.8); 
+      thumbnailRenderer.dispose(); 
+      return dataURL; 
+  }
   
   getBlocksDataForSave() {
       return this.placedBlocks.map(block => {
@@ -801,7 +990,6 @@ export class BuildManager {
       } 
   }
 
-  // --- ZMIANA: Zastąpiono prompt na askForInput ---
   async saveWorld() {
     if (this.placedBlocks.length === 0) return;
     const starts = this.placedBlocks.filter(b => b.userData.name === 'Parkour Start');
@@ -810,7 +998,6 @@ export class BuildManager {
     let worldType = 'creative'; let spawnPoint = null;
     if (starts.length === 1 && metas.length >= 1) { worldType = 'parkour'; spawnPoint = { x: starts[0].position.x, y: starts[0].position.y + 1.5, z: starts[0].position.z }; } else if (starts.length === 1 || metas.length >= 1) { if(!confirm("Masz Start lub Metę, ale nie kompletny tor. Świat zostanie zapisany jako zwykły (Creative). Kontynuować?")) return; }
     
-    // NOWOŚĆ: Użycie custom UI zamiast prompt
     const worldName = await this.game.ui.askForInput("Nazwa Świata:", "Mój Nowy Świat");
     
     if (worldName) {
@@ -827,6 +1014,9 @@ export class BuildManager {
     this.isActive = false;
     this.isNexusMode = false;
     this.isLoginMapMode = false;
+    this.isDraggingLine = false;
+    this.dragStartPos = null;
+    this.lastLineTargetPos = null;
     this.removeBuildEventListeners();
     this.collidableBuildObjects = [];
     this.placedBlocks = [];
@@ -844,6 +1034,33 @@ export class BuildManager {
       }
       this.skyMesh = null;
     }
+
+    // Wyczyść podgląd linii
+    while(this.previewLineGroup.children.length > 0){
+        this.previewLineGroup.remove(this.previewLineGroup.children[0]);
+    }
+    
+    // Wyczyść podgląd klocka
+    if (this.previewBlock) {
+        if (this.previewBlock.geometry) this.previewBlock.geometry.dispose();
+        this.scene.remove(this.previewBlock);
+        this.previewBlock = null;
+    }
+
+    // Wyczyść podgląd prefabu
+    if (this.previewPrefab) {
+        while(this.previewPrefab.children.length > 0){
+            this.previewPrefab.remove(this.previewPrefab.children[0]);
+        }
+        this.scene.remove(this.previewPrefab);
+        this.previewPrefab = null;
+    }
+
+    // Zwalniamy materiały podglądu z GPU
+    Object.values(this.linePreviewMaterials).forEach(m => m.dispose());
+    this.linePreviewMaterials = {};
+    Object.values(this.blockPreviewMaterials).forEach(m => m.dispose());
+    this.blockPreviewMaterials = {};
     
     while(this.scene.children.length > 0){ this.scene.remove(this.scene.children[0]); }
     document.getElementById('build-ui-container').style.display = 'none';
@@ -856,7 +1073,6 @@ export class BuildManager {
 
     if (this.game.isMobile) {
         document.getElementById('jump-button').style.display = 'block';
-        // Czyścimy zawartość joysticka przed ukryciem, żeby główny kontroler mógł go odtworzyć
         const joystickZone = document.getElementById('joystick-zone');
         if (joystickZone) {
             joystickZone.style.display = 'none';
