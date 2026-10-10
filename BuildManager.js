@@ -121,7 +121,7 @@ export class BuildManager {
     this.textureLoader = new THREE.TextureLoader(loadingManager);
     this.materials = {};
 
-    // POPRAWKA: Cache materiałów podglądu (zapobiega wyciekom VRAM / shaderów)
+    // Cache materiałów podglądu (zapobiega wyciekom pamięci GPU / programów shaderowych)
     this.linePreviewMaterials = {};
     this.blockPreviewMaterials = {};
 
@@ -154,7 +154,6 @@ export class BuildManager {
     });
   }
 
-  // Pomocnicza metoda zwracająca zapamiętany materiał dla linii
   getLinePreviewMaterial(texturePath) {
     if (!this.linePreviewMaterials[texturePath]) {
       const baseMat = this.materials[texturePath];
@@ -166,7 +165,6 @@ export class BuildManager {
     return this.linePreviewMaterials[texturePath];
   }
 
-  // Pomocnicza metoda zwracająca zapamiętany materiał dla klocka podglądu
   getBlockPreviewMaterial(texturePath) {
     if (!this.blockPreviewMaterials[texturePath]) {
       const baseMat = this.materials[texturePath];
@@ -277,6 +275,11 @@ export class BuildManager {
     }
     this.updateHotbarUI(); 
     
+    // BEZPIECZNA INICJALIZACJA KAMERY: Usunięcie ewentualnego starego kontrolera przed stworzeniem nowego
+    if (this.cameraController) {
+        this.cameraController.destroy();
+        this.cameraController = null;
+    }
     this.cameraController = new BuildCameraController(this.game.camera, this.game.renderer.domElement);
 
     if (this.game.isMobile) {
@@ -439,7 +442,7 @@ export class BuildManager {
         tabBlocks.onclick = () => { tabBlocks.classList.add('active'); tabAddons.classList.remove('active'); this.currentBlockCategory = 'block'; this.populateBlockSelectionPanel(); };
         tabAddons.onclick = () => { tabAddons.classList.add('active'); tabBlocks.classList.remove('active'); this.currentBlockCategory = 'addon'; this.populateBlockSelectionPanel(); };
     }
-    // POPRAWKA: Usunięto niepotrzebne wywołanie niszczące kamerę: if (this.cameraController) this.cameraController.destroy();
+    // POPRAWKA: Usunięto destrukcyjne wywołanie this.cameraController.destroy()
   }
   
   async showPrefabSelectionPanel() { 
@@ -478,7 +481,6 @@ export class BuildManager {
       return points; 
   }
 
-  // POPRAWKA: Zoptymalizowana metoda podglądu linii (zero wycieków pamięci i stała alokacja)
   updateLinePreview(targetPos) { 
       if(!this.isDraggingLine || !this.dragStartPos || !this.selectedBlockType) return;
       if (this.lastLineTargetPos && this.lastLineTargetPos.equals(targetPos)) { return; }
@@ -488,7 +490,6 @@ export class BuildManager {
       const geo = this.sharedBoxGeometry; 
       const mat = this.getLinePreviewMaterial(this.selectedBlockType.texturePath); 
 
-      // Dopasuj liczbę klocków w grupie (zamiast kasować i tworzyć od zera)
       while (this.previewLineGroup.children.length > points.length) {
           this.previewLineGroup.remove(this.previewLineGroup.children[this.previewLineGroup.children.length - 1]);
       }
@@ -498,14 +499,13 @@ export class BuildManager {
           this.previewLineGroup.add(mesh);
       }
 
-      // Aktualizuj pozycje i współdzielony materiał
       for (let i = 0; i < points.length; i++) {
           const mesh = this.previewLineGroup.children[i];
           mesh.position.copy(points[i]);
           if (mesh.material !== mat) {
               mesh.material = mat;
           }
-      }
+      } 
   }
 
   placeLine() { 
@@ -596,7 +596,6 @@ export class BuildManager {
   createPreviewBlock() { 
       if(!this.selectedBlockType) return; 
       const previewGeo=new THREE.BoxGeometry(1.01,1.01,1.01); 
-      // POPRAWKA: Użycie cache'owanego materiału zamiast klonowania
       const previewMat=this.getBlockPreviewMaterial(this.selectedBlockType.texturePath); 
       this.previewBlock=new THREE.Mesh(previewGeo,previewMat); 
       this.previewBlock.visible=false; 
@@ -626,19 +625,28 @@ export class BuildManager {
           while(this.previewPrefab.children.length){ this.previewPrefab.remove(this.previewPrefab.children[0]); } 
           this.selectedPrefabData.forEach(blockData=>{ 
               const geo=this.sharedBoxGeometry; 
-              // POPRAWKA: Użycie materiałów z cache
               const mat=this.getBlockPreviewMaterial(blockData.texturePath); 
               const block=new THREE.Mesh(geo,mat); 
               block.position.set(blockData.x,blockData.y,blockData.z); 
               this.previewPrefab.add(block); 
           }); 
           this.previewPrefab.visible=true; 
-      }
+      } 
       
       if(this.previewBlock) this.previewBlock.visible=false; 
   }
   
-  toggleCameraMode() { const button=document.getElementById('build-mode-toggle-new'); if(this.cameraController.mode==='orbital'){ this.cameraController.setMode('free'); button.textContent='Tryb: Zaawansowany'; } else { this.cameraController.setMode('orbital'); button.textContent='Tryb: Łatwy'; } }
+  toggleCameraMode() { 
+      if (!this.cameraController) return;
+      const button=document.getElementById('build-mode-toggle-new'); 
+      if(this.cameraController.mode==='orbital'){ 
+          this.cameraController.setMode('free'); 
+          button.textContent='Tryb: Zaawansowany'; 
+      } else { 
+          this.cameraController.setMode('orbital'); 
+          button.textContent='Tryb: Łatwy'; 
+      } 
+  }
   
   removeBuildEventListeners() { 
       window.removeEventListener('mousemove',this.onMouseMove); 
@@ -648,14 +656,27 @@ export class BuildManager {
       window.removeEventListener('touchstart',this.onTouchStart); 
       window.removeEventListener('touchend',this.onTouchEnd); 
       window.removeEventListener('touchmove',this.onTouchMove); 
-      document.getElementById('build-exit-btn-new').onclick=null; 
-      document.getElementById('build-mode-toggle-new').onclick=null; 
-      document.getElementById('build-add-btn-new').onclick=null; 
-      document.getElementById('build-save-btn-new').onclick=null; 
-      document.getElementById('add-choice-blocks').onclick=null; 
-      document.getElementById('add-choice-prefabs').onclick=null; 
-      document.getElementById('add-choice-close').onclick=null; 
-      if(this.cameraController) this.cameraController.destroy(); 
+      
+      const exitBtn = document.getElementById('build-exit-btn-new');
+      if (exitBtn) exitBtn.onclick = null;
+      const toggleBtn = document.getElementById('build-mode-toggle-new');
+      if (toggleBtn) toggleBtn.onclick = null;
+      const addBtn = document.getElementById('build-add-btn-new');
+      if (addBtn) addBtn.onclick = null;
+      const saveBtn = document.getElementById('build-save-btn-new');
+      if (saveBtn) saveBtn.onclick = null;
+      const addBlocks = document.getElementById('add-choice-blocks');
+      if (addBlocks) addBlocks.onclick = null;
+      const addPrefabs = document.getElementById('add-choice-prefabs');
+      if (addPrefabs) addPrefabs.onclick = null;
+      const addClose = document.getElementById('add-choice-close');
+      if (addClose) addClose.onclick = null;
+
+      // PRAWIDŁOWE ZWALNIANIE KONTROLERA KAMERY
+      if (this.cameraController) {
+          this.cameraController.destroy();
+          this.cameraController = null;
+      }
   }
   
   onMouseMove(e) { 
@@ -809,7 +830,9 @@ export class BuildManager {
 
   update(deltaTime) { 
       if(!this.isActive) return; 
-      this.cameraController.update(deltaTime); 
+      if (this.cameraController) {
+          this.cameraController.update(deltaTime); 
+      }
       if(!this.isDraggingLine){ 
           this.updateRaycast(); 
       } 
@@ -1017,7 +1040,10 @@ export class BuildManager {
     this.isDraggingLine = false;
     this.dragStartPos = null;
     this.lastLineTargetPos = null;
+    
+    // Zdejmuje listenery i niszczy kontroler kamery
     this.removeBuildEventListeners();
+    
     this.collidableBuildObjects = [];
     this.placedBlocks = [];
     
