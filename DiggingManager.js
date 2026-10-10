@@ -1,4 +1,4 @@
-/* PLIK: DiggingManager.js - Z EFEKTYWNYM USUWANIEM BLOKÓW I POPRAWIONYM ZARZĄDZANIEM PAMIĘCIĄ */
+/* PLIK: DiggingManager.js - ZOPTYMALIZOWANY RAYCASTING I OBSŁUGA PAMIĘCI */
 
 import * as THREE from 'three';
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
@@ -513,7 +513,12 @@ export class DiggingManager {
         this.activeChunks = new Set(); // aktualnie widoczne chunki
         this.lastPlayerChunk = null; // ostatni chunk w którym był gracz
         
-        // Geometria dla wszystkich chunków (współdzielona)
+        // ZOPTYMALIZOWANA PAMIĘĆ RAYCASTINGU I GEOMETRII
+        this.cachedVisibleMeshes = [];
+        this.lastRaycastMoveTime = 0;
+        this.tempRaycastMatrix = new THREE.Matrix4();
+        this.tempRaycastPosition = new THREE.Vector3();
+        
         this.sharedGeometry = new THREE.BoxGeometry(1, 1, 1);
         this.dummy = new THREE.Object3D();
         
@@ -548,8 +553,9 @@ export class DiggingManager {
         this.miningTotalTime = 0;
         this.miningInterval = null;
         
-        // Raycaster
+        // Raycaster z ograniczonym zasięgiem (zamiast Infinity)
         this.raycaster = new THREE.Raycaster();
+        this.raycaster.far = 60;
         this.mouse = new THREE.Vector2();
         
         // Inne
@@ -687,6 +693,22 @@ export class DiggingManager {
         return { cx, cy, cz, key: `${cx},${cy},${cz}` };
     }
     
+    // Aktualizuje listę widocznych meshy jednorazowo przy zmianie chunka
+    updateCachedVisibleMeshes() {
+        this.cachedVisibleMeshes.length = 0;
+        this.activeChunks.forEach(chunkKey => {
+            const chunk = this.chunks.get(chunkKey);
+            if (chunk && chunk.meshes) {
+                for (let i = 0; i < chunk.meshes.length; i++) {
+                    const mesh = chunk.meshes[i];
+                    if (mesh && mesh.visible) {
+                        this.cachedVisibleMeshes.push(mesh);
+                    }
+                }
+            }
+        });
+    }
+
     updateVisibleChunks() {
         const playerChunk = this.getChunkKeyFromPlayer(this.playerPos);
         if (this.lastPlayerChunk === playerChunk.key) return;
@@ -732,6 +754,9 @@ export class DiggingManager {
         });
         
         this.activeChunks = shouldBeVisible;
+        
+        // ZOPTYMALIZOWANA AKTUALIZACJA: Przelicz listę meshy raz na zmianę chunka
+        this.updateCachedVisibleMeshes();
     }
     
     async startDiggingMode() {
@@ -998,7 +1023,6 @@ export class DiggingManager {
             const color = COLORS[type] || 0x808080;
             
             const material = new THREE.MeshBasicMaterial({ color });
-            // POPRAWKA: użycie this.sharedGeometry zamiast niezdefiniowanego this.geometry
             const mesh = new THREE.InstancedMesh(this.sharedGeometry, material, count);
             
             mesh.castShadow = true;
@@ -1037,16 +1061,7 @@ export class DiggingManager {
     }
     
     getAllVisibleCollidables() {
-        const collidables = [];
-        this.activeChunks.forEach(chunkKey => {
-            const chunk = this.chunks.get(chunkKey);
-            if (chunk && chunk.meshes) {
-                chunk.meshes.forEach(mesh => {
-                    if (mesh) collidables.push(mesh);
-                });
-            }
-        });
-        return collidables;
+        return this.cachedVisibleMeshes;
     }
     
     clearAllChunks() {
@@ -1054,7 +1069,6 @@ export class DiggingManager {
             if (chunk.meshes) {
                 chunk.meshes.forEach(mesh => {
                     this.scene.remove(mesh);
-                    // POPRAWKA: InstancedMesh nie ma metody dispose(), czyścimy tylko unikalny materiał
                     if (mesh.material) {
                         if (Array.isArray(mesh.material)) {
                             mesh.material.forEach(m => m.dispose());
@@ -1070,6 +1084,7 @@ export class DiggingManager {
         this.chunkData.clear();
         this.collisionMap.clear();
         this.activeChunks.clear();
+        this.cachedVisibleMeshes.length = 0;
         this.lastPlayerChunk = null;
     }
     
@@ -1164,7 +1179,12 @@ export class DiggingManager {
                 if (meshIndex !== -1) {
                     chunk.meshes.splice(meshIndex, 1);
                     this.scene.remove(mesh);
-                    // POPRAWKA: Zwalniamy materiał pustego mesha bez błędu mesh.dispose()
+                    
+                    const cacheIdx = this.cachedVisibleMeshes.indexOf(mesh);
+                    if (cacheIdx !== -1) {
+                        this.cachedVisibleMeshes.splice(cacheIdx, 1);
+                    }
+                    
                     if (mesh.material) {
                         if (Array.isArray(mesh.material)) {
                             mesh.material.forEach(m => m.dispose());
@@ -1183,31 +1203,28 @@ export class DiggingManager {
         return true;
     }
     
+    // ZOPTYMALIZOWANY RAYCASTING: Zero alokacji pamięci, brak pętli zbierającej meshe, recursive=false
     getBlockUnderCursor() {
+        if (this.cachedVisibleMeshes.length === 0) return null;
+
         this.raycaster.setFromCamera(this.mouse, this.game.camera);
         
-        const visibleMeshes = [];
-        this.activeChunks.forEach(chunkKey => {
-            const chunk = this.chunks.get(chunkKey);
-            if (chunk && chunk.meshes) {
-                chunk.meshes.forEach(mesh => visibleMeshes.push(mesh));
-            }
-        });
-        
-        const intersects = this.raycaster.intersectObjects(visibleMeshes);
+        const intersects = this.raycaster.intersectObjects(this.cachedVisibleMeshes, false);
         if (intersects.length === 0) return null;
         
-        for (const hit of intersects) {
+        for (let i = 0; i < intersects.length; i++) {
+            const hit = intersects[i];
             const mesh = hit.object;
             const instanceIndex = hit.instanceId;
+            if (instanceIndex === undefined || instanceIndex < 0) continue;
             
-            const matrix = new THREE.Matrix4();
-            mesh.getMatrixAt(instanceIndex, matrix);
-            const position = new THREE.Vector3().setFromMatrixPosition(matrix);
+            // Użycie współdzielonej macierzy i wektora (zero śmieci dla GC)
+            mesh.getMatrixAt(instanceIndex, this.tempRaycastMatrix);
+            this.tempRaycastPosition.setFromMatrixPosition(this.tempRaycastMatrix);
             
-            const x = Math.round(position.x);
-            const y = Math.round(position.y);
-            const z = Math.round(position.z);
+            const x = Math.round(this.tempRaycastPosition.x);
+            const y = Math.round(this.tempRaycastPosition.y);
+            const z = Math.round(this.tempRaycastPosition.z);
             const key = `${x},${y},${z}`;
             
             if (!this.chunkData.has(key)) continue;
@@ -1230,7 +1247,12 @@ export class DiggingManager {
         this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         
+        // ZOPTYMALIZOWANY THROTTLING: max 1 test na 50ms (20 FPS) zamiast setek na sekundę
         if (this.isMining && this.isMiningPressed) {
+            const now = performance.now();
+            if (now - this.lastRaycastMoveTime < 50) return;
+            this.lastRaycastMoveTime = now;
+
             const currentTarget = this.getBlockUnderCursor();
             if (!currentTarget || currentTarget.key !== this.miningTargetKey) {
                 this.stopMining();
@@ -1459,3 +1481,358 @@ export class DiggingManager {
                 this.ws.send(JSON.stringify({
                     type: 'blockMined',
                     x: block.x,
+                    y: block.y,
+                    z: block.z,
+                    crystal: block.crystal
+                }));
+            });
+        }
+        
+        this.dynamite--;
+        
+        if (crystalsFound > 0) {
+            this.ui.showMessage(`Dynamit! Znaleziono kryształy o wartości ${crystalsFound} Zoins!`, "success");
+        }
+        
+        this.updateUI();
+    }
+    
+    redeemCrystals() {
+        const depth = this.worldHeight - 1 - this.playerPos.y;
+        if (depth > 2) {
+            this.ui.showMessage("Musisz być na powierzchni przy Ziggi!", "error");
+            return;
+        }
+        
+        if (this.crystals.length === 0) {
+            this.ui.showMessage("Nie masz kryształów!", "error");
+            return;
+        }
+        
+        let totalValue = 0;
+        this.crystals.forEach(c => totalValue += c.value);
+        
+        this.zoins += totalValue;
+        this.score += totalValue;
+        this.crystals = [];
+        
+        this.ui.showMessage(`Zredeemowano! Zdobyto: ${totalValue} Zoins!`, "success");
+        this.updateUI();
+    }
+    
+    upgradeLaser() {
+        if (this.laserLevel >= LASER_UPGRADES.length - 1) {
+            this.ui.showMessage("Maksymalny laser!", "error");
+            return;
+        }
+        
+        const next = LASER_UPGRADES[this.laserLevel + 1];
+        if (this.zoins < next.cost) {
+            this.ui.showMessage(`Potrzebujesz ${next.cost} Zoins!`, "error");
+            return;
+        }
+        
+        this.zoins -= next.cost;
+        this.laserLevel++;
+        this.ui.showMessage(`Ulepszono do: ${next.name}!`, "success");
+        this.updateUI();
+    }
+    
+    upgradeStorage() {
+        if (this.storageLevel >= STORAGE_UPGRADES.length - 1) {
+            this.ui.showMessage("Maksymalny ekwipunek!", "error");
+            return;
+        }
+        
+        const next = STORAGE_UPGRADES[this.storageLevel + 1];
+        if (this.zoins < next.cost) {
+            this.ui.showMessage(`Potrzebujesz ${next.cost} Zoins!`, "error");
+            return;
+        }
+        
+        this.zoins -= next.cost;
+        this.storageLevel++;
+        this.ui.showMessage(`Ulepszono do: ${next.name}! Pojemność: ${next.capacity}`, "success");
+        this.updateUI();
+    }
+    
+    startTimer() {
+        if (this.timerInterval) clearInterval(this.timerInterval);
+        
+        this.timerInterval = setInterval(() => {
+            this.timeRemaining--;
+            
+            const mins = Math.floor(this.timeRemaining / 60);
+            const secs = this.timeRemaining % 60;
+            const timerEl = document.getElementById('dig-timer');
+            if (timerEl) {
+                timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+            
+            if (this.timeRemaining <= 0) {
+                this.endRound();
+            }
+        }, 1000);
+    }
+    
+    async submitDiggingResults() {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            return;
+        }
+        
+        const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/digging/complete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    score: this.score,
+                    depth: this.worldHeight - 1 - this.playerPos.y,
+                    crystals: this.crystals.length,
+                    zoins: this.zoins,
+                    xpReward: Math.floor(this.score / 10),
+                    coinReward: Math.floor(this.score / 5)
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.levelUp) {
+                    this.ui.showMessage(`Awans na poziom ${data.newLevel}!`, 'success');
+                }
+                if (this.ui.updateLevelInfo) {
+                    this.ui.updateLevelInfo(data.newLevel, data.newXp, data.maxXp);
+                }
+                if (this.ui.updateCoinCounter) {
+                    this.ui.updateCoinCounter(data.newCoins);
+                }
+            }
+        } catch (error) {
+            console.error("Error submitting digging results:", error);
+        }
+    }
+    
+    endRound() {
+        clearInterval(this.timerInterval);
+        clearInterval(this.miningInterval);
+        this.isActive = false;
+        
+        const xpReward = Math.floor(this.score / 10);
+        const coinReward = Math.floor(this.score / 5);
+        
+        this.submitDiggingResults();
+        
+        this.ui.showMessage(`Koniec rundy! Zdobyto: ${this.score} punktów!`, "success");
+        this.ui.showMessage(`Nagroda: ${xpReward} XP, ${coinReward} monet!`, "success");
+        
+        setTimeout(() => this.exitDiggingMode(), 5000);
+    }
+    
+    exitDiggingMode() {
+        this.isActive = false;
+        this.isMiningPressed = false;
+        this.stopMining();
+        
+        clearInterval(this.timerInterval);
+        clearInterval(this.miningInterval);
+        clearTimeout(this.lavaWarningTimer);
+        
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ type: 'leaveDigging' }));
+            this.ws.close();
+        }
+        
+        window.removeEventListener('mousedown', this.onMouseDown);
+        window.removeEventListener('mouseup', this.onMouseUp);
+        window.removeEventListener('mousemove', this.onMouseMove);
+        window.removeEventListener('contextmenu', this.onContextMenu);
+        
+        if (this.game.characterManager?.character) {
+            this.scene.remove(this.game.characterManager.character);
+            if (this.game.characterManager.shadow) {
+                this.scene.remove(this.game.characterManager.shadow);
+            }
+            this.game.scene.add(this.game.characterManager.character);
+            if (this.game.characterManager.shadow) {
+                this.game.scene.add(this.game.characterManager.shadow);
+            }
+        }
+        
+        if (this.game.characterManager?.character && this.originalPlayerPos) {
+            this.game.characterManager.character.position.copy(this.originalPlayerPos);
+        }
+        
+        this.clearAllChunks();
+        
+        if (this.skyMesh) {
+            this.scene.remove(this.skyMesh);
+            if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
+            if (this.skyMesh.material) {
+                if (Array.isArray(this.skyMesh.material)) {
+                    this.skyMesh.material.forEach(m => m.dispose());
+                } else {
+                    this.skyMesh.material.dispose();
+                }
+            }
+            this.skyMesh = null;
+        }
+        
+        this.remotePlayers.forEach(player => {
+            this.scene.remove(player.mesh);
+            if (player.mesh.geometry) player.mesh.geometry.dispose();
+            if (player.mesh.material) {
+                if (Array.isArray(player.mesh.material)) {
+                    player.mesh.material.forEach(m => m.dispose());
+                } else {
+                    player.mesh.material.dispose();
+                }
+            }
+        });
+        this.remotePlayers.clear();
+        
+        if (this.game.playerController) {
+            this.game.playerController.collidableObjects = this.originalCollidables;
+            this.game.playerController.collisionMap = this.originalCollisionMap;
+        }
+        
+        if (this.game.cameraController) {
+            this.game.cameraController.collidableObjects = this.originalCollidables;
+        }
+        
+        document.getElementById('digging-ui-container').style.display = 'none';
+        document.querySelector('.ui-overlay').style.display = 'block';
+        
+        if (this.game.isMobile) {
+            document.getElementById('joystick-zone').style.display = 'block';
+        }
+        
+        const jumpButton = document.getElementById('jump-button');
+        if (jumpButton) {
+            jumpButton.style.display = this.game.isMobile ? 'block' : 'none';
+        }
+    }
+    
+    cleanup() {
+        this.exitDiggingMode();
+    }
+    
+    takeDamage(amount) {
+        this.health = Math.max(0, this.health - amount);
+        this.updateUI();
+        
+        if (this.health <= 0) {
+            this.die();
+        }
+    }
+    
+    die() {
+        const droppedValue = this.crystals.reduce((sum, c) => sum + c.value, 0);
+        this.crystals = [];
+        
+        this.playerPos.set(0, this.worldHeight - 1, 0);
+        if (this.game.characterManager?.character) {
+            this.game.characterManager.character.position.copy(this.playerPos);
+        }
+        this.health = this.maxHealth;
+        
+        this.ui.showMessage(`Zginąłeś! Straciłeś kryształy o wartości ${droppedValue} Zoins!`, "error");
+        this.updateUI();
+    }
+    
+    updateUI() {
+        const maxCap = STORAGE_UPGRADES[this.storageLevel].capacity;
+        const laser = LASER_UPGRADES[this.laserLevel];
+        
+        const crystalCount = document.getElementById('dig-crystal-count');
+        const crystalMax = document.getElementById('dig-crystal-max');
+        const crystalBar = document.getElementById('dig-crystal-bar');
+        
+        if (crystalCount) crystalCount.textContent = this.crystals.length;
+        if (crystalMax) crystalMax.textContent = maxCap;
+        if (crystalBar) crystalBar.style.width = `${(this.crystals.length / maxCap) * 100}%`;
+        
+        const zoinsEl = document.getElementById('dig-zoins');
+        if (zoinsEl) zoinsEl.textContent = this.zoins;
+        
+        const dynamiteEl = document.getElementById('dig-dynamite-count');
+        if (dynamiteEl) dynamiteEl.textContent = this.dynamite;
+        
+        const healthBar = document.getElementById('dig-health-bar');
+        const healthText = document.getElementById('dig-health-text');
+        if (healthBar) healthBar.style.width = `${(this.health / this.maxHealth) * 100}%`;
+        if (healthText) healthText.textContent = `${this.health}/${this.maxHealth}`;
+        
+        const laserName = document.getElementById('dig-laser-name');
+        const laserPower = document.getElementById('dig-laser-power');
+        if (laserName) laserName.textContent = laser.name;
+        if (laserPower) laserPower.textContent = `${Math.round(laser.power * 100)}%`;
+        
+        const storageName = document.getElementById('dig-storage-name');
+        const storageCapacity = document.getElementById('dig-storage-capacity');
+        if (storageName) storageName.textContent = STORAGE_UPGRADES[this.storageLevel].name;
+        if (storageCapacity) storageCapacity.textContent = maxCap;
+        
+        const depthEl = document.getElementById('dig-depth');
+        if (depthEl) {
+            const depth = this.worldHeight - 1 - this.playerPos.y;
+            depthEl.textContent = `${depth}m`;
+        }
+    }
+    
+    update(deltaTime) {
+        if (!this.isActive) return;
+        
+        if (this.playerLight) {
+            this.playerLight.position.copy(this.playerPos);
+        }
+        
+        if (this.game.characterManager?.character) {
+            const oldPos = this.playerPos.clone();
+            this.playerPos.copy(this.game.characterManager.character.position);
+            
+            const oldChunk = this.getChunkKeyFromPosition(oldPos.x, oldPos.y, oldPos.z);
+            const newChunk = this.getChunkKeyFromPosition(this.playerPos.x, this.playerPos.y, this.playerPos.z);
+            
+            if (oldChunk !== newChunk) {
+                this.updateVisibleChunks();
+                
+                if (this.game.playerController) {
+                    this.game.playerController.collidableObjects = this.getAllVisibleCollidables();
+                }
+                if (this.game.cameraController) {
+                    this.game.cameraController.collidableObjects = this.getAllVisibleCollidables();
+                }
+            }
+            
+            const depth = this.worldHeight - 1 - this.playerPos.y;
+            const depthEl = document.getElementById('dig-depth');
+            if (depthEl) depthEl.textContent = `${depth}m`;
+            
+            const key = `${Math.floor(this.playerPos.x)},${Math.floor(this.playerPos.y)},${Math.floor(this.playerPos.z)}`;
+            const block = this.chunkData.get(key);
+            if (block && block.type === 'lava' && !this.lavaSurgeActive) {
+                this.takeDamage(1);
+            }
+            
+            if (this.ws && this.ws.readyState === WebSocket.OPEN && Math.random() < 0.1) {
+                this.ws.send(JSON.stringify({
+                    type: 'playerMove',
+                    position: {
+                        x: this.playerPos.x,
+                        y: this.playerPos.y,
+                        z: this.playerPos.z
+                    },
+                    rotation: this.game.characterManager.character.quaternion
+                }));
+            }
+        }
+        
+        this.remotePlayers.forEach(player => {
+            player.mesh.position.lerp(player.position, 0.1);
+        });
+    }
+}
