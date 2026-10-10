@@ -1,14 +1,9 @@
 /* PLIK: ProfileManager.js */
 
-import * as THREE from 'three';
-import { createBaseCharacter } from './character.js';
 import { SkinStorage } from './SkinStorage.js';
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
-import { FriendsManager } from './FriendsManager.js';
-import { MailManager } from './MailManager.js';
-import { WallManager } from './WallManager.js';
+import { modalPreview } from './ModalPreview.js';
 
-// Szablon HTML dla własnego profilu
 const PLAYER_PROFILE_TEMPLATE = `
     <style>
         #player-profile-panel .panel-content {
@@ -73,7 +68,6 @@ const PLAYER_PROFILE_TEMPLATE = `
     </div>
 `;
 
-// Szablon HTML dla profilu innego gracza
 const OTHER_PLAYER_PROFILE_TEMPLATE = `
     <style>
         #other-player-profile-panel .panel-content { background: transparent !important; box-shadow: none !important; border: none !important; padding: 0 !important; width: auto !important; height: auto !important; pointer-events: auto; display: flex; justify-content: center; align-items: center; }
@@ -138,27 +132,15 @@ export class ProfileManager {
     constructor(uiManager) {
         this.ui = uiManager;
         
-        // Elementy DOM
         this.playerProfilePanel = null;
         this.otherProfilePanel = null;
-        
-        // Preview 3D
-        this.sharedPreviewRenderer = null;
-        this.previewScene = null;
-        this.previewCamera = null;
-        this.previewCharacter = null;
-        this.previewAnimId = null;
-        
-        // Dane profilu
         this.myProfileData = null;
         
-        // Callbacki
         this.onOpenWall = null;
         this.onOpenChat = null;
         this.onSendSmile = null;
         this.onFriendAction = null;
         
-        // Bindowanie
         this.closePlayerProfile = this.closePlayerProfile.bind(this);
         this.closeOtherProfile = this.closeOtherProfile.bind(this);
     }
@@ -173,44 +155,10 @@ export class ProfileManager {
         this.playerProfilePanel = document.getElementById('player-profile-panel');
         this.otherProfilePanel = document.getElementById('other-player-profile-panel');
         
-        this.initPreviewRenderer();
         this.setupEventListeners();
     }
     
-    initPreviewRenderer() {
-        this.sharedPreviewRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
-        this.sharedPreviewRenderer.setSize(300, 300);
-        this.sharedPreviewRenderer.setPixelRatio(window.devicePixelRatio);
-        
-        this.previewScene = new THREE.Scene();
-        this.previewCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-        this.previewCamera.position.set(0, 1, 6);
-        this.previewCamera.lookAt(0, 0.5, 0);
-        
-        const ambient = new THREE.AmbientLight(0xffffff, 0.9);
-        this.previewScene.add(ambient);
-        const directional = new THREE.DirectionalLight(0xffffff, 0.6);
-        directional.position.set(2, 5, 3);
-        this.previewScene.add(directional);
-        
-        this.previewCharacter = new THREE.Group();
-        if (typeof createBaseCharacter !== 'undefined') {
-            createBaseCharacter(this.previewCharacter);
-        }
-        this.previewScene.add(this.previewCharacter);
-        
-        const animate = () => {
-            this.previewAnimId = requestAnimationFrame(animate);
-            if (this.previewCharacter && this.sharedPreviewRenderer.domElement.parentNode) {
-                this.previewCharacter.rotation.y += 0.01;
-                this.sharedPreviewRenderer.render(this.previewScene, this.previewCamera);
-            }
-        };
-        animate();
-    }
-    
     setupEventListeners() {
-        // Zamknięcie własnego profilu
         if (this.playerProfilePanel) {
             this.playerProfilePanel.addEventListener('click', (e) => {
                 if (e.target === this.playerProfilePanel) this.closePlayerProfile();
@@ -219,7 +167,6 @@ export class ProfileManager {
             const closeBtn = this.playerProfilePanel.querySelector('.nav-arrow.left');
             if (closeBtn) closeBtn.onclick = this.closePlayerProfile;
             
-            // Przycisk ściany
             const wallBtn = document.getElementById('btn-profile-wall');
             if (wallBtn) {
                 wallBtn.onclick = () => {
@@ -233,7 +180,6 @@ export class ProfileManager {
             }
         }
         
-        // Zamknięcie profilu innego gracza
         if (this.otherProfilePanel) {
             this.otherProfilePanel.addEventListener('click', (e) => {
                 if (e.target === this.otherProfilePanel) this.closeOtherProfile();
@@ -241,71 +187,6 @@ export class ProfileManager {
             
             const closeBtn = document.getElementById('btn-other-profile-close');
             if (closeBtn) closeBtn.onclick = this.closeOtherProfile;
-        }
-    }
-    
-    attachPreviewTo(containerId, characterYOffset = 0, scale = 1) {
-        const container = document.getElementById(containerId);
-        if (!container || !this.sharedPreviewRenderer) return;
-        
-        container.innerHTML = '';
-        
-        const width = container.clientWidth || 300;
-        const height = container.clientHeight || 300;
-        this.sharedPreviewRenderer.setSize(width, height);
-        this.previewCamera.aspect = width / height;
-        this.previewCamera.updateProjectionMatrix();
-        
-        container.appendChild(this.sharedPreviewRenderer.domElement);
-        
-        this.previewCharacter.position.y = characterYOffset;
-        this.previewCharacter.scale.setScalar(scale);
-        this.previewCharacter.rotation.y = 0;
-        
-        // Usuń stare skiny
-        for (let i = this.previewCharacter.children.length - 1; i >= 0; i--) {
-            const child = this.previewCharacter.children[i];
-            if (child.type === 'Group') {
-                this.previewCharacter.remove(child);
-            }
-        }
-    }
-    
-    applySkinToPreview(blocksData) {
-        // Usuń stare skiny
-        for (let i = this.previewCharacter.children.length - 1; i >= 0; i--) {
-            const child = this.previewCharacter.children[i];
-            if (child.type === 'Group') {
-                this.previewCharacter.remove(child);
-            }
-        }
-        
-        if (!blocksData) return;
-        
-        const loader = new THREE.TextureLoader();
-        const blockGroup = new THREE.Group();
-        blockGroup.scale.setScalar(0.125);
-        blockGroup.position.y = 0.5;
-        
-        blocksData.forEach(b => {
-            const geometry = new THREE.BoxGeometry(1, 1, 1);
-            const material = new THREE.MeshBasicMaterial({ map: loader.load(b.texturePath) });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(b.x, b.y, b.z);
-            blockGroup.add(mesh);
-        });
-        
-        this.previewCharacter.add(blockGroup);
-    }
-    
-    disposePreview() {
-        if (this.previewCharacter) {
-            for (let i = this.previewCharacter.children.length - 1; i >= 0; i--) {
-                const child = this.previewCharacter.children[i];
-                if (child.type === 'Group') {
-                    this.previewCharacter.remove(child);
-                }
-            }
         }
     }
     
@@ -321,7 +202,7 @@ export class ProfileManager {
         this.ui.bringToFront(this.playerProfilePanel);
         this.playerProfilePanel.style.display = 'flex';
         
-        this.attachPreviewTo('profile-preview-canvas', -1, 1.5);
+        modalPreview.attachTo('profile-preview-canvas', -1, 1.5);
         
         const nameEl = document.getElementById('profile-username');
         const lvlEl = document.getElementById('profile-level-val');
@@ -350,7 +231,7 @@ export class ProfileManager {
         const skinId = SkinStorage.getLastUsedSkinId();
         if (skinId) {
             const blocks = await SkinStorage.loadSkinData(skinId);
-            this.applySkinToPreview(blocks);
+            modalPreview.applySkin(blocks);
         }
     }
     
@@ -358,7 +239,7 @@ export class ProfileManager {
         if (this.playerProfilePanel) {
             this.playerProfilePanel.style.display = 'none';
         }
-        this.disposePreview();
+        modalPreview.stop();
     }
     
     async openOtherPlayerProfile(username) {
@@ -373,7 +254,7 @@ export class ProfileManager {
         this.ui.bringToFront(this.otherProfilePanel);
         this.otherProfilePanel.style.display = 'flex';
         
-        this.attachPreviewTo('other-player-preview-canvas', -1.2, 1.5);
+        modalPreview.attachTo('other-player-preview-canvas', -1.2, 1.5);
         
         document.getElementById('other-profile-username').textContent = username;
         document.getElementById('other-profile-level').textContent = "...";
@@ -399,7 +280,6 @@ export class ProfileManager {
                 await this.loadSkinForPreview(userId);
             } else {
                 document.getElementById('other-profile-date').textContent = "Nie znaleziono gracza";
-                const statusDot = document.getElementById('other-profile-status');
                 if (statusDot) statusDot.style.display = 'none';
             }
         } catch (error) {
@@ -412,7 +292,7 @@ export class ProfileManager {
         if (this.otherProfilePanel) {
             this.otherProfilePanel.style.display = 'none';
         }
-        this.disposePreview();
+        modalPreview.stop();
     }
     
     async loadSkinForPreview(userId) {
@@ -426,7 +306,7 @@ export class ProfileManager {
                 if (wallData.skins && wallData.skins.length > 0) {
                     const skinId = wallData.skins[0].id;
                     const blocks = await SkinStorage.loadSkinData(skinId);
-                    this.applySkinToPreview(blocks);
+                    modalPreview.applySkin(blocks);
                 }
             }
         } catch (error) {
@@ -435,8 +315,6 @@ export class ProfileManager {
     }
     
     updateFriendStatusUI(userId) {
-        // Ta metoda będzie aktualizowana z zewnątrz przez przyjaźni
-        // Placeholder - zostanie nadpisany przez callback
         const statusDot = document.getElementById('other-profile-status');
         const actionBtn = document.getElementById('btn-other-friend-action');
         
@@ -446,11 +324,8 @@ export class ProfileManager {
             if (isFriend) {
                 if (statusDot) {
                     statusDot.style.display = 'block';
-                    if (isOnline) {
-                        statusDot.classList.remove('offline');
-                    } else {
-                        statusDot.classList.add('offline');
-                    }
+                    if (isOnline) statusDot.classList.remove('offline');
+                    else statusDot.classList.add('offline');
                 }
                 if (actionBtn) {
                     actionBtn.style.background = 'linear-gradient(to bottom, #e74c3c, #c0392b)';
@@ -527,12 +402,7 @@ export class ProfileManager {
     }
     
     cleanup() {
-        if (this.previewAnimId) {
-            cancelAnimationFrame(this.previewAnimId);
-        }
-        if (this.sharedPreviewRenderer) {
-            this.sharedPreviewRenderer.dispose();
-        }
+        modalPreview.stop();
         if (this.playerProfilePanel) this.playerProfilePanel.remove();
         if (this.otherProfilePanel) this.otherProfilePanel.remove();
     }
