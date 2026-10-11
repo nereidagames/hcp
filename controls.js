@@ -15,7 +15,7 @@ export class PlayerController {
     this.groundRestingY = options.groundRestingY !== undefined ? options.groundRestingY : 0.1;
     this.defaultGroundRestingY = this.groundRestingY;
 
-    // Maksymalna wysokość schodka: dokładnie 1 blok (1.0) z małym marginesem 0.05
+    // Maksymalna wysokość schodka: dokładnie 1 blok (1.0) z marginesem 0.05
     this.maxStepHeight = options.maxStepHeight || 1.05; 
     this.playerDimensions = options.playerDimensions || new THREE.Vector3(0.5, 1.0, 0.5);
 
@@ -47,10 +47,13 @@ export class PlayerController {
     this.boxPoolIndex = 0;
     this.boxUnitSize = new THREE.Vector3(1, 1, 1);
 
-    // Pomocnicze zmienne do testowania schodków bez alokacji pamięci
+    // Zmienne do testowania schodków
     this.tempMatrix = new THREE.Matrix4();
     this.tempPosition = new THREE.Vector3();
     this.tempBox = new THREE.Box3();
+
+    // Offset wizualny do płynnej animacji wejścia na schodek (Smooth Step-Up)
+    this.stepVisualOffset = 0;
     
     this.setupInput();
   }
@@ -133,6 +136,11 @@ export class PlayerController {
   }
 
   reset() {
+      // Przywrócenie czystej pozycji przed resetem
+      if (this.stepVisualOffset !== 0) {
+          this.player.position.y -= this.stepVisualOffset;
+          this.stepVisualOffset = 0;
+      }
       this.keys = {};
       this.velocity.set(0, 0, 0);
       this.joystickDirection.set(0, 0);
@@ -149,9 +157,15 @@ export class PlayerController {
   }
   
   update(deltaTime, cameraRotation) {
+    // 1. Zawsze przywróć fizyczną pozycję przed wykonaniem obliczeń fizyki
+    if (this.stepVisualOffset !== 0) {
+        this.player.position.y -= this.stepVisualOffset;
+    }
+
     if (!this.enabled) {
         this.velocity.x = 0;
         this.velocity.z = 0;
+        this.stepVisualOffset = 0;
         return;
     }
 
@@ -198,7 +212,22 @@ export class PlayerController {
         this.velocity.z += (targetVZ - this.velocity.z) * airControlFactor;
     }
 
+    // 2. Obliczenia fizyki i kolizji
     this.applyMovementAndCollisions(timeStep);
+
+    // 3. Płynna animacja podnoszenia postaci (Smooth Step-Up Decay)
+    if (this.stepVisualOffset !== 0) {
+        // Zanik offsetu w czasie ok. 0.12 - 0.15s
+        const decay = Math.exp(-18 * timeStep);
+        this.stepVisualOffset *= decay;
+        
+        if (Math.abs(this.stepVisualOffset) < 0.005) {
+            this.stepVisualOffset = 0;
+        } else {
+            // Aplikacja wygładzonej pozycji Y do renderowania modelu i kamery
+            this.player.position.y += this.stepVisualOffset;
+        }
+    }
   }
 
   getInstanceBoundingBox(mesh, instanceId) {
@@ -291,7 +320,7 @@ export class PlayerController {
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
     // ==========================================
-    // --- OŚ X (Ruch poziomy X + Autostep 1x1) ---
+    // --- OŚ X (Ruch poziomy X + Płynny Autostep 1x1) ---
     // ==========================================
     const horizontalMovementX = this.velocity.x * deltaTime;
     if (Math.abs(horizontalMovementX) > 0.00001) {
@@ -300,7 +329,6 @@ export class PlayerController {
 
         let collidedX = false;
         let maxStepNeeded = 0;
-        // Wchodzenie po schodkach dozwolone tylko, gdy gracz stoi stabilnie na ziemi
         let canStepUp = this.isOnGround && this.velocity.y <= 0.05;
         const feetY = this.player.position.y - halfHeight;
 
@@ -320,14 +348,12 @@ export class PlayerController {
         if (collidedX) {
             let stepped = false;
 
-            // Próbuj wejść na schodek TYLKO jeśli ma wysokość dokładnie 1 bloku (<= maxStepHeight)
             if (canStepUp && maxStepNeeded > 0.01 && maxStepNeeded <= this.maxStepHeight) {
                 const targetY = feetY + maxStepNeeded + halfHeight + epsilon;
                 this.tempPosition.set(this.player.position.x, targetY, this.player.position.z);
                 this.tempBox.setFromCenterAndSize(this.tempPosition, this.playerDimensions);
 
-                // KLUCZOWY TEST: Sprawdź, czy nad schodkiem jest wolna przestrzeń na głowę!
-                // Jeśli ściana ma 2, 3 czy 90 bloków wysokości, tempBox uderzy w wyższy blok i wejście zostanie zablokowane.
+                // Sprawdź czy nad schodkiem jest wolna przestrzeń na głowę
                 let blockedAbove = false;
                 for (let i = 0; i < numCandidates; i++) {
                     if (this.tempBox.intersectsBox(this.candidateBoxes[i])) {
@@ -337,14 +363,16 @@ export class PlayerController {
                 }
 
                 if (!blockedAbove) {
-                    // Schodek jest wolny od góry – wchodzimy na 1 blok!
+                    const stepDiff = targetY - this.player.position.y;
                     this.player.position.y = targetY;
                     this.playerBox.copy(this.tempBox);
                     stepped = true;
+
+                    // Aktywacja płynnego uniesienia (eliminacja efektu teleportacji)
+                    this.stepVisualOffset -= stepDiff;
                 }
             }
 
-            // Jeśli to nie jest schodek (ściana wyższa niż 1 blok) – zatrzymaj gracza na ścianie
             if (!stepped) {
                 for (let i = 0; i < numCandidates; i++) {
                     const box = this.candidateBoxes[i];
@@ -366,7 +394,7 @@ export class PlayerController {
     }
 
     // ==========================================
-    // --- OŚ Z (Ruch poziomy Z + Autostep 1x1) ---
+    // --- OŚ Z (Ruch poziomy Z + Płynny Autostep 1x1) ---
     // ==========================================
     const horizontalMovementZ = this.velocity.z * deltaTime;
     if (Math.abs(horizontalMovementZ) > 0.00001) {
@@ -399,7 +427,6 @@ export class PlayerController {
                 this.tempPosition.set(this.player.position.x, targetY, this.player.position.z);
                 this.tempBox.setFromCenterAndSize(this.tempPosition, this.playerDimensions);
 
-                // Sprawdź przestrzeń nad schodkiem w osi Z
                 let blockedAbove = false;
                 for (let i = 0; i < numCandidates; i++) {
                     if (this.tempBox.intersectsBox(this.candidateBoxes[i])) {
@@ -409,9 +436,13 @@ export class PlayerController {
                 }
 
                 if (!blockedAbove) {
+                    const stepDiff = targetY - this.player.position.y;
                     this.player.position.y = targetY;
                     this.playerBox.copy(this.tempBox);
                     stepped = true;
+
+                    // Aktywacja płynnego uniesienia w osi Z
+                    this.stepVisualOffset -= stepDiff;
                 }
             }
 
@@ -453,7 +484,13 @@ export class PlayerController {
     }
   }
   
-  destroy() { this.cleanupInput(); }
+  destroy() { 
+      if (this.stepVisualOffset !== 0) {
+          this.player.position.y -= this.stepVisualOffset;
+          this.stepVisualOffset = 0;
+      }
+      this.cleanupInput(); 
+  }
 
   setupMobileControls() {
     const jumpButton = document.getElementById('jump-button');
