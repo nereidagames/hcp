@@ -15,6 +15,7 @@ const VICTORY_TEMPLATE = `
             justify-content: center;
             align-items: center;
             font-family: 'Titan One', cursive;
+            pointer-events: auto;
         }
         .bsp-victory-container { display: flex; gap: 40px; align-items: center; transform: scale(0.9); }
         .bsp-title-header { position: absolute; top: 10%; display: flex; align-items: center; gap: 15px; }
@@ -36,7 +37,8 @@ const VICTORY_TEMPLATE = `
         .bsp-side-actions { display: flex; flex-direction: column; gap: 10px; margin-left: 10px; }
         .bsp-action-btn-sq { width: 50px; height: 50px; background: #3498db; border: 3px solid white; border-radius: 10px; box-shadow: 0 4px 0 #2980b9; display: flex; justify-content: center; align-items: center; cursor: pointer; }
         .bsp-action-btn-sq:active { transform: translateY(3px); box-shadow: none; }
-        #bsp-continue-btn { position: absolute; right: 20px; bottom: 20px; width: 60px; height: 60px; background: #2ecc71; border: 3px solid white; border-radius: 10px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 30px; color: white; }
+        #bsp-continue-btn { position: absolute; right: 20px; bottom: 20px; width: 60px; height: 60px; background: #2ecc71; border: 3px solid white; border-radius: 10px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 30px; color: white; box-shadow: 0 4px 0 #27ae60; }
+        #bsp-continue-btn:active { transform: translateY(3px); box-shadow: none; }
         @media (max-width: 600px) {
             .bsp-victory-container { transform: scale(0.7); }
             .bsp-gotowe-text { font-size: 50px; }
@@ -62,7 +64,7 @@ const VICTORY_TEMPLATE = `
             <div class="bsp-center-circle">
                 <div style="display:flex; align-items:center;">
                     <span class="bsp-finish-flag">🏁</span>
-                    <span id="bsp-run-time" class="bsp-main-time">00:00:00</span>
+                    <span id="bsp-run-time" class="bsp-main-time">00:00.00</span>
                 </div>
                 <div class="bsp-record-row">
                     <span class="bsp-lbl" style="color:#d6a2e8;">Najlepszy rekord</span>
@@ -84,7 +86,7 @@ const VICTORY_TEMPLATE = `
                     <div id="bsp-map-thumb" class="bsp-map-thumb"></div>
                     <div class="bsp-map-stats">
                         <span>👍 <span id="bsp-map-likes">0</span></span>
-                        <span>🎮 <span>0</span></span>
+                        <span>🎮 <span id="bsp-map-plays">0</span></span>
                     </div>
                 </div>
                 <div class="bsp-side-actions">
@@ -177,23 +179,27 @@ export class ParkourManager {
         this.startPositions = [];
         this.metaPositions = [];
         this.currentWorldId = null;
+        this.currentWorldData = null;
         
         this.pendingRewardData = null;
         
-        // Callbacki dla UI
         this.onVictoryScreenOpen = null;
         this.onExitParkour = null;
         this.onReplayParkour = null;
+
+        // POPRAWKA: Automatyczna inicjalizacja szablonów w DOM zaraz po utworzeniu managera
+        this.initialize();
     }
     
     initialize() {
-        // Wstrzyknij UI do modals-layer
-        const modalsLayer = document.getElementById('modals-layer');
-        if (modalsLayer) {
-            modalsLayer.insertAdjacentHTML('beforeend', VICTORY_TEMPLATE);
-            modalsLayer.insertAdjacentHTML('beforeend', REWARD_TEMPLATE);
+        if (document.getElementById('bsp-victory-screen')) return;
+
+        const targetContainer = document.getElementById('modals-layer') || document.body;
+        if (targetContainer) {
+            targetContainer.insertAdjacentHTML('beforeend', VICTORY_TEMPLATE);
+            targetContainer.insertAdjacentHTML('beforeend', REWARD_TEMPLATE);
+            this.setupEventListeners();
         }
-        this.setupEventListeners();
     }
     
     setupEventListeners() {
@@ -209,35 +215,47 @@ export class ParkourManager {
         }
         
         const homeBtn = document.getElementById('bsp-btn-home');
-        if (homeBtn) homeBtn.onclick = () => {
-            const rewardScreen = document.getElementById('bsp-reward-screen');
-            if (rewardScreen) rewardScreen.style.display = 'none';
-            if (this.onExitParkour) this.onExitParkour();
-        };
+        if (homeBtn) {
+            homeBtn.onclick = () => {
+                const rewardScreen = document.getElementById('bsp-reward-screen');
+                if (rewardScreen) rewardScreen.style.display = 'none';
+                if (this.onExitParkour) this.onExitParkour();
+                else if (this.game?.stateManager) this.game.stateManager.switchToMainMenu();
+            };
+        }
         
         const replayBtn = document.getElementById('bsp-btn-replay');
-        if (replayBtn) replayBtn.onclick = () => {
-            const rewardScreen = document.getElementById('bsp-reward-screen');
-            if (rewardScreen) rewardScreen.style.display = 'none';
-            if (this.onReplayParkour) this.onReplayParkour();
-        };
+        if (replayBtn) {
+            replayBtn.onclick = () => {
+                const rewardScreen = document.getElementById('bsp-reward-screen');
+                if (rewardScreen) rewardScreen.style.display = 'none';
+                if (this.onReplayParkour) this.onReplayParkour();
+                else this.restartParkour();
+            };
+        }
         
         const nextBtn = document.getElementById('bsp-btn-next');
-        if (nextBtn) nextBtn.onclick = () => {
-            const rewardScreen = document.getElementById('bsp-reward-screen');
-            if (rewardScreen) rewardScreen.style.display = 'none';
-            if (this.onExitParkour) this.onExitParkour();
-        };
+        if (nextBtn) {
+            nextBtn.onclick = () => {
+                const rewardScreen = document.getElementById('bsp-reward-screen');
+                if (rewardScreen) rewardScreen.style.display = 'none';
+                if (this.onExitParkour) this.onExitParkour();
+                else if (this.game?.stateManager) this.game.stateManager.switchToMainMenu();
+            };
+        }
     }
     
     init(worldData) {
+        // Gwarancja istnienia elementów DOM
+        this.initialize();
+
         this.startPositions = [];
         this.metaPositions = [];
         this.isRunning = false;
         this.elapsedTime = 0;
         
-        // Zapisujemy ID świata, aby wiedzieć, do której mapy przypisać rekord
         this.currentWorldId = worldData.id || null;
+        this.currentWorldData = worldData;
         
         if (worldData && worldData.blocks) {
             worldData.blocks.forEach(block => {
@@ -264,24 +282,26 @@ export class ParkourManager {
         this.ui.updateParkourTimer("00:00.00");
         this.hideVictory();
         
-        if (this.startPositions.length > 0 && this.game.characterManager.character) {
+        if (this.startPositions.length > 0 && this.game.characterManager?.character) {
             const start = this.startPositions[0];
-            // Teleportuj gracza +0.5 wyżej żeby nie utknął w bloku
             this.game.characterManager.character.position.set(start.x, start.y + 0.5, start.z);
             
-            // Reset prędkości w kontrolerze
             if (this.game.playerController) {
-                this.game.playerController.velocity.set(0, 0, 0);
+                this.game.playerController.reset();
+            }
+            if (this.game.cameraController) {
+                this.game.cameraController.reset();
             }
         }
     }
     
     update(deltaTime) {
         if (this.startPositions.length === 0) return;
+        if (!this.game.characterManager?.character) return;
         
         const playerPos = this.game.characterManager.character.position;
         
-        // Sprawdź czy gracz jest na STARCIE (reset czasu)
+        // Reset czasu, gdy gracz wejdzie na blok startowy
         let onStart = false;
         for (const startPos of this.startPositions) {
             const dx = Math.abs(playerPos.x - startPos.x);
@@ -312,7 +332,7 @@ export class ParkourManager {
             this.elapsedTime += deltaTime;
             this.ui.updateParkourTimer(this.formatTime(this.elapsedTime));
             
-            // Sprawdź czy gracz jest na MECIE
+            // Sprawdzenie wejścia na metę
             for (const metaPos of this.metaPositions) {
                 const distance = playerPos.distanceTo(metaPos);
                 if (distance < 1.5) {
@@ -324,14 +344,23 @@ export class ParkourManager {
     }
     
     async finishRun() {
+        if (!this.isRunning && this.elapsedTime === 0) return;
         this.isRunning = false;
+
         const finalTime = this.formatTime(this.elapsedTime);
         const timeMs = Math.floor(this.elapsedTime * 1000);
         
-        const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
-        let rewardData = null;
+        // Blokada sterowania gracza i kamery
+        if (this.onVictoryScreenOpen) {
+            this.onVictoryScreenOpen();
+        } else if (this.ui?.onVictoryScreenOpen) {
+            this.ui.onVictoryScreenOpen();
+        }
+
+        // POPRAWKA: Pokazujemy ekran zwycięstwa NATYCHMIAST bez czekania na odpowiedź sieciową
+        this.showVictoryScreen(finalTime, null);
         
-        // Jeśli mamy token i ID świata, wysyłamy wynik na serwer
+        const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
         if (token && this.currentWorldId) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/parkour/complete`, {
@@ -345,79 +374,128 @@ export class ParkourManager {
                         worldId: this.currentWorldId 
                     })
                 });
-                // Serwer zwraca obiekt z rekordami (allTime, daily, personal), nagrodami i danymi mapy
-                rewardData = await response.json();
+
+                if (response.ok) {
+                    const rewardData = await response.json();
+                    this.pendingRewardData = rewardData;
+                    this.updateVictoryScreenData(rewardData);
+                }
             } catch (e) {
-                console.error("Błąd nagrody parkour:", e);
+                console.warn("Błąd zapisu rekordu parkour na serwerze:", e);
             }
         }
-        
-        this.showVictoryScreen(finalTime, rewardData);
     }
     
     showVictoryScreen(timeStr, rewardData) {
-        if (this.onVictoryScreenOpen) this.onVictoryScreenOpen();
+        this.initialize();
         
         const victoryScreen = document.getElementById('bsp-victory-screen');
         if (victoryScreen) {
             this.ui.bringToFront(victoryScreen);
             victoryScreen.style.display = 'flex';
             
-            if (rewardData && rewardData.records) {
-                document.getElementById('bsp-run-time').textContent = rewardData.records.formattedTime;
-                document.getElementById('bsp-rec-all').textContent = rewardData.records.allTime;
-                document.getElementById('bsp-rec-day').textContent = rewardData.records.daily;
-                document.getElementById('bsp-rec-personal').textContent = rewardData.records.personal;
-                
-                const badge = document.getElementById('bsp-new-record-badge');
-                if (badge) badge.style.display = rewardData.records.isNewPb ? 'block' : 'none';
-            } else {
-                document.getElementById('bsp-run-time').textContent = timeStr;
-            }
+            const timeEl = document.getElementById('bsp-run-time');
+            if (timeEl) timeEl.textContent = timeStr;
             
-            if (rewardData && rewardData.map) {
-                document.getElementById('bsp-map-name').textContent = rewardData.map.name;
-                if (rewardData.map.thumbnail) {
-                    document.getElementById('bsp-map-thumb').style.backgroundImage = `url(${rewardData.map.thumbnail})`;
-                }
+            // Domyślne dane karty świata
+            const mapNameEl = document.getElementById('bsp-map-name');
+            const mapThumbEl = document.getElementById('bsp-map-thumb');
+            if (mapNameEl) mapNameEl.textContent = this.currentWorldData?.name || 'Parkour';
+            if (mapThumbEl && this.currentWorldData?.thumbnail) {
+                mapThumbEl.style.backgroundImage = `url(${this.currentWorldData.thumbnail})`;
+            }
+
+            if (rewardData) {
+                this.updateVictoryScreenData(rewardData);
             }
         }
         
         this.pendingRewardData = rewardData;
     }
+
+    updateVictoryScreenData(rewardData) {
+        if (!rewardData) return;
+
+        if (rewardData.records) {
+            const runTimeEl = document.getElementById('bsp-run-time');
+            const allEl = document.getElementById('bsp-rec-all');
+            const dayEl = document.getElementById('bsp-rec-day');
+            const personalEl = document.getElementById('bsp-rec-personal');
+            const badge = document.getElementById('bsp-new-record-badge');
+
+            if (runTimeEl && rewardData.records.formattedTime) runTimeEl.textContent = rewardData.records.formattedTime;
+            if (allEl && rewardData.records.allTime) allEl.textContent = rewardData.records.allTime;
+            if (dayEl && rewardData.records.daily) dayEl.textContent = rewardData.records.daily;
+            if (personalEl && rewardData.records.personal) personalEl.textContent = rewardData.records.personal;
+            if (badge) badge.style.display = rewardData.records.isNewPb ? 'block' : 'none';
+        }
+        
+        if (rewardData.map) {
+            const mapNameEl = document.getElementById('bsp-map-name');
+            const mapThumbEl = document.getElementById('bsp-map-thumb');
+            const mapLikesEl = document.getElementById('bsp-map-likes');
+
+            if (mapNameEl && rewardData.map.name) mapNameEl.textContent = rewardData.map.name;
+            if (mapThumbEl && rewardData.map.thumbnail) mapThumbEl.style.backgroundImage = `url(${rewardData.map.thumbnail})`;
+            if (mapLikesEl && rewardData.map.likes !== undefined) mapLikesEl.textContent = rewardData.map.likes;
+        }
+    }
     
     showRewardScreen(rewardData) {
+        this.initialize();
+
         const rewardScreen = document.getElementById('bsp-reward-screen');
         if (!rewardScreen) return;
         
         this.ui.bringToFront(rewardScreen);
         rewardScreen.style.display = 'flex';
         
-        if (rewardData) {
-            document.getElementById('bsp-rew-xp').textContent = rewardData.rewards.standard.xp;
-            document.getElementById('bsp-rew-coins').textContent = rewardData.rewards.standard.coins;
-            document.getElementById('bsp-vip-xp').textContent = rewardData.rewards.vip.xp;
-            document.getElementById('bsp-vip-coins').textContent = rewardData.rewards.vip.coins;
+        const rewXp = document.getElementById('bsp-rew-xp');
+        const rewCoins = document.getElementById('bsp-rew-coins');
+        const vipXp = document.getElementById('bsp-vip-xp');
+        const vipCoins = document.getElementById('bsp-vip-coins');
+        const lvlCur = document.getElementById('bsp-lvl-cur');
+        const lvlNext = document.getElementById('bsp-lvl-next');
+        const xpText = document.getElementById('bsp-xp-text');
+        const xpFill = document.getElementById('bsp-xp-fill');
+
+        if (rewardData && rewardData.rewards) {
+            if (rewXp) rewXp.textContent = rewardData.rewards.standard?.xp ?? 50;
+            if (rewCoins) rewCoins.textContent = rewardData.rewards.standard?.coins ?? 25;
+            if (vipXp) vipXp.textContent = rewardData.rewards.vip?.xp ?? 100;
+            if (vipCoins) vipCoins.textContent = rewardData.rewards.vip?.coins ?? 50;
             
-            const lvl = rewardData.newLevel;
-            const xp = rewardData.newXp;
-            const max = rewardData.maxXp;
+            const lvl = rewardData.newLevel || 1;
+            const xp = rewardData.newXp || 0;
+            const max = rewardData.maxXp || 100;
             
-            document.getElementById('bsp-lvl-cur').textContent = lvl;
-            document.getElementById('bsp-lvl-next').textContent = lvl + 1;
-            document.getElementById('bsp-xp-text').textContent = `${xp}/${max}`;
+            if (lvlCur) lvlCur.textContent = lvl;
+            if (lvlNext) lvlNext.textContent = lvl + 1;
+            if (xpText) xpText.textContent = `${xp}/${max}`;
             
             setTimeout(() => {
-                const percent = Math.min(100, Math.max(0, (xp / max) * 100));
-                document.getElementById('bsp-xp-fill').style.width = `${percent}%`;
+                if (xpFill) {
+                    const percent = Math.min(100, Math.max(0, (xp / max) * 100));
+                    xpFill.style.width = `${percent}%`;
+                }
             }, 100);
             
-            if (this.ui.updateCoinCounter) {
+            if (this.ui.updateCoinCounter && rewardData.newCoins !== undefined) {
                 this.ui.updateCoinCounter(rewardData.newCoins);
             }
             if (this.ui.updateLevelInfo) {
                 this.ui.updateLevelInfo(lvl, xp, max);
             }
+        } else {
+            // Wartości domyślne dla rozgrywki lokalnej / offline
+            if (rewXp) rewXp.textContent = '50';
+            if (rewCoins) rewCoins.textContent = '25';
+            if (vipXp) vipXp.textContent = '100';
+            if (vipCoins) vipCoins.textContent = '50';
+            if (lvlCur) lvlCur.textContent = '1';
+            if (lvlNext) lvlNext.textContent = '2';
+            if (xpText) xpText.textContent = '50/100';
+            if (xpFill) xpFill.style.width = '50%';
         }
     }
     
