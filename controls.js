@@ -12,10 +12,12 @@ export class PlayerController {
     this.moveSpeed = options.moveSpeed || 8;
     this.jumpForce = options.jumpForce || 18;
     this.gravity = options.gravity || 50;
-    this.groundRestingY = options.groundRestingY || 0.1;
+    this.groundRestingY = options.groundRestingY !== undefined ? options.groundRestingY : 0.1;
+    this.defaultGroundRestingY = this.groundRestingY;
 
     this.maxStepHeight = 1.2; 
-    this.playerDimensions = new THREE.Vector3(0.6, 1.0, 0.6);
+    // Domyślna szerokość 0.5 (idealnie dopasowana do otworów 1x1 o szerokości 1.0)
+    this.playerDimensions = options.playerDimensions || new THREE.Vector3(0.5, 1.0, 0.5);
 
     this.velocity = new THREE.Vector3();
     this.isOnGround = true;
@@ -39,7 +41,7 @@ export class PlayerController {
     this.playerBox = new THREE.Box3();
     this.objectBox = new THREE.Box3();
     
-    // Zoptymalizowana pula obiektów Box3 i kandydatów do kolizji (Zero-Allocation)
+    // Zoptymalizowana pula obiektów Box3 (Zero-Allocation)
     this.candidateBoxes = [];
     this.boxPool = Array.from({ length: 64 }, () => new THREE.Box3());
     this.boxPoolIndex = 0;
@@ -53,7 +55,6 @@ export class PlayerController {
     this.setupInput();
   }
 
-  // Pobranie Box3 z prealokowanej puli bez tworzenia instancji na stercie
   getPooledBox() {
     if (this.boxPoolIndex >= this.boxPool.length) {
       this.boxPool.push(new THREE.Box3());
@@ -66,6 +67,12 @@ export class PlayerController {
     if (mode === 'digging') {
       this.velocity.y = 0;
       this.isOnGround = true;
+      // Zezwolenie na schodzenie w dół kopalni oraz optymalny hitbox do szybów 1x1
+      this.groundRestingY = -200;
+      this.playerDimensions.set(0.48, 1.0, 0.48);
+    } else {
+      this.groundRestingY = this.defaultGroundRestingY;
+      this.playerDimensions.set(0.5, 1.0, 0.5);
     }
   }
 
@@ -199,7 +206,6 @@ export class PlayerController {
     mesh.getMatrixAt(instanceId, this.tempMatrix);
     this.tempPosition.setFromMatrixPosition(this.tempMatrix);
     
-    // Użycie współdzielonego wektora rozmiaru zamiast alokacji
     return this.tempBox.setFromCenterAndSize(
       this.tempPosition,
       this.boxUnitSize
@@ -212,11 +218,10 @@ export class PlayerController {
     const halfDepth = this.playerDimensions.z / 2;
     const epsilon = 0.001;
 
-    // Reset listy kandydatów i indeksu puli Box3 (bez alokacji pamięci)
     this.candidateBoxes.length = 0;
     this.boxPoolIndex = 0;
     
-    // 1. Zwykłe obiekty (obliczamy bounding box tylko raz dla każdego)
+    // 1. Zwykłe bryły (np. podłoga, ściany zewnętrzne)
     for (let i = 0; i < this.collidableObjects.length; i++) {
       const obj = this.collidableObjects[i];
       if (obj.isInstancedMesh) continue;
@@ -226,11 +231,11 @@ export class PlayerController {
       this.candidateBoxes.push(box);
     }
 
-    // 2. Klocki z mapy kolizji (zoptymalizowany zakres sprawdzania: 3x3x5 = 45 bloków zamiast 150)
+    // 2. Klocki wokół gracza (Math.round centrowany na środku klocka)
     if (this.collisionMap && this.collisionMap.size > 0) {
-        const playerX = Math.floor(this.player.position.x);
-        const playerY = Math.floor(this.player.position.y);
-        const playerZ = Math.floor(this.player.position.z);
+        const playerX = Math.round(this.player.position.x);
+        const playerY = Math.round(this.player.position.y);
+        const playerZ = Math.round(this.player.position.z);
         
         const rangeH = 1;
         const rangeV_Down = 2;
@@ -245,10 +250,12 @@ export class PlayerController {
                         if (typeof block === 'object' && block.boundingBox) {
                             this.candidateBoxes.push(block.boundingBox);
                         } else {
-                            // Bezpośrednie ustawienie min/max z zerową alokacją
+                            // POPRAWKA: Blok jest centrowany w punkcie (x, y, z),
+                            // więc rozciąga się od x - 0.5 do x + 0.5.
+                            // Wcześniejszy zapis [x, x + 1] wchodził o 0.5 bloku w pustą dziurę!
                             const box = this.getPooledBox();
-                            box.min.set(x, y, z);
-                            box.max.set(x + 1, y + 1, z + 1);
+                            box.min.set(x - 0.5, y - 0.5, z - 0.5);
+                            box.max.set(x + 0.5, y + 0.5, z + 0.5);
                             this.candidateBoxes.push(box);
                         }
                     }
@@ -333,7 +340,7 @@ export class PlayerController {
         }
     }
 
-    // Sprawdzenie podłogi świata
+    // Podłoga świata
     if (this.player.position.y <= this.groundRestingY + halfHeight) {
         if (!landedOnBlock) {
             this.player.position.y = this.groundRestingY + halfHeight;
