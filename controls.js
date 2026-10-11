@@ -15,8 +15,8 @@ export class PlayerController {
     this.groundRestingY = options.groundRestingY !== undefined ? options.groundRestingY : 0.1;
     this.defaultGroundRestingY = this.groundRestingY;
 
-    this.maxStepHeight = 1.2; 
-    // Domyślna szerokość 0.5 (idealnie dopasowana do otworów 1x1 o szerokości 1.0)
+    // Maksymalna wysokość schodka: dokładnie 1 blok (1.0) z małym marginesem 0.05
+    this.maxStepHeight = options.maxStepHeight || 1.05; 
     this.playerDimensions = options.playerDimensions || new THREE.Vector3(0.5, 1.0, 0.5);
 
     this.velocity = new THREE.Vector3();
@@ -47,7 +47,7 @@ export class PlayerController {
     this.boxPoolIndex = 0;
     this.boxUnitSize = new THREE.Vector3(1, 1, 1);
 
-    // Dla InstancedMesh
+    // Pomocnicze zmienne do testowania schodków bez alokacji pamięci
     this.tempMatrix = new THREE.Matrix4();
     this.tempPosition = new THREE.Vector3();
     this.tempBox = new THREE.Box3();
@@ -67,7 +67,6 @@ export class PlayerController {
     if (mode === 'digging') {
       this.velocity.y = 0;
       this.isOnGround = true;
-      // Zezwolenie na schodzenie w dół kopalni oraz optymalny hitbox do szybów 1x1
       this.groundRestingY = -200;
       this.playerDimensions.set(0.48, 1.0, 0.48);
     } else {
@@ -221,7 +220,7 @@ export class PlayerController {
     this.candidateBoxes.length = 0;
     this.boxPoolIndex = 0;
     
-    // 1. Zwykłe bryły (np. podłoga, ściany zewnętrzne)
+    // 1. Zwykłe bryły
     for (let i = 0; i < this.collidableObjects.length; i++) {
       const obj = this.collidableObjects[i];
       if (obj.isInstancedMesh) continue;
@@ -231,7 +230,7 @@ export class PlayerController {
       this.candidateBoxes.push(box);
     }
 
-    // 2. Klocki wokół gracza (Math.round centrowany na środku klocka)
+    // 2. Klocki wokół gracza
     if (this.collisionMap && this.collisionMap.size > 0) {
         const playerX = Math.round(this.player.position.x);
         const playerY = Math.round(this.player.position.y);
@@ -250,9 +249,6 @@ export class PlayerController {
                         if (typeof block === 'object' && block.boundingBox) {
                             this.candidateBoxes.push(block.boundingBox);
                         } else {
-                            // POPRAWKA: Blok jest centrowany w punkcie (x, y, z),
-                            // więc rozciąga się od x - 0.5 do x + 0.5.
-                            // Wcześniejszy zapis [x, x + 1] wchodził o 0.5 bloku w pustą dziurę!
                             const box = this.getPooledBox();
                             box.min.set(x - 0.5, y - 0.5, z - 0.5);
                             box.max.set(x + 0.5, y + 0.5, z + 0.5);
@@ -267,7 +263,9 @@ export class PlayerController {
     let landedOnBlock = false;
     const numCandidates = this.candidateBoxes.length;
 
-    // --- OŚ Y ---
+    // ==========================================
+    // --- OŚ Y (Ruch pionowy i lądowanie) ---
+    // ==========================================
     const verticalMovement = this.velocity.y * deltaTime;
     this.player.position.y += verticalMovement;
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
@@ -292,51 +290,148 @@ export class PlayerController {
     
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    // --- OŚ X ---
+    // ==========================================
+    // --- OŚ X (Ruch poziomy X + Autostep 1x1) ---
+    // ==========================================
     const horizontalMovementX = this.velocity.x * deltaTime;
-    this.player.position.x += horizontalMovementX;
-    this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
+    if (Math.abs(horizontalMovementX) > 0.00001) {
+        this.player.position.x += horizontalMovementX;
+        this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    for (let i = 0; i < numCandidates; i++) {
-        const box = this.candidateBoxes[i];
-        
-        if (box.max.y < this.playerBox.min.y + epsilon) continue;
+        let collidedX = false;
+        let maxStepNeeded = 0;
+        // Wchodzenie po schodkach dozwolone tylko, gdy gracz stoi stabilnie na ziemi
+        let canStepUp = this.isOnGround && this.velocity.y <= 0.05;
+        const feetY = this.player.position.y - halfHeight;
 
-        if (this.playerBox.intersectsBox(box)) {
-            const obstacleHeight = box.max.y - this.playerBox.min.y;
-            if (obstacleHeight > 0.01 && obstacleHeight <= this.maxStepHeight) {
-                this.player.position.y += obstacleHeight;
-                this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
-                continue; 
+        for (let i = 0; i < numCandidates; i++) {
+            const box = this.candidateBoxes[i];
+            if (box.max.y <= feetY + epsilon || box.min.y >= this.playerBox.max.y - epsilon) continue;
+
+            if (this.playerBox.intersectsBox(box)) {
+                collidedX = true;
+                const step = box.max.y - feetY;
+                if (step > maxStepNeeded) {
+                    maxStepNeeded = step;
+                }
             }
-            if (horizontalMovementX > 0) this.player.position.x = box.min.x - halfWidth - epsilon;
-            else if (horizontalMovementX < 0) this.player.position.x = box.max.x + halfWidth + epsilon;
-            this.velocity.x = 0;
-            break; 
+        }
+
+        if (collidedX) {
+            let stepped = false;
+
+            // Próbuj wejść na schodek TYLKO jeśli ma wysokość dokładnie 1 bloku (<= maxStepHeight)
+            if (canStepUp && maxStepNeeded > 0.01 && maxStepNeeded <= this.maxStepHeight) {
+                const targetY = feetY + maxStepNeeded + halfHeight + epsilon;
+                this.tempPosition.set(this.player.position.x, targetY, this.player.position.z);
+                this.tempBox.setFromCenterAndSize(this.tempPosition, this.playerDimensions);
+
+                // KLUCZOWY TEST: Sprawdź, czy nad schodkiem jest wolna przestrzeń na głowę!
+                // Jeśli ściana ma 2, 3 czy 90 bloków wysokości, tempBox uderzy w wyższy blok i wejście zostanie zablokowane.
+                let blockedAbove = false;
+                for (let i = 0; i < numCandidates; i++) {
+                    if (this.tempBox.intersectsBox(this.candidateBoxes[i])) {
+                        blockedAbove = true;
+                        break;
+                    }
+                }
+
+                if (!blockedAbove) {
+                    // Schodek jest wolny od góry – wchodzimy na 1 blok!
+                    this.player.position.y = targetY;
+                    this.playerBox.copy(this.tempBox);
+                    stepped = true;
+                }
+            }
+
+            // Jeśli to nie jest schodek (ściana wyższa niż 1 blok) – zatrzymaj gracza na ścianie
+            if (!stepped) {
+                for (let i = 0; i < numCandidates; i++) {
+                    const box = this.candidateBoxes[i];
+                    if (box.max.y <= feetY + epsilon || box.min.y >= this.playerBox.max.y - epsilon) continue;
+
+                    if (this.playerBox.intersectsBox(box)) {
+                        if (horizontalMovementX > 0) {
+                            this.player.position.x = box.min.x - halfWidth - epsilon;
+                        } else if (horizontalMovementX < 0) {
+                            this.player.position.x = box.max.x + halfWidth + epsilon;
+                        }
+                        this.velocity.x = 0;
+                        this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
+                        break;
+                    }
+                }
+            }
         }
     }
 
-    // --- OŚ Z ---
+    // ==========================================
+    // --- OŚ Z (Ruch poziomy Z + Autostep 1x1) ---
+    // ==========================================
     const horizontalMovementZ = this.velocity.z * deltaTime;
-    this.player.position.z += horizontalMovementZ;
-    this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
+    if (Math.abs(horizontalMovementZ) > 0.00001) {
+        this.player.position.z += horizontalMovementZ;
+        this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    for (let i = 0; i < numCandidates; i++) {
-        const box = this.candidateBoxes[i];
+        let collidedZ = false;
+        let maxStepNeeded = 0;
+        let canStepUp = this.isOnGround && this.velocity.y <= 0.05;
+        const feetY = this.player.position.y - halfHeight;
 
-        if (box.max.y < this.playerBox.min.y + epsilon) continue;
+        for (let i = 0; i < numCandidates; i++) {
+            const box = this.candidateBoxes[i];
+            if (box.max.y <= feetY + epsilon || box.min.y >= this.playerBox.max.y - epsilon) continue;
 
-        if (this.playerBox.intersectsBox(box)) {
-            const obstacleHeight = box.max.y - this.playerBox.min.y;
-            if (obstacleHeight > 0.01 && obstacleHeight <= this.maxStepHeight) {
-                this.player.position.y += obstacleHeight;
-                this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
-                continue; 
+            if (this.playerBox.intersectsBox(box)) {
+                collidedZ = true;
+                const step = box.max.y - feetY;
+                if (step > maxStepNeeded) {
+                    maxStepNeeded = step;
+                }
             }
-            if (horizontalMovementZ > 0) this.player.position.z = box.min.z - halfDepth - epsilon;
-            else if (horizontalMovementZ < 0) this.player.position.z = box.max.z + halfDepth + epsilon;
-            this.velocity.z = 0;
-            break;
+        }
+
+        if (collidedZ) {
+            let stepped = false;
+
+            if (canStepUp && maxStepNeeded > 0.01 && maxStepNeeded <= this.maxStepHeight) {
+                const targetY = feetY + maxStepNeeded + halfHeight + epsilon;
+                this.tempPosition.set(this.player.position.x, targetY, this.player.position.z);
+                this.tempBox.setFromCenterAndSize(this.tempPosition, this.playerDimensions);
+
+                // Sprawdź przestrzeń nad schodkiem w osi Z
+                let blockedAbove = false;
+                for (let i = 0; i < numCandidates; i++) {
+                    if (this.tempBox.intersectsBox(this.candidateBoxes[i])) {
+                        blockedAbove = true;
+                        break;
+                    }
+                }
+
+                if (!blockedAbove) {
+                    this.player.position.y = targetY;
+                    this.playerBox.copy(this.tempBox);
+                    stepped = true;
+                }
+            }
+
+            if (!stepped) {
+                for (let i = 0; i < numCandidates; i++) {
+                    const box = this.candidateBoxes[i];
+                    if (box.max.y <= feetY + epsilon || box.min.y >= this.playerBox.max.y - epsilon) continue;
+
+                    if (this.playerBox.intersectsBox(box)) {
+                        if (horizontalMovementZ > 0) {
+                            this.player.position.z = box.min.z - halfDepth - epsilon;
+                        } else if (horizontalMovementZ < 0) {
+                            this.player.position.z = box.max.z + halfDepth + epsilon;
+                        }
+                        this.velocity.z = 0;
+                        this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
+                        break;
+                    }
+                }
+            }
         }
     }
 
