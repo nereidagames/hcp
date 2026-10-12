@@ -119,10 +119,18 @@ export class PlayerController {
   cleanupInput() {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
+    
     const jumpButton = document.getElementById('jump-button');
     if (jumpButton && this.handleMobileJumpStart) {
         jumpButton.removeEventListener('touchstart', this.handleMobileJumpStart);
         jumpButton.removeEventListener('touchend', this.handleMobileJumpEnd);
+        jumpButton.removeEventListener('touchcancel', this.handleMobileJumpEnd);
+        if (this.handleMouseJumpStart) {
+            jumpButton.removeEventListener('mousedown', this.handleMouseJumpStart);
+            jumpButton.removeEventListener('mouseup', this.handleMouseJumpEnd);
+            jumpButton.removeEventListener('mouseleave', this.handleMouseJumpEnd);
+        }
+        jumpButton.style.backgroundImage = "url('icons/icon-jump.png')";
     }
     if (this.joystick) { this.joystick.destroy(); this.joystick = null; }
   }
@@ -136,7 +144,6 @@ export class PlayerController {
   }
 
   reset() {
-      // Przywrócenie czystej pozycji przed resetem
       if (this.stepVisualOffset !== 0) {
           this.player.position.y -= this.stepVisualOffset;
           this.stepVisualOffset = 0;
@@ -151,13 +158,17 @@ export class PlayerController {
       this.candidateBoxes.length = 0;
       this.boxPoolIndex = 0;
       
+      const jumpButton = document.getElementById('jump-button');
+      if (jumpButton) {
+          jumpButton.style.backgroundImage = "url('icons/icon-jump.png')";
+      }
+
       if (this.joystick) {
           this.joystickDirection.set(0, 0);
       }
   }
   
   update(deltaTime, cameraRotation) {
-    // 1. Zawsze przywróć fizyczną pozycję przed wykonaniem obliczeń fizyki
     if (this.stepVisualOffset !== 0) {
         this.player.position.y -= this.stepVisualOffset;
     }
@@ -171,7 +182,6 @@ export class PlayerController {
 
     const timeStep = Math.min(deltaTime, 0.05);
 
-    // Grawitacja
     if (this.mode === 'explore' && !this.isOnGround) {
       this.velocity.y -= this.gravity * timeStep;
     }
@@ -212,19 +222,15 @@ export class PlayerController {
         this.velocity.z += (targetVZ - this.velocity.z) * airControlFactor;
     }
 
-    // 2. Obliczenia fizyki i kolizji
     this.applyMovementAndCollisions(timeStep);
 
-    // 3. Płynna animacja podnoszenia postaci (Smooth Step-Up Decay)
     if (this.stepVisualOffset !== 0) {
-        // Zanik offsetu w czasie ok. 0.12 - 0.15s
         const decay = Math.exp(-18 * timeStep);
         this.stepVisualOffset *= decay;
         
         if (Math.abs(this.stepVisualOffset) < 0.005) {
             this.stepVisualOffset = 0;
         } else {
-            // Aplikacja wygładzonej pozycji Y do renderowania modelu i kamery
             this.player.position.y += this.stepVisualOffset;
         }
     }
@@ -249,7 +255,6 @@ export class PlayerController {
     this.candidateBoxes.length = 0;
     this.boxPoolIndex = 0;
     
-    // 1. Zwykłe bryły
     for (let i = 0; i < this.collidableObjects.length; i++) {
       const obj = this.collidableObjects[i];
       if (obj.isInstancedMesh) continue;
@@ -259,7 +264,6 @@ export class PlayerController {
       this.candidateBoxes.push(box);
     }
 
-    // 2. Klocki wokół gracza
     if (this.collisionMap && this.collisionMap.size > 0) {
         const playerX = Math.round(this.player.position.x);
         const playerY = Math.round(this.player.position.y);
@@ -292,9 +296,7 @@ export class PlayerController {
     let landedOnBlock = false;
     const numCandidates = this.candidateBoxes.length;
 
-    // ==========================================
-    // --- OŚ Y (Ruch pionowy i lądowanie) ---
-    // ==========================================
+    // --- OŚ Y ---
     const verticalMovement = this.velocity.y * deltaTime;
     this.player.position.y += verticalMovement;
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
@@ -319,9 +321,7 @@ export class PlayerController {
     
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    // ==========================================
-    // --- OŚ X (Ruch poziomy X + Płynny Autostep 1x1) ---
-    // ==========================================
+    // --- OŚ X ---
     const horizontalMovementX = this.velocity.x * deltaTime;
     if (Math.abs(horizontalMovementX) > 0.00001) {
         this.player.position.x += horizontalMovementX;
@@ -353,7 +353,6 @@ export class PlayerController {
                 this.tempPosition.set(this.player.position.x, targetY, this.player.position.z);
                 this.tempBox.setFromCenterAndSize(this.tempPosition, this.playerDimensions);
 
-                // Sprawdź czy nad schodkiem jest wolna przestrzeń na głowę
                 let blockedAbove = false;
                 for (let i = 0; i < numCandidates; i++) {
                     if (this.tempBox.intersectsBox(this.candidateBoxes[i])) {
@@ -367,8 +366,6 @@ export class PlayerController {
                     this.player.position.y = targetY;
                     this.playerBox.copy(this.tempBox);
                     stepped = true;
-
-                    // Aktywacja płynnego uniesienia (eliminacja efektu teleportacji)
                     this.stepVisualOffset -= stepDiff;
                 }
             }
@@ -393,9 +390,7 @@ export class PlayerController {
         }
     }
 
-    // ==========================================
-    // --- OŚ Z (Ruch poziomy Z + Płynny Autostep 1x1) ---
-    // ==========================================
+    // --- OŚ Z ---
     const horizontalMovementZ = this.velocity.z * deltaTime;
     if (Math.abs(horizontalMovementZ) > 0.00001) {
         this.player.position.z += horizontalMovementZ;
@@ -440,8 +435,6 @@ export class PlayerController {
                     this.player.position.y = targetY;
                     this.playerBox.copy(this.tempBox);
                     stepped = true;
-
-                    // Aktywacja płynnego uniesienia w osi Z
                     this.stepVisualOffset -= stepDiff;
                 }
             }
@@ -492,22 +485,42 @@ export class PlayerController {
       this.cleanupInput(); 
   }
 
+  // --- POPRAWIONA OBSŁUGA PRZYCISKU SKOKU Z ZMIANĄ TEKSTURY (icon-jump2.png) ---
   setupMobileControls() {
     const jumpButton = document.getElementById('jump-button');
     if (jumpButton) {
+        // Obsługa dotyku na telefonach/tabletach
         this.handleMobileJumpStart = (e) => {
             e.preventDefault();
+            jumpButton.style.backgroundImage = "url('icons/icon-jump2.png')";
+            
             if (this.enabled && this.canJump && this.mode === 'explore') { 
                 this.jump();
                 this.canJump = false;
             }
         };
+
         this.handleMobileJumpEnd = (e) => {
             e.preventDefault();
+            jumpButton.style.backgroundImage = "url('icons/icon-jump.png')";
             this.canJump = true;
         };
+
         jumpButton.addEventListener('touchstart', this.handleMobileJumpStart, { passive: false });
         jumpButton.addEventListener('touchend', this.handleMobileJumpEnd, { passive: false });
+        jumpButton.addEventListener('touchcancel', this.handleMobileJumpEnd, { passive: false });
+
+        // Dodatkowa obsługa myszy (ułatwia testowanie w trybie devtools na PC)
+        this.handleMouseJumpStart = () => {
+            jumpButton.style.backgroundImage = "url('icons/icon-jump2.png')";
+        };
+        this.handleMouseJumpEnd = () => {
+            jumpButton.style.backgroundImage = "url('icons/icon-jump.png')";
+        };
+
+        jumpButton.addEventListener('mousedown', this.handleMouseJumpStart);
+        jumpButton.addEventListener('mouseup', this.handleMouseJumpEnd);
+        jumpButton.addEventListener('mouseleave', this.handleMouseJumpEnd);
     }
 
     const joystickZone = document.getElementById('joystick-zone');
