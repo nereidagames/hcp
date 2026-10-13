@@ -1,16 +1,15 @@
 /* PLIK: BuildCameraController.js */
 import * as THREE from 'three';
-import nipplejs from 'nipplejs';
+import { VirtualJoystick } from './controls.js';
 
 export class BuildCameraController {
   constructor(camera, domElement) {
     this.camera = camera;
     this.domElement = domElement;
     
-    this.mode = 'orbital'; // 'orbital' lub 'free'
+    this.mode = 'orbital';
     this.target = new THREE.Vector3(0, 0, 0);
 
-    // Ustawienia kamery
     this.distance = 40;
     this.rotation = new THREE.Euler(0, 0, 0, 'YXZ');
     this.rotation.x = -Math.PI / 4; 
@@ -18,20 +17,17 @@ export class BuildCameraController {
     this.moveSpeed = 25; 
     this.keys = {};
 
-    // Stan myszy/dotyku
     this.isDragging = false;
     this.previousMousePosition = { x: 0, y: 0 };
     
-    // Mobile
     this.isMobile = false;
     this.cameraTouchId = null;
-    this.joystickManager = null;
+    this.joystick = null;
     this.joystickData = { x: 0, y: 0 };
 
     this.boundOnKeyDown = this.onKeyDown.bind(this);
     this.boundOnKeyUp = this.onKeyUp.bind(this);
 
-    // Opóźnienie, aby DOM zdążył się załadować (np. joystick-zone)
     setTimeout(() => this.bindEvents(), 100);
     this.updateCameraPosition();
   }
@@ -47,41 +43,27 @@ export class BuildCameraController {
       const zone = document.getElementById('joystick-zone');
       if (!zone) return;
 
-      if (this.joystickManager) {
-          this.joystickManager.destroy();
-          this.joystickManager = null;
+      if (this.joystick) {
+          this.joystick.destroy();
+          this.joystick = null;
       }
 
-      this.joystickManager = nipplejs.create({
-          zone: zone,
-          mode: 'static',
-          position: { left: '50%', top: '50%' },
-          color: 'white',
-          size: 100,
-          dynamicPage: true
-      });
-
-      this.joystickManager.on('move', (evt, data) => {
-          if (data && data.vector) {
-              this.joystickData.x = data.vector.x;
-              this.joystickData.y = data.vector.y;
+      this.joystick = new VirtualJoystick(zone, {
+          maxRadius: 50,
+          onMove: (vector) => {
+              this.joystickData.x = vector.x;
+              this.joystickData.y = vector.y;
+          },
+          onEnd: () => {
+              this.joystickData.x = 0;
+              this.joystickData.y = 0;
           }
-      });
-
-      this.joystickManager.on('end', () => {
-          this.joystickData.x = 0;
-          this.joystickData.y = 0;
       });
   }
 
   bindEvents() {
-    const rotateZone = document.getElementById('build-rotate-zone');
-
-    // --- PC MOUSE ---
     this.handleMouseDown = (e) => {
-        // Sprawdzamy czy kliknięto w strefę obrotu LUB prawym przyciskiem w tło
         const isZone = e.target.closest('#build-rotate-zone');
-        // Czy to element UI? (Przyciski, listy) - ale NIE strefa obrotu
         const isUI = e.target.closest('.build-ui-button') || 
                      e.target.closest('.panel-list') || 
                      e.target.closest('.build-sidebar-right') || 
@@ -91,14 +73,10 @@ export class BuildCameraController {
                      e.target.closest('#joystick-zone');
 
         if (isZone) {
-            // Kliknięcie w sferę obrotu zawsze obraca
             this.isDragging = true;
             this.previousMousePosition = { x: e.clientX, y: e.clientY };
-            e.preventDefault(); // Zapobiega zaznaczaniu tekstu
+            e.preventDefault();
         } else if (!isUI) {
-            // Kliknięcie w świat gry:
-            // Lewy przycisk (0) -> Stawia blok (ignorujemy tutaj, BuildManager to robi)
-            // Środkowy (1) lub Prawy (2) -> Obraca kamerę
             if (e.button === 1 || e.button === 2) {
                 this.isDragging = true;
                 this.previousMousePosition = { x: e.clientX, y: e.clientY };
@@ -116,14 +94,11 @@ export class BuildCameraController {
 
     this.handleMouseUp = () => { this.isDragging = false; };
 
-    // --- MOBILE TOUCH ---
     this.handleTouchStart = (e) => {
         if (this.cameraTouchId !== null) return; 
 
         for (const touch of e.changedTouches) {
             const target = touch.target;
-            
-            // Na mobile obracamy TYLKO jeśli dotkniemy strefy obrotu (#build-rotate-zone)
             if (target.closest('#build-rotate-zone')) {
                 this.cameraTouchId = touch.identifier;
                 this.isDragging = true;
@@ -140,7 +115,6 @@ export class BuildCameraController {
             if (touch.identifier === this.cameraTouchId) {
                 const deltaX = touch.clientX - this.previousMousePosition.x;
                 const deltaY = touch.clientY - this.previousMousePosition.y;
-                // Zwiększamy czułość na mobile (x2.0) dla wygody
                 this.applyRotation(deltaX, deltaY, 2.0); 
                 this.previousMousePosition = { x: touch.clientX, y: touch.clientY };
                 break;
@@ -158,8 +132,6 @@ export class BuildCameraController {
         }
     };
 
-    // Nasłuchujemy na całym oknie (żeby złapać ruch myszką poza sferą po kliknięciu)
-    // Ale używamy passive: false dla touch, żeby móc zablokować scrollowanie w strefie
     document.addEventListener('mousedown', this.handleMouseDown);
     document.addEventListener('mousemove', this.handleMouseMove);
     document.addEventListener('mouseup', this.handleMouseUp);
@@ -190,9 +162,9 @@ export class BuildCameraController {
     window.removeEventListener('keydown', this.boundOnKeyDown);
     window.removeEventListener('keyup', this.boundOnKeyUp);
     
-    if (this.joystickManager) {
-        this.joystickManager.destroy();
-        this.joystickManager = null;
+    if (this.joystick) {
+        this.joystick.destroy();
+        this.joystick = null;
     }
   }
   
@@ -219,14 +191,12 @@ export class BuildCameraController {
     const moveDir = new THREE.Vector3(0, 0, 0);
     let hasInput = false;
 
-    // JOYSTICK (Mobilne) - Ruch kamery (targetu)
     if (this.isMobile && (Math.abs(this.joystickData.x) > 0.01 || Math.abs(this.joystickData.y) > 0.01)) {
         moveDir.z = -this.joystickData.y; 
         moveDir.x = this.joystickData.x;
         hasInput = true;
     }
 
-    // KLAWIATURA (PC)
     if (!this.isMobile) {
         if (this.keys['KeyW']) { moveDir.z = -1; hasInput = true; }
         if (this.keys['KeyS']) { moveDir.z = 1; hasInput = true; }
