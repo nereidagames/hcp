@@ -68,7 +68,6 @@ body {
     transition: opacity 0.5s ease-out;
 }
 
-/* Tło gradientowe (niebo) */
 .loading-bg {
     position: absolute;
     top: 0;
@@ -79,7 +78,6 @@ body {
     z-index: 1;
 }
 
-/* Kontener chmur BSP */
 .clouds-bsp-container {
     position: absolute;
     top: 0;
@@ -91,14 +89,12 @@ body {
     pointer-events: none;
 }
 
-/* Wspólne style dla wszystkich chmur */
 .cloud-bsp {
     position: absolute;
     object-fit: contain;
     animation: move-cloud-bsp linear infinite;
 }
 
-/* Różne pozycje startowe (losowe), wielkości i prędkości */
 .cloud-bsp-1 { width: 80px; top: 5%; left: -80px; animation-duration: 35s; animation-delay: 0s; opacity: 0.9; }
 .cloud-bsp-2 { width: 150px; top: 12%; left: -150px; animation-duration: 45s; animation-delay: -5s; opacity: 0.8; }
 .cloud-bsp-3 { width: 60px; top: 20%; left: -60px; animation-duration: 28s; animation-delay: -2s; opacity: 0.85; }
@@ -124,7 +120,6 @@ body {
     }
 }
 
-/* Główna zawartość ekranu ładowania */
 .loading-content-bsp {
     position: relative;
     z-index: 10;
@@ -137,7 +132,6 @@ body {
     padding: 20px;
 }
 
-/* Pulsujące logo HyperCubesPlanet */
 .bsp-logo {
     display: flex;
     justify-content: center;
@@ -257,7 +251,6 @@ body {
     }
 }
 
-/* Pasek postępu BSP */
 .bsp-progress-container {
     width: 400px;
     max-width: 80vw;
@@ -443,7 +436,6 @@ body {
 }
 .selector-arrow:active { transform: translateY(3px); box-shadow: none; }
 
-/* --- RESPONSYWNOŚĆ EKRANU LOGOWANIA --- */
 @media (max-width: 1024px) {
     .bsp-big-btn { width: 180px; height: 90px; font-size: 18px; border-width: 3px; }
     .bsp-right-buttons { gap: 15px; transform: translateY(-60%); }
@@ -557,12 +549,58 @@ canvas { display: block; }
     -webkit-touch-callout: none;
 }
 
-/* Dynamiczna zmiana tekstury przycisku skoku przy dotknięciu / kliknięciu */
+/* Dynamiczna zmiana tekstury przycisku skoku przy dotknięciu */
 #jump-button:active {
     background-image: url('icons/icon-jump2.png') !important;
 }
 
-#joystick-zone { position: absolute !important; bottom: 30px; left: 30px; width: 120px; height: 120px; z-index: 2001; display: none; pointer-events: auto; }
+/* Dynamiczna strefa joysticka (obejmująca lewą stronę ekranu) */
+#joystick-zone { 
+    position: fixed !important; 
+    top: 60px; 
+    left: 0; 
+    width: 50vw; 
+    height: calc(100vh - 60px); 
+    z-index: 1005; 
+    display: none; 
+    pointer-events: auto; 
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+/* --- DYNAMICZNY JOYSTICK MOBILNY (Floating Touch Joystick BSP) --- */
+.custom-joystick-base {
+    position: fixed;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(52, 152, 219, 0.25) 0%, rgba(41, 128, 185, 0.45) 100%);
+    border: 3px solid rgba(255, 255, 255, 0.45);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), inset 0 2px 6px rgba(255, 255, 255, 0.25);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 2002;
+    transition: opacity 0.15s ease-out;
+}
+
+.custom-joystick-thumb {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background-image: url('icons/icon-joystick.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45));
+    will-change: transform;
+}
 
 /* --- MODALS --- */
 .panel-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.7); z-index: 10001; display: none; justify-content: center; align-items: center; padding: 20px; }
@@ -603,7 +641,7 @@ canvas { display: block; }
 .btn-bsp-green:active { transform: translateY(3px); box-shadow: 0 1px 0 #1e8449; }
 
 .build-sidebar-right {
-    position: absolute; right: 10px; top: 80px;
+    position: absolute right: 10px; top: 80px;
     display: none;
     flex-direction: column; gap: 15px;
     pointer-events: auto; align-items: flex-end; z-index: 2005;
@@ -748,7 +786,7 @@ canvas { display: block; }
     .coin-bar-background { left: 12px; right: 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.5); }
     #coin-value { font-size: 11px; }
     #coin-add-btn { width: 25px; height: 25px; font-size: 18px; border-radius: 8px; border: 1px solid white; padding-bottom: 2px; }
-    #joystick-zone { bottom: 20px; left: 20px; display: block; }
+    #joystick-zone { display: block; }
     #jump-button { bottom: 20px; right: 20px; width: 70px; height: 70px; display: block; }
 }
 
