@@ -1,7 +1,128 @@
 /* PLIK: controls.js */
 
 import * as THREE from 'three';
-import nipplejs from 'nipplejs';
+
+// ============================================================================
+// DYNAMICZNY JOYSTICK MOBILNY (Floating Touch Joystick w stylu BlockStarPlanet)
+// ============================================================================
+export class VirtualJoystick {
+  constructor(zoneElement, options = {}) {
+    this.zone = zoneElement;
+    this.maxRadius = options.maxRadius || 50;
+    this.onMove = options.onMove || null;
+    this.onEnd = options.onEnd || null;
+
+    this.activeTouchId = null;
+    this.originX = 0;
+    this.originY = 0;
+
+    // Usuń ewentualną poprzednią bazę
+    const oldBase = this.zone.querySelector('.custom-joystick-base');
+    if (oldBase) oldBase.remove();
+
+    this.base = document.createElement('div');
+    this.base.className = 'custom-joystick-base';
+    this.base.style.display = 'none';
+
+    this.thumb = document.createElement('div');
+    this.thumb.className = 'custom-joystick-thumb';
+
+    this.base.appendChild(this.thumb);
+    this.zone.appendChild(this.base);
+
+    this.handleTouchStart = this.onTouchStart.bind(this);
+    this.handleTouchMove = this.onTouchMove.bind(this);
+    this.handleTouchEnd = this.onTouchEnd.bind(this);
+
+    this.zone.addEventListener('touchstart', this.handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', this.handleTouchMove, { passive: false });
+    window.addEventListener('touchend', this.handleTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', this.handleTouchEnd, { passive: false });
+  }
+
+  onTouchStart(e) {
+    if (this.activeTouchId !== null) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+
+    this.activeTouchId = touch.identifier;
+    this.originX = touch.clientX;
+    this.originY = touch.clientY;
+
+    // Ustawienie środka joysticka w dokładnym miejscu dotknięcia palcem
+    this.base.style.left = `${this.originX}px`;
+    this.base.style.top = `${this.originY}px`;
+    this.base.style.display = 'block';
+
+    this.thumb.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
+
+    if (e.cancelable) e.preventDefault();
+  }
+
+  onTouchMove(e) {
+    if (this.activeTouchId === null) return;
+
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      if (touch.identifier === this.activeTouchId) {
+        const deltaX = touch.clientX - this.originX;
+        const deltaY = touch.clientY - this.originY;
+        const distance = Math.hypot(deltaX, deltaY);
+
+        let clampedX = deltaX;
+        let clampedY = deltaY;
+
+        if (distance > this.maxRadius && distance > 0) {
+          clampedX = (deltaX / distance) * this.maxRadius;
+          clampedY = (deltaY / distance) * this.maxRadius;
+        }
+
+        // Płynny ruch gałki wewnątrz bazy
+        this.thumb.style.transform = `translate(-50%, -50%) translate(${clampedX}px, ${clampedY}px)`;
+
+        if (this.onMove) {
+          // Normalizacja: X w prawo = +, Y w górę = +
+          this.onMove({
+            x: clampedX / this.maxRadius,
+            y: -clampedY / this.maxRadius
+          });
+        }
+
+        if (e.cancelable) e.preventDefault();
+        break;
+      }
+    }
+  }
+
+  onTouchEnd(e) {
+    if (this.activeTouchId === null) return;
+
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      if (touch.identifier === this.activeTouchId) {
+        this.activeTouchId = null;
+        this.base.style.display = 'none';
+        this.thumb.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
+
+        if (this.onEnd) {
+          this.onEnd();
+        }
+        break;
+      }
+    }
+  }
+
+  destroy() {
+    this.zone.removeEventListener('touchstart', this.handleTouchStart);
+    window.removeEventListener('touchmove', this.handleTouchMove);
+    window.removeEventListener('touchend', this.handleTouchEnd);
+    window.removeEventListener('touchcancel', this.handleTouchEnd);
+    if (this.base && this.base.parentNode) {
+      this.base.parentNode.removeChild(this.base);
+    }
+    this.activeTouchId = null;
+  }
+}
 
 export class PlayerController {
   constructor(player, collidableObjects, collisionMap, options = {}) {
@@ -15,7 +136,6 @@ export class PlayerController {
     this.groundRestingY = options.groundRestingY !== undefined ? options.groundRestingY : 0.1;
     this.defaultGroundRestingY = this.groundRestingY;
 
-    // Maksymalna wysokość schodka: dokładnie 1 blok (1.0) z marginesem 0.05
     this.maxStepHeight = options.maxStepHeight || 1.05; 
     this.playerDimensions = options.playerDimensions || new THREE.Vector3(0.5, 1.0, 0.5);
 
@@ -41,18 +161,15 @@ export class PlayerController {
     this.playerBox = new THREE.Box3();
     this.objectBox = new THREE.Box3();
     
-    // Zoptymalizowana pula obiektów Box3 (Zero-Allocation)
     this.candidateBoxes = [];
     this.boxPool = Array.from({ length: 64 }, () => new THREE.Box3());
     this.boxPoolIndex = 0;
     this.boxUnitSize = new THREE.Vector3(1, 1, 1);
 
-    // Zmienne do testowania schodków
     this.tempMatrix = new THREE.Matrix4();
     this.tempPosition = new THREE.Vector3();
     this.tempBox = new THREE.Box3();
 
-    // Offset wizualny do płynnej animacji wejścia na schodek (Smooth Step-Up)
     this.stepVisualOffset = 0;
     
     this.setupInput();
@@ -132,7 +249,10 @@ export class PlayerController {
         }
         jumpButton.style.backgroundImage = "url('icons/icon-jump.png')";
     }
-    if (this.joystick) { this.joystick.destroy(); this.joystick = null; }
+    if (this.joystick) { 
+        this.joystick.destroy(); 
+        this.joystick = null; 
+    }
   }
   
   jump() {
@@ -459,7 +579,6 @@ export class PlayerController {
         }
     }
 
-    // Podłoga świata
     if (this.player.position.y <= this.groundRestingY + halfHeight) {
         if (!landedOnBlock) {
             this.player.position.y = this.groundRestingY + halfHeight;
@@ -485,11 +604,9 @@ export class PlayerController {
       this.cleanupInput(); 
   }
 
-  // --- POPRAWIONA OBSŁUGA PRZYCISKU SKOKU Z ZMIANĄ TEKSTURY (icon-jump2.png) ---
   setupMobileControls() {
     const jumpButton = document.getElementById('jump-button');
     if (jumpButton) {
-        // Obsługa dotyku na telefonach/tabletach
         this.handleMobileJumpStart = (e) => {
             e.preventDefault();
             jumpButton.style.backgroundImage = "url('icons/icon-jump2.png')";
@@ -510,7 +627,6 @@ export class PlayerController {
         jumpButton.addEventListener('touchend', this.handleMobileJumpEnd, { passive: false });
         jumpButton.addEventListener('touchcancel', this.handleMobileJumpEnd, { passive: false });
 
-        // Dodatkowa obsługa myszy (ułatwia testowanie w trybie devtools na PC)
         this.handleMouseJumpStart = () => {
             jumpButton.style.backgroundImage = "url('icons/icon-jump2.png')";
         };
@@ -523,6 +639,7 @@ export class PlayerController {
         jumpButton.addEventListener('mouseleave', this.handleMouseJumpEnd);
     }
 
+    // Dynamiczny joystick dotykowy (Floating Touch Joystick)
     const joystickZone = document.getElementById('joystick-zone');
     if (joystickZone) {
         if (this.joystick) {
@@ -530,22 +647,16 @@ export class PlayerController {
             this.joystick = null;
         }
 
-        const options = {
-            zone: joystickZone,
-            mode: 'static',
-            position: { left: '50%', top: '50%' },
-            color: 'white',
-            size: 100,
-            dynamicPage: true 
-        };
-        this.joystick = nipplejs.create(options);
-        this.joystick.on('move', (evt, data) => {
-            if (this.enabled && data.vector) { 
-                this.joystickDirection.set(data.vector.x, data.vector.y);
+        this.joystick = new VirtualJoystick(joystickZone, {
+            maxRadius: 50,
+            onMove: (vector) => {
+                if (this.enabled) {
+                    this.joystickDirection.set(vector.x, vector.y);
+                }
+            },
+            onEnd: () => {
+                this.joystickDirection.set(0, 0);
             }
-        });
-        this.joystick.on('end', () => {
-            this.joystickDirection.set(0, 0);
         });
     }
   }
@@ -699,7 +810,6 @@ export class ThirdPersonCameraController {
         
         const idealCameraPosition = this.cameraPosition.copy(targetPosition).add(offset);
 
-        // Kolizja kamery
         const direction = this.direction.subVectors(idealCameraPosition, targetPosition).normalize();
         this.raycaster.set(targetPosition, direction);
         this.raycaster.far = currentDistance;
