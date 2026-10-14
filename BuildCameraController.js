@@ -1,4 +1,5 @@
 /* PLIK: BuildCameraController.js */
+
 import * as THREE from 'three';
 import { VirtualJoystick } from './controls.js';
 
@@ -7,9 +8,10 @@ export class BuildCameraController {
     this.camera = camera;
     this.domElement = domElement;
     
-    this.mode = 'orbital';
+    this.mode = 'orbital'; // 'orbital' lub 'free'
     this.target = new THREE.Vector3(0, 0, 0);
 
+    // Ustawienia kamery
     this.distance = 40;
     this.rotation = new THREE.Euler(0, 0, 0, 'YXZ');
     this.rotation.x = -Math.PI / 4; 
@@ -17,9 +19,11 @@ export class BuildCameraController {
     this.moveSpeed = 25; 
     this.keys = {};
 
+    // Stan myszy/dotyku
     this.isDragging = false;
     this.previousMousePosition = { x: 0, y: 0 };
     
+    // Obsługa urządzeń mobilnych
     this.isMobile = false;
     this.cameraTouchId = null;
     this.joystick = null;
@@ -28,6 +32,7 @@ export class BuildCameraController {
     this.boundOnKeyDown = this.onKeyDown.bind(this);
     this.boundOnKeyUp = this.onKeyUp.bind(this);
 
+    // Opóźnienie na załadowanie DOM (strefy joysticka i obrotu)
     setTimeout(() => this.bindEvents(), 100);
     this.updateCameraPosition();
   }
@@ -48,8 +53,9 @@ export class BuildCameraController {
           this.joystick = null;
       }
 
+      // Nowy, zoptymalizowany joystick o promieniu 38px
       this.joystick = new VirtualJoystick(zone, {
-          maxRadius: 50,
+          maxRadius: 38,
           onMove: (vector) => {
               this.joystickData.x = vector.x;
               this.joystickData.y = vector.y;
@@ -103,7 +109,7 @@ export class BuildCameraController {
                 this.cameraTouchId = touch.identifier;
                 this.isDragging = true;
                 this.previousMousePosition = { x: touch.clientX, y: touch.clientY };
-                if(e.cancelable) e.preventDefault();
+                if (e.cancelable) e.preventDefault();
                 break;
             }
         }
@@ -173,7 +179,7 @@ export class BuildCameraController {
 
   setMode(newMode) {
     this.mode = newMode;
-    if(newMode === 'free') this.rotation.x = 0; 
+    if (newMode === 'free') this.rotation.x = 0; 
   }
 
   updateCameraPosition() {
@@ -191,12 +197,14 @@ export class BuildCameraController {
     const moveDir = new THREE.Vector3(0, 0, 0);
     let hasInput = false;
 
+    // Joystick mobilny (sterowanie pozycją kamery/celu)
     if (this.isMobile && (Math.abs(this.joystickData.x) > 0.01 || Math.abs(this.joystickData.y) > 0.01)) {
         moveDir.z = -this.joystickData.y; 
         moveDir.x = this.joystickData.x;
         hasInput = true;
     }
 
+    // Klawiatura (PC)
     if (!this.isMobile) {
         if (this.keys['KeyW']) { moveDir.z = -1; hasInput = true; }
         if (this.keys['KeyS']) { moveDir.z = 1; hasInput = true; }
