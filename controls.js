@@ -8,7 +8,8 @@ import * as THREE from 'three';
 export class VirtualJoystick {
   constructor(zoneElement, options = {}) {
     this.zone = zoneElement;
-    this.maxRadius = options.maxRadius || 50;
+    // Promień wychylenia dopasowany do zmniejszonej o 25% bazy
+    this.maxRadius = options.maxRadius || 38;
     this.onMove = options.onMove || null;
     this.onEnd = options.onEnd || null;
 
@@ -49,7 +50,7 @@ export class VirtualJoystick {
     this.originX = touch.clientX;
     this.originY = touch.clientY;
 
-    // Ustawienie środka joysticka w dokładnym miejscu dotknięcia palcem
+    // Środek joysticka pojawia się dokładnie tam, gdzie gracz dotknie ekranu
     this.base.style.left = `${this.originX}px`;
     this.base.style.top = `${this.originY}px`;
     this.base.style.display = 'block';
@@ -124,6 +125,9 @@ export class VirtualJoystick {
   }
 }
 
+// ============================================================================
+// KONTROLER POSTACI GRACZA (Player Controller)
+// ============================================================================
 export class PlayerController {
   constructor(player, collidableObjects, collisionMap, options = {}) {
     this.player = player;
@@ -136,6 +140,7 @@ export class PlayerController {
     this.groundRestingY = options.groundRestingY !== undefined ? options.groundRestingY : 0.1;
     this.defaultGroundRestingY = this.groundRestingY;
 
+    // Maksymalna wysokość schodka: dokładnie 1 blok (1.0) z marginesem 0.05
     this.maxStepHeight = options.maxStepHeight || 1.05; 
     this.playerDimensions = options.playerDimensions || new THREE.Vector3(0.5, 1.0, 0.5);
 
@@ -161,15 +166,18 @@ export class PlayerController {
     this.playerBox = new THREE.Box3();
     this.objectBox = new THREE.Box3();
     
+    // Zoptymalizowana pula obiektów Box3 (Zero-Allocation)
     this.candidateBoxes = [];
     this.boxPool = Array.from({ length: 64 }, () => new THREE.Box3());
     this.boxPoolIndex = 0;
     this.boxUnitSize = new THREE.Vector3(1, 1, 1);
 
+    // Zmienne do testowania schodków
     this.tempMatrix = new THREE.Matrix4();
     this.tempPosition = new THREE.Vector3();
     this.tempBox = new THREE.Box3();
 
+    // Offset wizualny do płynnej animacji wejścia na schodek (Smooth Step-Up)
     this.stepVisualOffset = 0;
     
     this.setupInput();
@@ -289,6 +297,7 @@ export class PlayerController {
   }
   
   update(deltaTime, cameraRotation) {
+    // 1. Zawsze przywróć fizyczną pozycję przed wykonaniem obliczeń fizyki
     if (this.stepVisualOffset !== 0) {
         this.player.position.y -= this.stepVisualOffset;
     }
@@ -342,8 +351,10 @@ export class PlayerController {
         this.velocity.z += (targetVZ - this.velocity.z) * airControlFactor;
     }
 
+    // 2. Obliczenia fizyki i kolizji
     this.applyMovementAndCollisions(timeStep);
 
+    // 3. Płynna animacja podnoszenia postaci (Smooth Step-Up Decay)
     if (this.stepVisualOffset !== 0) {
         const decay = Math.exp(-18 * timeStep);
         this.stepVisualOffset *= decay;
@@ -402,6 +413,7 @@ export class PlayerController {
                         if (typeof block === 'object' && block.boundingBox) {
                             this.candidateBoxes.push(block.boundingBox);
                         } else {
+                            // Centrowanie bryły kolizji w punkcie (x, y, z)
                             const box = this.getPooledBox();
                             box.min.set(x - 0.5, y - 0.5, z - 0.5);
                             box.max.set(x + 0.5, y + 0.5, z + 0.5);
@@ -416,7 +428,9 @@ export class PlayerController {
     let landedOnBlock = false;
     const numCandidates = this.candidateBoxes.length;
 
-    // --- OŚ Y ---
+    // ==========================================
+    // --- OŚ Y (Ruch pionowy i lądowanie) ---
+    // ==========================================
     const verticalMovement = this.velocity.y * deltaTime;
     this.player.position.y += verticalMovement;
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
@@ -441,7 +455,9 @@ export class PlayerController {
     
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    // --- OŚ X ---
+    // ==========================================
+    // --- OŚ X (Ruch poziomy X + Płynny Autostep 1x1) ---
+    // ==========================================
     const horizontalMovementX = this.velocity.x * deltaTime;
     if (Math.abs(horizontalMovementX) > 0.00001) {
         this.player.position.x += horizontalMovementX;
@@ -473,6 +489,7 @@ export class PlayerController {
                 this.tempPosition.set(this.player.position.x, targetY, this.player.position.z);
                 this.tempBox.setFromCenterAndSize(this.tempPosition, this.playerDimensions);
 
+                // Sprawdź czy nad schodkiem jest wolna przestrzeń na głowę
                 let blockedAbove = false;
                 for (let i = 0; i < numCandidates; i++) {
                     if (this.tempBox.intersectsBox(this.candidateBoxes[i])) {
@@ -486,6 +503,8 @@ export class PlayerController {
                     this.player.position.y = targetY;
                     this.playerBox.copy(this.tempBox);
                     stepped = true;
+
+                    // Płynne uniesienie offsetem wizualnym
                     this.stepVisualOffset -= stepDiff;
                 }
             }
@@ -510,7 +529,9 @@ export class PlayerController {
         }
     }
 
-    // --- OŚ Z ---
+    // ==========================================
+    // --- OŚ Z (Ruch poziomy Z + Płynny Autostep 1x1) ---
+    // ==========================================
     const horizontalMovementZ = this.velocity.z * deltaTime;
     if (Math.abs(horizontalMovementZ) > 0.00001) {
         this.player.position.z += horizontalMovementZ;
@@ -555,6 +576,8 @@ export class PlayerController {
                     this.player.position.y = targetY;
                     this.playerBox.copy(this.tempBox);
                     stepped = true;
+
+                    // Płynne uniesienie offsetem wizualnym
                     this.stepVisualOffset -= stepDiff;
                 }
             }
@@ -579,6 +602,7 @@ export class PlayerController {
         }
     }
 
+    // Podłoga świata
     if (this.player.position.y <= this.groundRestingY + halfHeight) {
         if (!landedOnBlock) {
             this.player.position.y = this.groundRestingY + halfHeight;
@@ -639,7 +663,7 @@ export class PlayerController {
         jumpButton.addEventListener('mouseleave', this.handleMouseJumpEnd);
     }
 
-    // Dynamiczny joystick dotykowy (Floating Touch Joystick)
+    // Dynamiczny joystick dotykowy (Floating Touch Joystick o promieniu 38px)
     const joystickZone = document.getElementById('joystick-zone');
     if (joystickZone) {
         if (this.joystick) {
@@ -648,7 +672,7 @@ export class PlayerController {
         }
 
         this.joystick = new VirtualJoystick(joystickZone, {
-            maxRadius: 50,
+            maxRadius: 38,
             onMove: (vector) => {
                 if (this.enabled) {
                     this.joystickDirection.set(vector.x, vector.y);
@@ -662,6 +686,9 @@ export class PlayerController {
   }
 }
 
+// ============================================================================
+// KONTROLER KAMERY TRZECIOOSOBOWEJ (Third Person Camera Controller)
+// ============================================================================
 export class ThirdPersonCameraController {
     constructor(camera, target, domElement, collidableObjects, options = {}) {
         this.camera = camera;
@@ -810,6 +837,7 @@ export class ThirdPersonCameraController {
         
         const idealCameraPosition = this.cameraPosition.copy(targetPosition).add(offset);
 
+        // Kolizja kamery
         const direction = this.direction.subVectors(idealCameraPosition, targetPosition).normalize();
         this.raycaster.set(targetPosition, direction);
         this.raycaster.far = currentDistance;
