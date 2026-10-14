@@ -549,12 +549,12 @@ canvas { display: block; }
     -webkit-touch-callout: none;
 }
 
-/* Dynamiczna zmiana tekstury przycisku skoku przy dotknięciu */
+/* Dynamiczna zmiana tekstury przycisku skoku przy dotknięciu / kliknięciu */
 #jump-button:active {
     background-image: url('icons/icon-jump2.png') !important;
 }
 
-/* Dynamiczna strefa joysticka (obejmująca lewą stronę ekranu) */
+/* Dynamiczna strefa joysticka (obejmująca całą lewą połowę ekranu pod HUD-em) */
 #joystick-zone { 
     position: fixed !important; 
     top: 60px; 
@@ -570,15 +570,17 @@ canvas { display: block; }
     -webkit-touch-callout: none;
 }
 
-/* --- DYNAMICZNY JOYSTICK MOBILNY (Floating Touch Joystick BSP) --- */
+/* --- DYNAMICZNY JOYSTICK MOBILNY (Zmniejszony o 25%, ciemne półprzezroczyste tło, brak obramówki) --- */
 .custom-joystick-base {
     position: fixed;
-    width: 130px;
-    height: 130px;
+    width: 98px;
+    height: 98px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(52, 152, 219, 0.25) 0%, rgba(41, 128, 185, 0.45) 100%);
-    border: 3px solid rgba(255, 255, 255, 0.45);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), inset 0 2px 6px rgba(255, 255, 255, 0.25);
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.6) 100%);
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 2002;
@@ -589,8 +591,8 @@ canvas { display: block; }
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 68px;
-    height: 68px;
+    width: 51px;
+    height: 51px;
     border-radius: 50%;
     background-image: url('icons/icon-joystick.png');
     background-size: contain;
@@ -598,7 +600,7 @@ canvas { display: block; }
     background-repeat: no-repeat;
     transform: translate(-50%, -50%);
     pointer-events: none;
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45));
+    filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
     will-change: transform;
 }
 
@@ -641,7 +643,7 @@ canvas { display: block; }
 .btn-bsp-green:active { transform: translateY(3px); box-shadow: 0 1px 0 #1e8449; }
 
 .build-sidebar-right {
-    position: absolute right: 10px; top: 80px;
+    position: absolute; right: 10px; top: 80px;
     display: none;
     flex-direction: column; gap: 15px;
     pointer-events: auto; align-items: flex-end; z-index: 2005;
