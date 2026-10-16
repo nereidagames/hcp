@@ -5,6 +5,9 @@ import { modalPreview } from './ModalPreview.js';
 
 const HUD_HTML = `
     <div class="top-bar ui-element">
+        <!-- Przycisk VIP stricte w lewym górnym rogu -->
+        <div id="btn-vip-corner" class="ui-element" title="Kup VIP"></div>
+
         <div id="player-avatar-button" class="top-bar-item">
             <div class="player-avatar">👤</div>
             <div class="player-name text-outline" id="player-name-display">player</div>
@@ -124,6 +127,7 @@ export class UIManager {
     this.onReplayParkour = null;
     this.onOpenOtherProfile = null;
     this.onVictoryScreenOpen = null;
+    this.onVipClick = null; // Callback zakupu VIP
     
     this.onDiggingClick = null;
     this.onDiggingMove = null;
@@ -546,6 +550,40 @@ export class UIManager {
   }
   
   setupButtonHandlers() {
+      // Obsługa przycisku zakupu VIP (stricte w lewym górnym rogu)
+      const vipBtn = document.getElementById('btn-vip-corner');
+      if (vipBtn) {
+          // Obsługa myszy (PC)
+          vipBtn.addEventListener('mousedown', () => {
+              vipBtn.style.backgroundImage = "url('icons/icon-vip2.png')";
+          });
+          vipBtn.addEventListener('mouseup', () => {
+              vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+          });
+          vipBtn.addEventListener('mouseleave', () => {
+              vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+          });
+
+          // Obsługa dotyku (Mobile)
+          vipBtn.addEventListener('touchstart', () => {
+              vipBtn.style.backgroundImage = "url('icons/icon-vip2.png')";
+          }, { passive: true });
+          vipBtn.addEventListener('touchend', () => {
+              vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+          }, { passive: true });
+          vipBtn.addEventListener('touchcancel', () => {
+              vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+          }, { passive: true });
+
+          vipBtn.onclick = () => {
+              if (this.onVipClick) {
+                  this.onVipClick();
+              } else {
+                  this.showMessage("Sekcja VIP pojawi się wkrótce!", "info");
+              }
+          };
+      }
+
       document.querySelectorAll('.panel-close-button').forEach(btn => {
           btn.onclick = () => { 
               const p = btn.closest('.panel-modal') || btn.closest('#skin-comments-panel'); 
