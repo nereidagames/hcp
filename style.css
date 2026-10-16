@@ -453,15 +453,42 @@ canvas { display: block; }
 .ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; display: none; }
 .ui-element { pointer-events: auto; }
 
-/* Top Bar */
+/* Top Bar (przesunięty o 68px w prawo z powodu rogu VIP) */
 .top-bar { 
     position: absolute; top: 0; left: 0; right: 0; height: 60px; 
     background-image: url('icons/icon-bar.png');
     background-repeat: repeat-x; background-size: auto 100%; background-color: #2c3e50;
     image-rendering: pixelated; box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-    display: flex; align-items: center; padding: 5px 15px; gap: 15px; 
+    display: flex; align-items: center; 
+    padding: 5px 15px 5px 68px; 
+    gap: 15px; 
     z-index: 2100;
 }
+
+/* Przycisk zakupu VIP stricte w lewym górnym rogu */
+#btn-vip-corner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 60px;
+    height: 60px;
+    background-image: url('icons/icon-vip1.png');
+    background-size: contain;
+    background-position: top left;
+    background-repeat: no-repeat;
+    cursor: pointer;
+    z-index: 2200;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+}
+
+/* Zmiana tekstury na icon-vip2.png przy wciśnięciu na wszystkich platformach */
+#btn-vip-corner:active {
+    background-image: url('icons/icon-vip2.png') !important;
+}
+
 .top-bar-item { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
 .player-avatar { 
     width: 45px; height: 45px; 
