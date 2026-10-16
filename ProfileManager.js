@@ -4,6 +4,7 @@ import { SkinStorage } from './SkinStorage.js';
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 import { modalPreview } from './ModalPreview.js';
 
+// Szablon HTML dla własnego profilu gracza
 const PLAYER_PROFILE_TEMPLATE = `
     <style>
         #player-profile-panel .panel-content {
@@ -19,31 +20,170 @@ const PLAYER_PROFILE_TEMPLATE = `
             justify-content: center;
             pointer-events: auto;
         }
-        .profile-container { width: 450px; height: 400px; background: radial-gradient(circle, #5addc5 0%, #16a085 100%); border-radius: 20px; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-family: 'Titan One', cursive; }
-        .profile-header { position: absolute; top: 15px; left: 0; right: 0; height: 50px; background-color: #0d8a72; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-shadow: 1.5px 1.5px 0 #000; z-index: 2; }
-        .profile-name { font-size: 20px; text-transform: uppercase; }
-        .profile-joined { font-size: 10px; opacity: 0.9; }
-        .level-star-large { position: absolute; top: -10px; left: -10px; width: 90px; height: 90px; background: url('icons/icon-level.png') center/contain no-repeat; display: flex; justify-content: center; align-items: center; font-size: 32px; color: white; text-shadow: 2px 2px 0 #000; z-index: 10; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3)); }
-        .profile-flag { position: absolute; top: 85px; left: 20px; width: 40px; height: 25px; background-color: #fff; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; font-size: 20px; }
-        #profile-preview-canvas { position: absolute; top: 65px; left: 50px; right: 80px; bottom: 50px; z-index: 1; }
-        .profile-glow { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 70%); z-index: 0; pointer-events: none; }
-        .profile-sidebar { position: absolute; top: 15px; right: -70px; display: flex; flex-direction: column; gap: 10px; z-index: 5; }
-        .sidebar-btn { width: 80px; height: 80px; background: linear-gradient(to bottom, #54a0ff, #2e86de); border: 3px solid white; border-radius: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 5px 0 #1e60a3, 5px 5px 10px rgba(0,0,0,0.3); cursor: pointer; transition: transform 0.1s; }
-        .sidebar-btn:active { transform: translateY(4px); box-shadow: 5px 1px 10px rgba(0,0,0,0.3); }
-        .sidebar-icon { width: 40px; height: 40px; background-size: contain; background-repeat: no-repeat; background-position: center; margin-bottom: 2px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
-        .sidebar-label { color: white; font-size: 12px; text-shadow: 1px 1px 0 #000; }
-        .nav-arrow { position: absolute; bottom: 20px; width: 60px; height: 60px; background-color: transparent; border: none; box-shadow: none; cursor: pointer; background-repeat: no-repeat; background-position: center; background-size: contain; filter: drop-shadow(2px 4px 2px rgba(0,0,0,0.4)); transition: transform 0.1s; }
+
+        /* Zoptymalizowana, odchudzona karta profilu mieszcząca się w pionie */
+        .profile-container { 
+            width: 360px; 
+            height: 300px; 
+            max-height: 85vh;
+            background: radial-gradient(circle, #5addc5 0%, #16a085 100%); 
+            border-radius: 20px; 
+            position: relative; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            font-family: 'Titan One', cursive; 
+        }
+
+        .profile-header { 
+            position: absolute; 
+            top: 10px; 
+            left: 0; 
+            right: 0; 
+            height: 44px; 
+            background-color: #0d8a72; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            color: white; 
+            text-shadow: 1.5px 1.5px 0 #000; 
+            z-index: 2; 
+        }
+
+        /* Usunięto text-transform: uppercase - zachowuje oryginalną wielkość liter nicku */
+        .profile-name { 
+            font-size: 18px; 
+        }
+
+        .profile-joined { 
+            font-size: 10px; 
+            opacity: 0.9; 
+        }
+
+        .level-star-large { 
+            position: absolute; 
+            top: -10px; 
+            left: -10px; 
+            width: 76px; 
+            height: 76px; 
+            background: url('icons/icon-level.png') center/contain no-repeat; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-size: 26px; 
+            color: white; 
+            text-shadow: 2px 2px 0 #000; 
+            z-index: 10; 
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3)); 
+        }
+
+        .profile-flag { 
+            position: absolute; 
+            top: 65px; 
+            left: 16px; 
+            width: 36px; 
+            height: 22px; 
+            background-color: #fff; 
+            border-radius: 4px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-size: 18px; 
+        }
+
+        #profile-preview-canvas { 
+            position: absolute; 
+            top: 55px; 
+            left: 20px; 
+            right: 20px; 
+            bottom: 20px; 
+            z-index: 1; 
+        }
+
+        .profile-glow { 
+            position: absolute; 
+            top: 55%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            width: 170px; 
+            height: 170px; 
+            background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 70%); 
+            z-index: 0; 
+            pointer-events: none; 
+        }
+
+        .profile-sidebar { 
+            position: absolute; 
+            top: 10px; 
+            right: -70px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+            z-index: 5; 
+        }
+
+        .sidebar-btn { 
+            width: 62px; 
+            height: 62px; 
+            background: linear-gradient(to bottom, #54a0ff, #2e86de); 
+            border: 3px solid white; 
+            border-radius: 12px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            box-shadow: 0 4px 0 #1e60a3, 4px 4px 8px rgba(0,0,0,0.3); 
+            cursor: pointer; 
+            transition: transform 0.1s; 
+        }
+        .sidebar-btn:active { 
+            transform: translateY(3px); 
+            box-shadow: 4px 1px 6px rgba(0,0,0,0.3); 
+        }
+
+        .sidebar-icon { 
+            width: 32px; 
+            height: 32px; 
+            background-size: contain; 
+            background-repeat: no-repeat; 
+            background-position: center; 
+            margin-bottom: 2px; 
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); 
+        }
+
+        .sidebar-label { 
+            color: white; 
+            font-size: 11px; 
+            text-shadow: 1px 1px 0 #000; 
+        }
+
+        .nav-arrow { 
+            position: absolute; 
+            bottom: 12px; 
+            width: 44px; 
+            height: 44px; 
+            background-color: transparent; 
+            border: none; 
+            box-shadow: none; 
+            cursor: pointer; 
+            background-repeat: no-repeat; 
+            background-position: center; 
+            background-size: contain; 
+            filter: drop-shadow(2px 4px 2px rgba(0,0,0,0.4)); 
+            transition: transform 0.1s; 
+        }
         .nav-arrow:active { transform: scale(0.9); }
-        .nav-arrow.left { left: 20px; background-image: url('icons/arrow-left.png'); }
-        .nav-arrow.right { right: 100px; background-image: url('icons/arrow-right.png'); } 
+        .nav-arrow.left { left: 14px; background-image: url('icons/arrow-left.png'); }
+        .nav-arrow.right { right: 14px; background-image: url('icons/arrow-right.png'); }
+
         @media (max-width: 600px) {
-            .profile-container { width: 90vw; height: 80vw; max-height: 400px; }
-            .sidebar-btn { width: 60px; height: 60px; }
-            .profile-sidebar { right: -55px; } 
-            .sidebar-icon { width: 30px; height: 30px; }
+            .profile-container { width: 340px; height: 285px; }
+            .sidebar-btn { width: 56px; height: 56px; }
+            .profile-sidebar { right: -62px; } 
+            .sidebar-icon { width: 26px; height: 26px; }
             .sidebar-label { font-size: 10px; }
-            .level-star-large { width: 70px; height: 70px; font-size: 24px; }
-            .nav-arrow { width: 40px; height: 40px; font-size: 24px; }
+            .level-star-large { width: 68px; height: 68px; font-size: 22px; }
+            .nav-arrow { width: 38px; height: 38px; }
         }
     </style>
 
@@ -51,7 +191,10 @@ const PLAYER_PROFILE_TEMPLATE = `
         <div class="panel-content">
             <div class="profile-container">
                 <div class="level-star-large"><span id="profile-level-val" style="margin-top:5px;">1</span></div>
-                <div class="profile-header"><div id="profile-username" class="profile-name">PLAYER</div><div id="profile-joined-date" class="profile-joined">Członek od maj, 2024</div></div>
+                <div class="profile-header">
+                    <div id="profile-username" class="profile-name">player</div>
+                    <div id="profile-joined-date" class="profile-joined">Członek od maj, 2024</div>
+                </div>
                 <div class="profile-flag">🇵🇱</div>
                 <div class="profile-glow"></div>
                 <div id="profile-preview-canvas"></div>
@@ -68,38 +211,156 @@ const PLAYER_PROFILE_TEMPLATE = `
     </div>
 `;
 
+// Szablon HTML dla profilu innego gracza
 const OTHER_PLAYER_PROFILE_TEMPLATE = `
     <style>
-        #other-player-profile-panel .panel-content { background: transparent !important; box-shadow: none !important; border: none !important; padding: 0 !important; width: auto !important; height: auto !important; pointer-events: auto; display: flex; justify-content: center; align-items: center; }
+        #other-player-profile-panel .panel-content { 
+            background: transparent !important; 
+            box-shadow: none !important; 
+            border: none !important; 
+            padding: 0 !important; 
+            width: auto !important; 
+            height: auto !important; 
+            pointer-events: auto; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
         .bsp-profile-wrapper { display: flex; gap: 10px; font-family: 'Titan One', cursive; position: relative; }
-        .bsp-main-card { width: 380px; height: 450px; background: radial-gradient(circle at center, #7ed6df 0%, #22a6b3 100%); border-radius: 20px; border: 4px solid rgba(0,0,0,0.2); box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
-        .bsp-header { width: 100%; height: 60px; background: linear-gradient(to bottom, #4facfe, #00f2fe); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-shadow: 1.5px 1.5px 0 #000; box-shadow: 0 4px 5px rgba(0,0,0,0.2); z-index: 2; border-bottom: 2px solid rgba(255,255,255,0.3); }
-        .bsp-username { font-size: 22px; margin-bottom: 2px; }
-        .bsp-joined { font-size: 11px; opacity: 0.9; }
-        .bsp-level-star { position: absolute; top: -10px; left: -10px; width: 90px; height: 90px; background: url('icons/icon-level.png') center/contain no-repeat; display: flex; justify-content: center; align-items: center; font-size: 32px; color: white; text-shadow: 2px 2px 0 #000; z-index: 10; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.4)); transform: rotate(-10deg); }
-        .bsp-status-dot { position: absolute; top: 15px; right: 15px; width: 25px; height: 25px; background: radial-gradient(circle at 30% 30%, #2ecc71, #27ae60); border: 2px solid white; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
+        .bsp-main-card { 
+            width: 360px; 
+            height: 310px; 
+            max-height: 85vh;
+            background: radial-gradient(circle at center, #7ed6df 0%, #22a6b3 100%); 
+            border-radius: 20px; 
+            border: 4px solid rgba(0,0,0,0.2); 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
+            position: relative; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
+        .bsp-header { 
+            width: 100%; 
+            height: 48px; 
+            background: linear-gradient(to bottom, #4facfe, #00f2fe); 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            color: white; 
+            text-shadow: 1.5px 1.5px 0 #000; 
+            box-shadow: 0 3px 5px rgba(0,0,0,0.2); 
+            z-index: 2; 
+            border-bottom: 2px solid rgba(255,255,255,0.3); 
+        }
+        .bsp-username { font-size: 18px; margin-bottom: 1px; }
+        .bsp-joined { font-size: 10px; opacity: 0.9; }
+        .bsp-level-star { 
+            position: absolute; 
+            top: -10px; 
+            left: -10px; 
+            width: 76px; 
+            height: 76px; 
+            background: url('icons/icon-level.png') center/contain no-repeat; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-size: 26px; 
+            color: white; 
+            text-shadow: 2px 2px 0 #000; 
+            z-index: 10; 
+            filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.4)); 
+            transform: rotate(-10deg); 
+        }
+        .bsp-status-dot { 
+            position: absolute; 
+            top: 12px; 
+            right: 14px; 
+            width: 20px; 
+            height: 20px; 
+            background: radial-gradient(circle at 30% 30%, #2ecc71, #27ae60); 
+            border: 2px solid white; 
+            border-radius: 50%; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
+            z-index: 10; 
+            display: none; 
+        }
         .bsp-status-dot.offline { background: radial-gradient(circle at 30% 30%, #e74c3c, #c0392b); }
-        .bsp-flag { position: absolute; top: 75px; left: 20px; width: 45px; height: 30px; background-color: #fff; background-image: linear-gradient(to bottom, #fff 50%, #dc143c 50%); border: 2px solid white; border-radius: 6px; box-shadow: 0 3px 5px rgba(0,0,0,0.2); z-index: 5; }
-        #other-player-preview-canvas { position: absolute; top: 60px; left: 0; width: 100%; height: 100%; z-index: 1; }
-        .bsp-corner-btn { position: absolute; bottom: 15px; width: 60px; height: 60px; border-radius: 12px; border: 3px solid white; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 5px 0 rgba(0,0,0,0.3); transition: transform 0.1s; z-index: 10; }
-        .bsp-corner-btn:active { transform: translateY(4px); box-shadow: none; }
-        .btn-report { left: 15px; background: #535c68; background-image: url('icons/alert.png'); background-size: 60%; background-repeat: no-repeat; background-position: center; }
-        .btn-friend-action { right: 15px; background: linear-gradient(to bottom, #e74c3c, #c0392b); }
-        .friend-icon-placeholder { font-size: 30px; filter: drop-shadow(1px 1px 0 #000); }
-        .bsp-sidebar { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; }
-        .bsp-side-btn { width: 100px; height: 75px; background: linear-gradient(to bottom, #4facfe, #00f2fe); border: 3px solid white; border-radius: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 5px 0 #2980b9, 0 8px 10px rgba(0,0,0,0.3); cursor: pointer; transition: transform 0.1s; position: relative; }
-        .bsp-side-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #2980b9; }
-        .bsp-side-btn.green { background: linear-gradient(to bottom, #2ecc71, #27ae60); box-shadow: 0 5px 0 #1e8449, 0 8px 10px rgba(0,0,0,0.3); }
-        .bsp-side-btn.green:active { transform: translateY(4px); box-shadow: 0 1px 0 #1e8449; }
-        .bsp-btn-icon { width: 35px; height: 35px; background-size: contain; background-repeat: no-repeat; background-position: center; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.2)); margin-bottom: 2px; }
-        .bsp-btn-label { font-size: 13px; color: white; text-shadow: 1.5px 1.5px 0 #000; font-weight: bold; }
-        .bsp-close-x { position: absolute; top: -15px; right: -15px; width: 40px; height: 40px; background: #e74c3c; border: 3px solid white; border-radius: 50%; color: white; font-size: 20px; font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 20; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
-        @media (max-width: 600px) {
-            .bsp-profile-wrapper { flex-direction: column; align-items: center; gap: 5px; transform: scale(0.9); }
-            .bsp-sidebar { flex-direction: row; flex-wrap: wrap; justify-content: center; width: 380px; }
-            .bsp-side-btn { width: 70px; height: 60px; }
-            .bsp-btn-label { font-size: 10px; }
-            .bsp-btn-icon { width: 25px; height: 25px; }
+        .bsp-flag { 
+            position: absolute; 
+            top: 65px; 
+            left: 16px; 
+            width: 36px; 
+            height: 22px; 
+            background-color: #fff; 
+            background-image: linear-gradient(to bottom, #fff 50%, #dc143c 50%); 
+            border: 2px solid white; 
+            border-radius: 4px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+            z-index: 5; 
+        }
+        #other-player-preview-canvas { position: absolute; top: 48px; left: 0; width: 100%; height: calc(100% - 48px); z-index: 1; }
+        .bsp-corner-btn { 
+            position: absolute; 
+            bottom: 12px; 
+            width: 48px; 
+            height: 48px; 
+            border-radius: 12px; 
+            border: 3px solid white; 
+            cursor: pointer; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3); 
+            transition: transform 0.1s; 
+            z-index: 10; 
+        }
+        .bsp-corner-btn:active { transform: translateY(3px); box-shadow: none; }
+        .btn-report { left: 14px; background: #535c68; background-image: url('icons/alert.png'); background-size: 60%; background-repeat: no-repeat; background-position: center; }
+        .btn-friend-action { right: 14px; background: linear-gradient(to bottom, #e74c3c, #c0392b); }
+        .friend-icon-placeholder { font-size: 24px; filter: drop-shadow(1px 1px 0 #000); }
+        .bsp-sidebar { display: flex; flex-direction: column; gap: 6px; padding-top: 5px; }
+        .bsp-side-btn { 
+            width: 82px; 
+            height: 56px; 
+            background: linear-gradient(to bottom, #4facfe, #00f2fe); 
+            border: 2.5px solid white; 
+            border-radius: 12px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            box-shadow: 0 4px 0 #2980b9, 0 6px 8px rgba(0,0,0,0.3); 
+            cursor: pointer; 
+            transition: transform 0.1s; 
+            position: relative; 
+        }
+        .bsp-side-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #2980b9; }
+        .bsp-side-btn.green { background: linear-gradient(to bottom, #2ecc71, #27ae60); box-shadow: 0 4px 0 #1e8449, 0 6px 8px rgba(0,0,0,0.3); }
+        .bsp-side-btn.green:active { transform: translateY(3px); box-shadow: 0 1px 0 #1e8449; }
+        .bsp-btn-icon { width: 26px; height: 26px; background-size: contain; background-repeat: no-repeat; background-position: center; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.2)); margin-bottom: 1px; }
+        .bsp-btn-label { font-size: 11px; color: white; text-shadow: 1.5px 1.5px 0 #000; font-weight: bold; }
+        .bsp-close-x { 
+            position: absolute; 
+            top: -12px; 
+            right: -12px; 
+            width: 36px; 
+            height: 36px; 
+            background: #e74c3c; 
+            border: 2.5px solid white; 
+            border-radius: 50%; 
+            color: white; 
+            font-size: 18px; 
+            font-weight: bold; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            cursor: pointer; 
+            z-index: 20; 
+            box-shadow: 0 3px 5px rgba(0,0,0,0.3); 
         }
     </style>
 
@@ -108,9 +369,12 @@ const OTHER_PLAYER_PROFILE_TEMPLATE = `
             <div class="bsp-profile-wrapper">
                 <div class="bsp-main-card">
                     <div class="bsp-close-x" id="btn-other-profile-close">X</div>
-                    <div class="bsp-level-star"><span id="other-profile-level" style="transform: rotate(10deg); margin-top:5px;">100</span></div>
+                    <div class="bsp-level-star"><span id="other-profile-level" style="transform: rotate(10deg); margin-top:4px;">1</span></div>
                     <div id="other-profile-status" class="bsp-status-dot"></div>
-                    <div class="bsp-header"><div id="other-profile-username" class="bsp-username">cybervamp</div><div id="other-profile-date" class="bsp-joined">Członek od maj, 2024</div></div>
+                    <div class="bsp-header">
+                        <div id="other-profile-username" class="bsp-username">player</div>
+                        <div id="other-profile-date" class="bsp-joined">Członek od maj, 2024</div>
+                    </div>
                     <div class="bsp-flag"></div>
                     <div id="other-player-preview-canvas"></div>
                     <div class="bsp-corner-btn btn-report"></div>
@@ -202,7 +466,8 @@ export class ProfileManager {
         this.ui.bringToFront(this.playerProfilePanel);
         this.playerProfilePanel.style.display = 'flex';
         
-        modalPreview.attachTo('profile-preview-canvas', -1, 1.5);
+        // Wyśrodkowany podgląd postaci z dopasowaną skalą
+        modalPreview.attachTo('profile-preview-canvas', -0.7, 1.25);
         
         const nameEl = document.getElementById('profile-username');
         const lvlEl = document.getElementById('profile-level-val');
@@ -254,7 +519,7 @@ export class ProfileManager {
         this.ui.bringToFront(this.otherProfilePanel);
         this.otherProfilePanel.style.display = 'flex';
         
-        modalPreview.attachTo('other-player-preview-canvas', -1.2, 1.5);
+        modalPreview.attachTo('other-player-preview-canvas', -0.7, 1.25);
         
         document.getElementById('other-profile-username').textContent = username;
         document.getElementById('other-profile-level').textContent = "...";
@@ -329,7 +594,7 @@ export class ProfileManager {
                 }
                 if (actionBtn) {
                     actionBtn.style.background = 'linear-gradient(to bottom, #e74c3c, #c0392b)';
-                    actionBtn.innerHTML = '<div style="font-size:30px;">🗑️</div>';
+                    actionBtn.innerHTML = '<div style="font-size:24px;">🗑️</div>';
                     actionBtn.onclick = () => {
                         if (confirm("Czy na pewno chcesz usunąć tego gracza ze znajomych?")) {
                             this.ui.friendsManager.removeFriend(userId).then(success => {
@@ -342,7 +607,7 @@ export class ProfileManager {
                 if (statusDot) statusDot.style.display = 'none';
                 if (actionBtn) {
                     actionBtn.style.background = 'linear-gradient(to bottom, #2ecc71, #27ae60)';
-                    actionBtn.innerHTML = '<div style="font-size:30px; font-weight:bold; color:white;">+</div>';
+                    actionBtn.innerHTML = '<div style="font-size:26px; font-weight:bold; color:white;">+</div>';
                     actionBtn.onclick = () => {
                         this.ui.friendsManager.sendFriendRequest(userId);
                         actionBtn.style.opacity = '0.5';
