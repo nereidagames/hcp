@@ -507,26 +507,26 @@ canvas { display: block; }
 .active-friend-name { color: var(--color-primary); font-size: 9px; margin-top: 2px; text-shadow: 1px 1px 0 #000; }
 
 /* ==========================================================================
-   CZAT W STYLU BLOCKSTARPLANET (Wierny wygląd, animowane rozwijanie, Arial)
+   CZAT W STYLU BLOCKSTARPLANET (Stricte pod paskiem 60px, brak zaokrągleń)
    ========================================================================== */
 .chat-container { 
     position: absolute; 
-    top: 66px; 
+    top: 60px; /* Zaczyna się DOKŁADNIE tam, gdzie kończy się górny pasek (brak szpary) */
     left: 10px; 
     display: flex; 
-    align-items: flex-end; /* Przycisk dymka zawsze przy dolnej krawędzi czatu */
+    align-items: flex-end; 
     z-index: 3000; 
     pointer-events: auto;
 }
 
-/* Okienko czatu: zwinięte (68px) -> po kliknięciu rozwija się do 240px */
+/* Okienko czatu: proste kąty (border-radius: 0), zwinięte (68px) -> rozwinięte (240px) */
 .chat-area { 
     width: 320px; 
     height: 68px; 
-    max-height: calc(100vh - 85px);
+    max-height: calc(100vh - 75px);
     background: linear-gradient(180deg, rgba(206, 235, 253, 0.82) 0%, rgba(175, 220, 250, 0.90) 100%); 
     border: 2px solid #5dade2; 
-    border-radius: 8px;
+    border-radius: 0 !important; /* Usunięto zaokrąglone rogi */
     padding: 6px 10px; 
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22); 
     display: flex;
@@ -538,13 +538,13 @@ canvas { display: block; }
     user-select: text;
     -webkit-user-select: text;
     cursor: pointer;
-    /* Płynna animacja rozwijania i zwijania */
     transition: height 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), background-color 0.2s ease;
 }
 
-/* Stan rozwinięty po kliknięciu */
+/* Rozwinięty czat - również bez zaokrągleń */
 .chat-area.expanded {
     height: 240px;
+    border-radius: 0 !important;
     background: linear-gradient(180deg, rgba(212, 238, 255, 0.88) 0%, rgba(170, 218, 250, 0.95) 100%);
 }
 
@@ -558,7 +558,7 @@ canvas { display: block; }
 }
 .chat-area::-webkit-scrollbar-thumb {
     background: rgba(93, 173, 226, 0.7);
-    border-radius: 4px;
+    border-radius: 0;
 }
 .chat-area::-webkit-scrollbar-track {
     background: transparent;
@@ -623,7 +623,7 @@ canvas { display: block; }
     height: 44px; 
     background: linear-gradient(to bottom, #74d61f 0%, #5ba806 100%); 
     border: 2px solid white; 
-    border-radius: 8px; 
+    border-radius: 6px; 
     display: flex; 
     align-items: center; 
     justify-content: center; 
