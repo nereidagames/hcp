@@ -5,7 +5,6 @@ import { modalPreview } from './ModalPreview.js';
 
 const HUD_HTML = `
     <div class="top-bar ui-element">
-        <!-- Przycisk VIP stricte w lewym górnym rogu -->
         <div id="btn-vip-corner" class="ui-element" title="Kup VIP"></div>
 
         <div id="player-avatar-button" class="top-bar-item">
@@ -27,8 +26,19 @@ const HUD_HTML = `
     </div>
     
     <div id="parkour-timer" class="text-outline">00:00.00</div>
-    <div class="chat-container ui-element"><div class="chat-area"></div><div id="chat-toggle-button">💬</div></div>
-    <form id="chat-form" class="ui-element"><input type="text" id="chat-input-field" placeholder="Napisz coś..."><button type="submit" id="chat-send-btn">Wyślij</button></form>
+    
+    <!-- CZAT BSP: Okno z możliwością rozszerzania + zielony przycisk z saysomething.png -->
+    <div class="chat-container ui-element">
+        <div class="chat-area" title="Kliknij, aby rozwinąć / zwinąć"></div>
+        <div id="chat-toggle-button" title="Napisz wiadomość">
+            <img src="icons/saysomething.png" alt="Czat" class="chat-toggle-icon">
+        </div>
+    </div>
+
+    <form id="chat-form" class="ui-element">
+        <input type="text" id="chat-input-field" placeholder="Napisz coś...">
+        <button type="submit" id="chat-send-btn">Wyślij</button>
+    </form>
     
     <div class="right-ui ui-element">
         <div class="game-buttons">
@@ -127,7 +137,7 @@ export class UIManager {
     this.onReplayParkour = null;
     this.onOpenOtherProfile = null;
     this.onVictoryScreenOpen = null;
-    this.onVipClick = null; // Callback zakupu VIP
+    this.onVipClick = null;
     
     this.onDiggingClick = null;
     this.onDiggingMove = null;
@@ -438,42 +448,97 @@ export class UIManager {
       }
   }
   
-  setupChatSystem() { this.setupChatInput(); }
-  
-  addChatMessage(m, senderName = null) { 
-      const c = document.querySelector('.chat-area'); 
-      if(c) { 
-          const el = document.createElement('div'); 
-          el.className = 'chat-message text-outline'; 
-          if (senderName && m.startsWith(senderName)) {
-               const parts = m.split(':');
-               const nick = parts[0];
-               const rest = parts.slice(1).join(':');
-               const nickSpan = document.createElement('span');
-               nickSpan.textContent = nick;
-               nickSpan.style.cursor = 'pointer';
-               nickSpan.style.color = '#f1c40f'; 
-               nickSpan.style.textDecoration = 'underline';
-               nickSpan.onclick = () => this.openOtherPlayerProfile(nick);
-               el.appendChild(nickSpan);
-               el.appendChild(document.createTextNode(':' + rest));
-          } else { el.textContent = m; }
-          c.appendChild(el); c.scrollTop = c.scrollHeight; 
-      } 
+  // --- OBSŁUGA ROZSZERZALNEGO CZATU W STYLU BSP ---
+  setupChatSystem() { 
+      this.setupChatInput(); 
+      
+      const chatArea = document.querySelector('.chat-area');
+      if (chatArea) {
+          let touchStartY = 0;
+          let isSwiping = false;
+
+          // Wykryj czy użytkownik przewija wiadomości, czy klika aby rozwinąć
+          chatArea.addEventListener('touchstart', (e) => {
+              touchStartY = e.touches[0].clientY;
+              isSwiping = false;
+          }, { passive: true });
+
+          chatArea.addEventListener('touchmove', (e) => {
+              if (Math.abs(e.touches[0].clientY - touchStartY) > 8) {
+                  isSwiping = true;
+              }
+          }, { passive: true });
+
+          // Kliknięcie rozwija / zwija okienko z płynną animacją
+          chatArea.addEventListener('click', (e) => {
+              if (e.target.classList.contains('chat-nick-span')) return;
+              if (isSwiping) return;
+
+              chatArea.classList.toggle('expanded');
+              setTimeout(() => {
+                  chatArea.scrollTop = chatArea.scrollHeight;
+              }, 260);
+          });
+      }
   }
   
-  clearChat() { const c = document.querySelector('.chat-area'); if(c) c.innerHTML = ''; }
+  // Formatowanie wiadomości na czcionki Arial zgodnie z wytycznymi
+  addChatMessage(m, senderName = null) { 
+      const c = document.querySelector('.chat-area'); 
+      if (!c) return; 
+      
+      const el = document.createElement('div'); 
+      
+      if (m.includes('<Witamy na')) {
+          // Czcionka: Arial Bold Italic
+          el.className = 'chat-msg-welcome';
+          el.textContent = m;
+      } else if (m.startsWith('<') && m.endsWith('>')) {
+          // Czcionka: Arial Italic
+          el.className = 'chat-msg-system';
+          el.textContent = m;
+      } else if (senderName && m.startsWith(senderName)) {
+          // Normalne wiadomości z czatu: czcionka Arial
+          el.className = 'chat-msg-player';
+          const parts = m.split(':');
+          const nick = parts[0];
+          const rest = parts.slice(1).join(':');
+          
+          const nickSpan = document.createElement('span');
+          nickSpan.className = 'chat-nick-span';
+          nickSpan.textContent = nick;
+          nickSpan.onclick = (e) => {
+              e.stopPropagation();
+              this.openOtherPlayerProfile(nick);
+          };
+          
+          el.appendChild(nickSpan);
+          el.appendChild(document.createTextNode(':' + rest));
+      } else {
+          el.className = 'chat-msg-player';
+          el.textContent = m;
+      }
+      
+      c.appendChild(el); 
+      c.scrollTop = c.scrollHeight; 
+  }
+  
+  clearChat() { 
+      const c = document.querySelector('.chat-area'); 
+      if(c) c.innerHTML = ''; 
+  }
   
   handleChatClick() { 
       const f = document.getElementById('chat-form'); 
-      if(f) f.style.display='flex'; 
-      document.getElementById('chat-input-field').focus(); 
+      if(f) f.style.display = 'flex'; 
+      const input = document.getElementById('chat-input-field');
+      if (input) input.focus(); 
   }
   
   setupChatInput() { 
       const f = document.getElementById('chat-form'); 
-      if(!f)return; 
-      f.addEventListener('submit', e=>{ 
+      if(!f) return; 
+      f.addEventListener('submit', e => { 
           e.preventDefault(); 
           const i = document.getElementById('chat-input-field'); 
           const v = i.value.trim(); 
@@ -550,10 +615,8 @@ export class UIManager {
   }
   
   setupButtonHandlers() {
-      // Obsługa przycisku zakupu VIP (stricte w lewym górnym rogu)
       const vipBtn = document.getElementById('btn-vip-corner');
       if (vipBtn) {
-          // Obsługa myszy (PC)
           vipBtn.addEventListener('mousedown', () => {
               vipBtn.style.backgroundImage = "url('icons/icon-vip2.png')";
           });
@@ -564,7 +627,6 @@ export class UIManager {
               vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
           });
 
-          // Obsługa dotyku (Mobile)
           vipBtn.addEventListener('touchstart', () => {
               vipBtn.style.backgroundImage = "url('icons/icon-vip2.png')";
           }, { passive: true });
@@ -618,6 +680,7 @@ export class UIManager {
           } 
       });
       
+      // Przycisk dymka otwiera formularz wpisywania wiadomości
       const chatToggle = document.getElementById('chat-toggle-button'); 
       if (chatToggle) chatToggle.addEventListener('click', () => this.handleChatClick());
       
