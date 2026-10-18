@@ -484,7 +484,6 @@ canvas { display: block; }
     touch-action: manipulation;
 }
 
-/* Zmiana tekstury na icon-vip2.png przy wciśnięciu */
 #btn-vip-corner:active {
     background-image: url('icons/icon-vip2.png') !important;
 }
@@ -508,64 +507,145 @@ canvas { display: block; }
 .active-friend-name { color: var(--color-primary); font-size: 9px; margin-top: 2px; text-shadow: 1px 1px 0 #000; }
 
 /* ==========================================================================
-   CZAT W NEXUSIE (Wysoki z-index, pełna klikalność i płynne przewijanie)
+   CZAT W STYLU BLOCKSTARPLANET (Wierny wygląd, animowane rozwijanie, Arial)
    ========================================================================== */
 .chat-container { 
     position: absolute; 
-    top: 70px; 
+    top: 66px; 
     left: 10px; 
     display: flex; 
-    align-items: flex-start; 
-    gap: 0; 
+    align-items: flex-end; /* Przycisk dymka zawsze przy dolnej krawędzi czatu */
     z-index: 3000; 
     pointer-events: auto;
 }
 
+/* Okienko czatu: zwinięte (68px) -> po kliknięciu rozwija się do 240px */
 .chat-area { 
-    position: static; 
-    width: 300px; 
-    height: 90px; 
-    background: rgba(220, 240, 255, 0.9); 
+    width: 320px; 
+    height: 68px; 
+    max-height: calc(100vh - 85px);
+    background: linear-gradient(180deg, rgba(206, 235, 253, 0.82) 0%, rgba(175, 220, 250, 0.90) 100%); 
     border: 2px solid #5dade2; 
-    border-right: none; 
-    border-radius: 8px 0 0 8px;
-    padding: 5px 8px; 
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2); 
+    border-radius: 8px;
+    padding: 6px 10px; 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22); 
+    display: flex;
+    flex-direction: column;
     overflow-y: auto; 
+    overflow-x: hidden;
     pointer-events: auto;
     touch-action: pan-y;
     user-select: text;
     -webkit-user-select: text;
+    cursor: pointer;
+    /* Płynna animacja rozwijania i zwijania */
+    transition: height 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), background-color 0.2s ease;
 }
 
-.chat-message { 
-    color: #444; 
-    font-size: 13px; 
-    margin: 2px 0; 
-    font-style: italic; 
-    font-weight: bold; 
-    text-shadow: none; 
-    pointer-events: auto;
+/* Stan rozwinięty po kliknięciu */
+.chat-area.expanded {
+    height: 240px;
+    background: linear-gradient(180deg, rgba(212, 238, 255, 0.88) 0%, rgba(170, 218, 250, 0.95) 100%);
 }
 
+/* Wyrównanie wiadomości do dołu jak w oryginale */
+.chat-area > :first-child {
+    margin-top: auto;
+}
+
+.chat-area::-webkit-scrollbar {
+    width: 5px;
+}
+.chat-area::-webkit-scrollbar-thumb {
+    background: rgba(93, 173, 226, 0.7);
+    border-radius: 4px;
+}
+.chat-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Komunikat powitalny: Arial Bold Italic */
+.chat-msg-welcome {
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 13px;
+    font-weight: bold;
+    font-style: italic;
+    color: #000000;
+    margin: 3px 0;
+    line-height: 1.3;
+    text-shadow: none !important;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+/* Komunikaty systemowe (<...>): Arial Italic */
+.chat-msg-system {
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 12.5px;
+    font-weight: normal;
+    font-style: italic;
+    color: #486581;
+    margin: 2px 0;
+    line-height: 1.3;
+    text-shadow: none !important;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+/* Zwykłe wiadomości z czatu: Arial Normal */
+.chat-msg-player {
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 13px;
+    font-weight: normal;
+    font-style: normal;
+    color: #102a43;
+    margin: 2px 0;
+    line-height: 1.3;
+    text-shadow: none !important;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+/* Nick gracza na czacie */
+.chat-nick-span {
+    font-weight: bold;
+    color: #0066cc;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.chat-nick-span:hover {
+    color: #004499;
+}
+
+/* Zielony przycisk z dymkiem w stylu BSP */
 #chat-toggle-button { 
-    width: 40px; 
-    height: 40px; 
-    background: #2ecc71; 
-    border: 2px solid #27ae60; 
-    border-radius: 0 8px 8px 0; 
+    width: 44px; 
+    height: 44px; 
+    background: linear-gradient(to bottom, #74d61f 0%, #5ba806 100%); 
+    border: 2px solid white; 
+    border-radius: 8px; 
     display: flex; 
     align-items: center; 
     justify-content: center; 
     cursor: pointer; 
-    box-shadow: 0 4px 0 #218c74; 
-    font-size: 20px; 
-    color: white; 
+    box-shadow: 0 3px 0 #3e7504, 0 3px 6px rgba(0,0,0,0.3); 
+    margin-left: 6px;
+    flex-shrink: 0;
     transition: transform 0.1s;
     pointer-events: auto;
     z-index: 3001;
 }
-#chat-toggle-button:active { transform: translateY(4px); box-shadow: 0 0 0 #218c74; }
+#chat-toggle-button:active { 
+    transform: translateY(2px); 
+    box-shadow: 0 1px 0 #3e7504; 
+}
+
+.chat-toggle-icon {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));
+}
 
 /* Formularz czatu ponad wszystkimi kontrolkami */
 #chat-form { 
@@ -592,7 +672,7 @@ canvas { display: block; }
     border: none; 
     border-radius: 8px; 
     padding: 0 12px; 
-    font-family: var(--font-main); 
+    font-family: Arial, Helvetica, sans-serif; 
     font-size: 14px;
     pointer-events: auto;
 }
@@ -662,12 +742,11 @@ canvas { display: block; }
     -webkit-touch-callout: none;
 }
 
-/* Dynamiczna zmiana tekstury przycisku skoku */
 #jump-button:active {
     background-image: url('icons/icon-jump2.png') !important;
 }
 
-/* Dynamiczna strefa joysticka: zaczyna się poniżej czatu (top: 175px) na lewej połowie ekranu */
+/* Dynamiczna strefa joysticka: zaczyna się poniżej czatu (top: 175px) */
 #joystick-zone { 
     position: fixed !important; 
     top: 175px; 
@@ -683,7 +762,6 @@ canvas { display: block; }
     -webkit-touch-callout: none;
 }
 
-/* Dynamiczny joystick mobilny w stylu BSP */
 .custom-joystick-base {
     position: fixed;
     width: 98px;
