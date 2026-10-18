@@ -484,7 +484,7 @@ canvas { display: block; }
     touch-action: manipulation;
 }
 
-/* Zmiana tekstury na icon-vip2.png przy wciśnięciu na wszystkich platformach */
+/* Zmiana tekstury na icon-vip2.png przy wciśnięciu */
 #btn-vip-corner:active {
     background-image: url('icons/icon-vip2.png') !important;
 }
@@ -507,24 +507,110 @@ canvas { display: block; }
 .active-friend-avatar { width: 40px; height: 40px; background-color: #333; border: 2px solid var(--color-primary); border-radius: 8px; background-size: cover; background-position: center; }
 .active-friend-name { color: var(--color-primary); font-size: 9px; margin-top: 2px; text-shadow: 1px 1px 0 #000; }
 
-/* Chat */
-.chat-container { position: absolute; top: 70px; left: 10px; display: flex; align-items: flex-start; gap: 0; z-index: 1500; }
-.chat-area { 
-    position: static; width: 300px; height: 90px; 
-    background: rgba(220, 240, 255, 0.9); 
-    border: 2px solid #5dade2; border-right: none; border-radius: 8px 0 0 8px;
-    padding: 5px 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); overflow-y: auto; 
+/* ==========================================================================
+   CZAT W NEXUSIE (Wysoki z-index, pełna klikalność i płynne przewijanie)
+   ========================================================================== */
+.chat-container { 
+    position: absolute; 
+    top: 70px; 
+    left: 10px; 
+    display: flex; 
+    align-items: flex-start; 
+    gap: 0; 
+    z-index: 3000; 
+    pointer-events: auto;
 }
-.chat-message { color: #444; font-size: 13px; margin: 2px 0; font-style: italic; font-weight: bold; text-shadow: none; }
+
+.chat-area { 
+    position: static; 
+    width: 300px; 
+    height: 90px; 
+    background: rgba(220, 240, 255, 0.9); 
+    border: 2px solid #5dade2; 
+    border-right: none; 
+    border-radius: 8px 0 0 8px;
+    padding: 5px 8px; 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2); 
+    overflow-y: auto; 
+    pointer-events: auto;
+    touch-action: pan-y;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.chat-message { 
+    color: #444; 
+    font-size: 13px; 
+    margin: 2px 0; 
+    font-style: italic; 
+    font-weight: bold; 
+    text-shadow: none; 
+    pointer-events: auto;
+}
+
 #chat-toggle-button { 
-    width: 40px; height: 40px; background: #2ecc71; border: 2px solid #27ae60; border-radius: 0 8px 8px 0; 
-    display: flex; align-items: center; justify-content: center; cursor: pointer; 
-    box-shadow: 0 4px 0 #218c74; font-size: 20px; color: white; transition: transform 0.1s;
+    width: 40px; 
+    height: 40px; 
+    background: #2ecc71; 
+    border: 2px solid #27ae60; 
+    border-radius: 0 8px 8px 0; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    cursor: pointer; 
+    box-shadow: 0 4px 0 #218c74; 
+    font-size: 20px; 
+    color: white; 
+    transition: transform 0.1s;
+    pointer-events: auto;
+    z-index: 3001;
 }
 #chat-toggle-button:active { transform: translateY(4px); box-shadow: 0 0 0 #218c74; }
-#chat-form { display: none; position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; height: 45px; background: rgba(0, 0, 0, 0.7); border-radius: 10px; padding: 5px; z-index: 2001; }
-#chat-input-field { width: calc(100% - 60px); height: 35px; border: none; border-radius: 8px; padding: 0 10px; font-family: var(--font-main); }
-#chat-send-btn { width: 50px; height: 35px; border: none; border-radius: 8px; background: #4ecdc4; color: white; cursor: pointer; font-family: var(--font-main); }
+
+/* Formularz czatu ponad wszystkimi kontrolkami */
+#chat-form { 
+    display: none; 
+    position: fixed; 
+    bottom: 15px; 
+    left: 50%; 
+    transform: translateX(-50%); 
+    width: 90%; 
+    max-width: 480px; 
+    height: 50px; 
+    background: rgba(0, 0, 0, 0.85); 
+    border: 2px solid white;
+    border-radius: 12px; 
+    padding: 6px; 
+    z-index: 10005; 
+    pointer-events: auto;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+}
+
+#chat-input-field { 
+    width: calc(100% - 75px); 
+    height: 100%; 
+    border: none; 
+    border-radius: 8px; 
+    padding: 0 12px; 
+    font-family: var(--font-main); 
+    font-size: 14px;
+    pointer-events: auto;
+}
+
+#chat-send-btn { 
+    width: 65px; 
+    height: 100%; 
+    border: none; 
+    border-radius: 8px; 
+    background: #2ecc71; 
+    color: white; 
+    cursor: pointer; 
+    font-family: var(--font-main); 
+    font-size: 14px;
+    box-shadow: 0 3px 0 #27ae60;
+    pointer-events: auto;
+}
+#chat-send-btn:active { transform: translateY(2px); box-shadow: none; }
 
 /* Right UI */
 .right-ui { position: absolute; top: 70px; right: 20px; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; z-index: 1500; }
@@ -552,7 +638,7 @@ canvas { display: block; }
 #level-text { position: relative; z-index: 1; font-size: 14px; color: white; }
 .level-plus-btn { position: absolute; right: 0; width: 35px; height: 35px; background-color: #74b9ff; border: 2px solid white; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: white; font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
 
-/* --- MOBILE & FIXES --- */
+/* --- MOBILE CONTROLS & JOYSTICK --- */
 #mobile-game-controls { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; display: none; pointer-events: none; }
 #jump-button { 
     position: absolute !important; 
@@ -576,18 +662,18 @@ canvas { display: block; }
     -webkit-touch-callout: none;
 }
 
-/* Dynamiczna zmiana tekstury przycisku skoku przy dotknięciu / kliknięciu */
+/* Dynamiczna zmiana tekstury przycisku skoku */
 #jump-button:active {
     background-image: url('icons/icon-jump2.png') !important;
 }
 
-/* Dynamiczna strefa joysticka (obejmująca całą lewą połowę ekranu pod HUD-em) */
+/* Dynamiczna strefa joysticka: zaczyna się poniżej czatu (top: 175px) na lewej połowie ekranu */
 #joystick-zone { 
     position: fixed !important; 
-    top: 60px; 
+    top: 175px; 
     left: 0; 
     width: 50vw; 
-    height: calc(100vh - 60px); 
+    height: calc(100vh - 175px); 
     z-index: 1005; 
     display: none; 
     pointer-events: auto; 
@@ -597,7 +683,7 @@ canvas { display: block; }
     -webkit-touch-callout: none;
 }
 
-/* --- DYNAMICZNY JOYSTICK MOBILNY (Zmniejszony o 25%, ciemne półprzezroczyste tło, brak obramówki) --- */
+/* Dynamiczny joystick mobilny w stylu BSP */
 .custom-joystick-base {
     position: fixed;
     width: 98px;
