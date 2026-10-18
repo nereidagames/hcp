@@ -27,18 +27,22 @@ const HUD_HTML = `
     
     <div id="parkour-timer" class="text-outline">00:00.00</div>
     
-    <!-- CZAT BSP: Okno z możliwością rozszerzania + zielony przycisk z saysomething.png -->
+    <!-- CZAT BSP: Okno czatu + pole wpisywania pod nim ze screena -->
     <div class="chat-container ui-element">
-        <div class="chat-area" title="Kliknij, aby rozwinąć / zwinąć"></div>
-        <div id="chat-toggle-button" title="Napisz wiadomość">
-            <img src="icons/saysomething.png" alt="Czat" class="chat-toggle-icon">
+        <div class="chat-top-row">
+            <div class="chat-area" title="Kliknij, aby rozwinąć / zwinąć"></div>
+            <button type="button" id="chat-toggle-button" title="Napisz wiadomość">
+                <img id="chat-toggle-icon" src="icons/saysomething.png" alt="Czat">
+            </button>
         </div>
-    </div>
 
-    <form id="chat-form" class="ui-element">
-        <input type="text" id="chat-input-field" placeholder="Napisz coś...">
-        <button type="submit" id="chat-send-btn">Wyślij</button>
-    </form>
+        <form id="chat-form" style="display: none;">
+            <input type="text" id="chat-input-field" placeholder="" autocomplete="off" maxlength="120">
+            <button type="submit" id="chat-send-btn" title="Wyślij">
+                <img src="icons/send.png" alt="Wyślij" class="chat-action-icon">
+            </button>
+        </form>
+    </div>
     
     <div class="right-ui ui-element">
         <div class="game-buttons">
@@ -448,7 +452,7 @@ export class UIManager {
       }
   }
   
-  // --- OBSŁUGA ROZSZERZALNEGO CZATU W STYLU BSP ---
+  // --- OBSŁUGA CZATU W STYLU BSP (ROZSZERZANIE I PRZEŁĄCZANIE FORMULARZA) ---
   setupChatSystem() { 
       this.setupChatInput(); 
       
@@ -457,7 +461,6 @@ export class UIManager {
           let touchStartY = 0;
           let isSwiping = false;
 
-          // Wykryj czy użytkownik przewija wiadomości, czy klika aby rozwinąć
           chatArea.addEventListener('touchstart', (e) => {
               touchStartY = e.touches[0].clientY;
               isSwiping = false;
@@ -469,7 +472,7 @@ export class UIManager {
               }
           }, { passive: true });
 
-          // Kliknięcie rozwija / zwija okienko z płynną animacją
+          // Kliknięcie w okno czatu rozwija / zwija je z animacją
           chatArea.addEventListener('click', (e) => {
               if (e.target.classList.contains('chat-nick-span')) return;
               if (isSwiping) return;
@@ -482,7 +485,6 @@ export class UIManager {
       }
   }
   
-  // Formatowanie wiadomości na czcionki Arial zgodnie z wytycznymi
   addChatMessage(m, senderName = null) { 
       const c = document.querySelector('.chat-area'); 
       if (!c) return; 
@@ -490,15 +492,12 @@ export class UIManager {
       const el = document.createElement('div'); 
       
       if (m.includes('<Witamy na')) {
-          // Czcionka: Arial Bold Italic
           el.className = 'chat-msg-welcome';
           el.textContent = m;
       } else if (m.startsWith('<') && m.endsWith('>')) {
-          // Czcionka: Arial Italic
           el.className = 'chat-msg-system';
           el.textContent = m;
       } else if (senderName && m.startsWith(senderName)) {
-          // Normalne wiadomości z czatu: czcionka Arial
           el.className = 'chat-msg-player';
           const parts = m.split(':');
           const nick = parts[0];
@@ -528,24 +527,49 @@ export class UIManager {
       if(c) c.innerHTML = ''; 
   }
   
+  // Przełączanie pola pisania (saysomething.png <-> cancel.png)
   handleChatClick() { 
-      const f = document.getElementById('chat-form'); 
-      if(f) f.style.display = 'flex'; 
+      const form = document.getElementById('chat-form'); 
+      const icon = document.getElementById('chat-toggle-icon');
       const input = document.getElementById('chat-input-field');
-      if (input) input.focus(); 
+      if (!form) return;
+
+      const isHidden = form.style.display === 'none' || form.style.display === '';
+
+      if (isHidden) {
+          form.style.display = 'flex';
+          if (icon) icon.src = 'icons/cancel.png';
+          if (input) input.focus();
+      } else {
+          form.style.display = 'none';
+          if (icon) icon.src = 'icons/saysomething.png';
+          if (input) input.blur();
+      }
   }
   
   setupChatInput() { 
-      const f = document.getElementById('chat-form'); 
-      if(!f) return; 
-      f.addEventListener('submit', e => { 
+      const form = document.getElementById('chat-form'); 
+      const icon = document.getElementById('chat-toggle-icon');
+      const input = document.getElementById('chat-input-field');
+      if (!form) return; 
+
+      form.addEventListener('submit', e => { 
           e.preventDefault(); 
-          const i = document.getElementById('chat-input-field'); 
-          const v = i.value.trim(); 
-          if(v && this.onSendMessage) this.onSendMessage(v); 
-          i.value = ''; 
-          f.style.display = 'none'; 
+          const v = input.value.trim(); 
+          if (v && this.onSendMessage) this.onSendMessage(v); 
+          input.value = ''; 
+          form.style.display = 'none'; 
+          if (icon) icon.src = 'icons/saysomething.png';
       }); 
+
+      // Klawisz Escape zamyka wpisywanie bez wysyłania
+      input.addEventListener('keydown', e => {
+          if (e.key === 'Escape') {
+              form.style.display = 'none';
+              if (icon) icon.src = 'icons/saysomething.png';
+              input.blur();
+          }
+      });
   }
   
   setParkourTimerVisible(visible) {
@@ -680,7 +704,7 @@ export class UIManager {
           } 
       });
       
-      // Przycisk dymka otwiera formularz wpisywania wiadomości
+      // Przycisk dymka przełącza stan wpisywania
       const chatToggle = document.getElementById('chat-toggle-button'); 
       if (chatToggle) chatToggle.addEventListener('click', () => this.handleChatClick());
       
