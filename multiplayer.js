@@ -19,7 +19,7 @@ export class MultiplayerManager {
     this.ws = null;
     this.myId = null;
     
-    this.localCharacter = null; // Referencja do lokalnego gracza
+    this.localCharacter = null;
 
     this.onMessageSent = null;
     this.onMessageReceived = null;
@@ -44,6 +44,8 @@ export class MultiplayerManager {
     }
     const serverUrl = `wss://hypercubes-nexus-server.onrender.com?token=${token}`;
 
+    // Komunikat powitalny w czcionce Arial Bold Italic oraz status połączenia
+    this.uiManager.addChatMessage('<Witamy na HyperCubesPlanet!>');
     this.uiManager.addChatMessage('<Łączenie z Nexusem...>');
 
     try {
@@ -94,6 +96,7 @@ export class MultiplayerManager {
           
           if(this.uiManager) {
               this.uiManager.clearChat();
+              this.uiManager.addChatMessage('<Witamy na HyperCubesPlanet!>');
               this.uiManager.addChatMessage(`<Dołączanie do: ${worldId ? 'Świata' : 'Nexusa'}...>`);
           }
 
@@ -152,7 +155,7 @@ export class MultiplayerManager {
         
       case 'chat':
       case 'chatMessage':
-        this.uiManager.addChatMessage(`${msg.nickname}: ${msg.text}`);
+        this.uiManager.addChatMessage(`${msg.nickname}: ${msg.text}`, msg.nickname);
         
         if (msg.id === this.myId) {
             this.displayLocalChatBubble(msg.text);
@@ -272,8 +275,6 @@ export class MultiplayerManager {
             if (geometries.length === 0) continue;
             
             const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries);
-            
-            // POPRAWKA: Natychmiastowe zwolnienie tymczasowych instancji geometrii z RAM/GPU
             geometries.forEach(g => g.dispose());
 
             if (!mergedGeometry) continue;
@@ -331,7 +332,6 @@ export class MultiplayerManager {
   removeRemotePlayer(id) {
       const p = this.remotePlayers[id];
       if (p) {
-          // POPRAWKA: Usunięcie ewentualnego dymka czatu
           if (p.chatBubble) {
               if (p.chatBubble.element && p.chatBubble.element.parentNode) {
                   p.chatBubble.element.parentNode.removeChild(p.chatBubble.element);
@@ -342,12 +342,10 @@ export class MultiplayerManager {
 
           this.scene.remove(p.mesh);
 
-          // POPRAWKA: Bezpieczne czyszczenie geometrii oraz nie-cache'owanych materiałów
           p.mesh.traverse(child => {
               if (child.isMesh) {
                   if (child.geometry) child.geometry.dispose();
 
-                  // Jeśli materiał nie należy do współdzielonego materialsCache, zwalniamy go
                   if (child.material && !Object.values(this.materialsCache).includes(child.material)) {
                       if (Array.isArray(child.material)) {
                           child.material.forEach(m => m.dispose());
