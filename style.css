@@ -219,6 +219,53 @@ body {
     letter-spacing: 1px;
 }
 
+@media (max-height: 520px) {
+    .loading-content-bsp {
+        padding: 5px 10px;
+    }
+
+    #loading-logo-bsp {
+        max-height: 110px;
+        max-width: 250px;
+    }
+
+    .bsp-progress-container {
+        width: 290px;
+        max-width: 75vw;
+        margin-top: 8px;
+    }
+
+    .bsp-progress-bar {
+        height: 22px;
+    }
+
+    .bsp-progress-text {
+        font-size: 11px;
+        margin-top: 6px;
+    }
+}
+
+@media (max-height: 380px) {
+    #loading-logo-bsp {
+        max-height: 85px;
+        max-width: 210px;
+    }
+
+    .bsp-progress-container {
+        width: 260px;
+        margin-top: 5px;
+    }
+
+    .bsp-progress-bar {
+        height: 19px;
+    }
+
+    .bsp-progress-text {
+        font-size: 10px;
+        margin-top: 4px;
+    }
+}
+
 /* --- EKRAN LOGOWANIA / REJESTRACJI --- */
 .bsp-interactive { pointer-events: auto !important; }
 
@@ -286,7 +333,7 @@ body {
 }
 
 #bsp-login-modal {
-    position: absolute; right: 50px; top: 50%; transform: translateY(-50%);
+    position: absolute right: 50px; top: 50%; transform: translateY(-50%);
     width: 320px;
     background: #3498db;
     border: 4px solid white; border-radius: 20px;
@@ -365,6 +412,17 @@ body {
 }
 .selector-arrow:active { transform: translateY(3px); box-shadow: none; }
 
+@media (max-width: 1024px) {
+    .bsp-big-btn { width: 180px; height: 90px; font-size: 18px; border-width: 3px; }
+    .bsp-right-buttons { gap: 15px; transform: translateY(-60%); }
+}
+@media (max-width: 600px) {
+    .bsp-big-btn { width: 150px; height: 80px; font-size: 16px; box-shadow: 0 5px 10px rgba(0,0,0,0.5); }
+    .bsp-right-buttons { right: 10px; transform: translateY(-55%); }
+    #bsp-login-modal, .bsp-register-panel { width: 90%; right: 5%; }
+    .bsp-skin-selector { left: 10px; transform: scale(0.8) translateY(-50%); }
+}
+
 /* --- GAME CONTAINER & HUD --- */
 #gameContainer { position: relative; width: 100vw; height: 100vh; }
 canvas { display: block; } 
@@ -372,12 +430,12 @@ canvas { display: block; }
 .ui-element { pointer-events: auto; }
 
 /* ==========================================================================
-   GÓRNY PASEK (Top Bar) Z DYNAMICZNĄ SKALĄ --ui-scale
+   GÓRNY PASEK (Top Bar) – ZWIĘKSZONA WYSOKOŚĆ O 6px (z 60px na 66px)
    ========================================================================== */
 .top-bar { 
     position: absolute; 
     top: 0; left: 0; right: 0; 
-    height: calc(60px * var(--ui-scale)); 
+    height: calc(66px * var(--ui-scale)); /* Zwiększono o 6px w dół */
     background-image: url('icons/icon-bar.png');
     background-repeat: repeat-x; 
     background-size: auto 100%; 
@@ -386,18 +444,18 @@ canvas { display: block; }
     box-shadow: 0 4px 8px rgba(0,0,0,0.4);
     display: flex; 
     align-items: center; 
-    padding: 0 15px 0 calc(68px * var(--ui-scale)); 
+    padding: 0 15px 0 calc(74px * var(--ui-scale)); /* 66px szerokość VIP + 8px odstępu */
     gap: calc(15px * var(--ui-scale)); 
     z-index: 2100;
 }
 
-/* Przycisk zakupu VIP stricte w lewym górnym rogu */
+/* Przycisk zakupu VIP stricte w lewym górnym rogu dopasowany do wysokości 66px */
 #btn-vip-corner {
     position: absolute;
     top: 0;
     left: 0;
-    width: calc(60px * var(--ui-scale));
-    height: calc(60px * var(--ui-scale));
+    width: calc(66px * var(--ui-scale));
+    height: calc(66px * var(--ui-scale));
     background-image: url('icons/icon-vip1.png');
     background-size: contain;
     background-position: top left;
@@ -459,11 +517,11 @@ canvas { display: block; }
 .active-friend-name { color: var(--color-primary); font-size: 9px; margin-top: 2px; text-shadow: 1px 1px 0 #000; }
 
 /* ==========================================================================
-   CZAT W STYLU BLOCKSTARPLANET (Kotwiczony do lewego górnego rogu z --ui-scale)
+   CZAT W STYLU BLOCKSTARPLANET (Zaczyna się na 66px, bezpośrednio pod paskiem)
    ========================================================================== */
 .chat-container { 
     position: absolute; 
-    top: calc(60px * var(--ui-scale)); 
+    top: calc(66px * var(--ui-scale)); /* Zaczyna się DOKŁADNIE tam, gdzie kończy się pasek 66px */
     left: 10px; 
     display: flex; 
     flex-direction: column;
@@ -481,7 +539,7 @@ canvas { display: block; }
 .chat-area { 
     width: 320px; 
     height: 68px; 
-    max-height: calc(100vh / var(--ui-scale) - 120px);
+    max-height: calc(100vh / var(--ui-scale) - 130px);
     background: linear-gradient(180deg, rgba(206, 235, 253, 0.82) 0%, rgba(175, 220, 250, 0.90) 100%); 
     border: 2px solid #5dade2; 
     border-radius: 0 !important; 
@@ -645,11 +703,11 @@ canvas { display: block; }
 }
 
 /* ==========================================================================
-   PRAWY INTERFEJS (Right UI: Zagraj, Poziom, Monety) Z --ui-scale
+   PRAWY INTERFEJS (Right UI: Zagraj, Poziom, Monety) – PRZESUNIĘTY W DÓŁ O 6px
    ========================================================================== */
 .right-ui { 
     position: absolute; 
-    top: calc(68px * var(--ui-scale)); 
+    top: calc(74px * var(--ui-scale)); /* Zwiększono z 68px na 74px */
     right: 15px; 
     display: flex; 
     flex-direction: column; 
@@ -685,7 +743,16 @@ canvas { display: block; }
 .level-plus-btn { position: absolute; right: 0; width: 35px; height: 35px; background-color: #74b9ff; border: 2px solid white; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: white; font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
 
 /* --- MOBILE CONTROLS & JOYSTICK --- */
-#mobile-game-controls { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; display: none; pointer-events: none; }
+#mobile-game-controls { 
+    position: fixed; 
+    top: 0; left: 0; 
+    width: 100%; height: 100%; 
+    z-index: 2000; 
+    display: none; 
+    pointer-events: none; 
+}
+
+/* POPRAWKA: Przycisk skoku domyślnie display: block wewnątrz aktywnego #mobile-game-controls */
 #jump-button { 
     position: absolute !important; 
     bottom: 25px; 
@@ -700,7 +767,7 @@ canvas { display: block; }
     border: none; 
     cursor: pointer; 
     z-index: 2001; 
-    display: none; 
+    display: block !important; 
     pointer-events: auto;
     touch-action: manipulation;
     user-select: none;
@@ -714,13 +781,13 @@ canvas { display: block; }
     background-image: url('icons/icon-jump2.png') !important;
 }
 
-/* Dynamiczna strefa joysticka */
+/* Dynamiczna strefa joysticka odsunięta w dół o 6px (top: 181px) */
 #joystick-zone { 
     position: fixed !important; 
-    top: calc(160px * var(--ui-scale)); 
+    top: calc(181px * var(--ui-scale)); 
     left: 0; 
     width: 50vw; 
-    height: calc(100vh - 160px * var(--ui-scale)); 
+    height: calc(100vh - 181px * var(--ui-scale)); 
     z-index: 1005; 
     display: none; 
     pointer-events: auto; 
@@ -801,12 +868,12 @@ canvas { display: block; }
 .panel-item:hover { background: #4c8cff; } 
 .panel-close-button { margin-top: 20px; background: #ff4757; padding: 10px 20px; border-radius: 8px; cursor: pointer; color: white; font-family: var(--font-main); }
 
-/* --- BUILDER UI (BSP STYLE) --- */
+/* --- BUILDER UI (Przesunięte w dół o 6px) --- */
 .build-ui-button { display: none !important; }
 
 .build-top-left {
     position: absolute; 
-    top: calc(70px * var(--ui-scale)); 
+    top: calc(76px * var(--ui-scale)); /* Zwiększono z 70px na 76px */
     left: 10px;
     display: none; 
     gap: 10px; 
@@ -840,7 +907,7 @@ canvas { display: block; }
 .build-sidebar-right {
     position: absolute; 
     right: 10px; 
-    top: calc(80px * var(--ui-scale));
+    top: calc(86px * var(--ui-scale)); /* Zwiększono z 80px na 86px */
     display: none;
     flex-direction: column; gap: 15px;
     pointer-events: auto; align-items: flex-end; z-index: 2005;
@@ -976,10 +1043,10 @@ canvas { display: block; }
 }
 .part-item, .prefab-item { width: 100%; height: auto; padding: 10px; text-align: left; font-size: 16px; }
 
-/* --- PARKOUR & EXPLORE UI --- */
+/* --- PARKOUR & EXPLORE UI (Przesunięte w dół o 6px) --- */
 #parkour-timer {
     position: absolute;
-    top: calc(75px * var(--ui-scale));
+    top: calc(81px * var(--ui-scale)); /* Zwiększono z 75px na 81px */
     left: 50%;
     transform: translateX(-50%) scale(var(--ui-scale));
     transform-origin: top center;
@@ -994,7 +1061,7 @@ canvas { display: block; }
 
 #explore-exit-button {
     position: absolute;
-    top: calc(75px * var(--ui-scale));
+    top: calc(81px * var(--ui-scale)); /* Zwiększono z 75px na 81px */
     left: 15px;
     width: 60px;
     height: 60px;
