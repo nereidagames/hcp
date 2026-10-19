@@ -623,7 +623,7 @@ canvas { display: block; }
     color: #004499;
 }
 
-/* Przycisk czatu: sam przezroczysty kontener na saysomething.png / cancel.png bez obramówki */
+/* Przycisk czatu: sam przezroczysty kontener bez obramówki i bez szpary */
 #chat-toggle-button { 
     width: 44px; 
     height: 44px; 
@@ -632,7 +632,7 @@ canvas { display: block; }
     box-shadow: none; 
     padding: 0; 
     cursor: pointer; 
-    margin-left: 6px;
+    margin-left: 0; /* Zlikwidowano szparę */
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -663,10 +663,10 @@ canvas { display: block; }
     z-index: 3002;
 }
 
-/* Białe pole wpisywania tekstu o prostych kątach jak na screenie */
+/* Białe pole wpisywania tekstu o prostych kątach (wysokość 44px zrównana z ikoną send) */
 #chat-input-field { 
     width: 320px; 
-    height: 40px; 
+    height: 44px; 
     background: #ffffff; 
     border: 2px solid #5dade2; 
     border-radius: 0 !important; 
@@ -679,7 +679,7 @@ canvas { display: block; }
     pointer-events: auto;
 }
 
-/* Przycisk wysyłania (send.png) obok pola tekstowego */
+/* Przycisk wysyłania (send.png) przylegający bezpośrednio do pola tekstowego */
 #chat-send-btn { 
     width: 44px; 
     height: 44px; 
@@ -688,7 +688,7 @@ canvas { display: block; }
     box-shadow: none; 
     padding: 0; 
     cursor: pointer; 
-    margin-left: 6px;
+    margin-left: 0; /* Zlikwidowano szparę */
     flex-shrink: 0;
     display: flex;
     align-items: center;
