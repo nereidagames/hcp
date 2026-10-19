@@ -46,11 +46,14 @@ export class VirtualJoystick {
     const touch = e.changedTouches[0];
     if (!touch) return;
 
+    // Zabezpieczenie: ignoruj dotyk w obrębie okna czatu i formularza pisania
+    if (touch.target.closest('#chat-form') || touch.target.closest('.chat-container')) return;
+
     this.activeTouchId = touch.identifier;
     this.originX = touch.clientX;
     this.originY = touch.clientY;
 
-    // Środek joysticka pojawia się dokładnie tam, gdzie gracz dotknie ekranu
+    // Środek joysticka pojawia się dokładnie w miejscu dotknięcia palcem
     this.base.style.left = `${this.originX}px`;
     this.base.style.top = `${this.originY}px`;
     this.base.style.display = 'block';
@@ -172,7 +175,7 @@ export class PlayerController {
     this.boxPoolIndex = 0;
     this.boxUnitSize = new THREE.Vector3(1, 1, 1);
 
-    // Zmienne do testowania schodków
+    // Zmienne pomocnicze do testowania schodków bez alokacji pamięci
     this.tempMatrix = new THREE.Matrix4();
     this.tempPosition = new THREE.Vector3();
     this.tempBox = new THREE.Box3();
@@ -207,8 +210,13 @@ export class PlayerController {
     this.isMobile = isMobile;
     const mobileControls = document.getElementById('mobile-game-controls');
     const joystickZone = document.getElementById('joystick-zone');
+    const jumpButton = document.getElementById('jump-button');
+
+    // Bezpośrednie włączanie wszystkich elementów mobilnych
     if (mobileControls) mobileControls.style.display = isMobile ? 'block' : 'none';
     if (joystickZone) joystickZone.style.display = isMobile ? 'block' : 'none';
+    if (jumpButton) jumpButton.style.display = isMobile ? 'block' : 'none';
+
     this.setupInput();
   }
 
@@ -297,7 +305,7 @@ export class PlayerController {
   }
   
   update(deltaTime, cameraRotation) {
-    // 1. Zawsze przywróć fizyczną pozycję przed wykonaniem obliczeń fizyki
+    // 1. Zawsze przywróć czystą pozycję fizyczną przed wykonaniem obliczeń fizyki
     if (this.stepVisualOffset !== 0) {
         this.player.position.y -= this.stepVisualOffset;
     }
@@ -311,6 +319,7 @@ export class PlayerController {
 
     const timeStep = Math.min(deltaTime, 0.05);
 
+    // Grawitacja
     if (this.mode === 'explore' && !this.isOnGround) {
       this.velocity.y -= this.gravity * timeStep;
     }
@@ -386,6 +395,7 @@ export class PlayerController {
     this.candidateBoxes.length = 0;
     this.boxPoolIndex = 0;
     
+    // 1. Zwykłe bryły
     for (let i = 0; i < this.collidableObjects.length; i++) {
       const obj = this.collidableObjects[i];
       if (obj.isInstancedMesh) continue;
@@ -395,6 +405,7 @@ export class PlayerController {
       this.candidateBoxes.push(box);
     }
 
+    // 2. Klocki wokół gracza (Math.round centrowany na środku klocka)
     if (this.collisionMap && this.collisionMap.size > 0) {
         const playerX = Math.round(this.player.position.x);
         const playerY = Math.round(this.player.position.y);
@@ -504,7 +515,7 @@ export class PlayerController {
                     this.playerBox.copy(this.tempBox);
                     stepped = true;
 
-                    // Płynne uniesienie offsetem wizualnym
+                    // Płynne uniesienie offsetem wizualnym (brak teleportacji)
                     this.stepVisualOffset -= stepDiff;
                 }
             }
