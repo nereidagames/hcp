@@ -120,6 +120,9 @@ body {
     }
 }
 
+/* ==========================================================================
+   UKŁAD EKRANU ŁADOWANIA (Logo + pasek tuż pod nim)
+   ========================================================================== */
 .loading-content-bsp {
     position: relative;
     z-index: 10;
@@ -129,7 +132,8 @@ body {
     justify-content: center;
     text-align: center;
     width: 100%;
-    padding: 20px;
+    height: 100%;
+    padding: 15px;
 }
 
 .bsp-logo {
@@ -137,89 +141,17 @@ body {
     justify-content: center;
     align-items: center;
     width: 100%;
+    margin: 0;
     animation: logo-pulse 2s ease-in-out infinite;
 }
 
 #loading-logo-bsp {
+    width: auto;
+    max-width: 440px;
+    max-height: 180px;
     height: auto;
+    object-fit: contain;
     filter: drop-shadow(0 0 15px rgba(255,255,255,0.5));
-}
-
-@media (min-width: 1024px) {
-    #loading-logo-bsp {
-        width: 600px;
-        max-width: 70vw;
-        margin-bottom: 60px;
-    }
-    .bsp-logo {
-        margin-bottom: 0;
-    }
-    .bsp-progress-container {
-        margin-top: 20px;
-    }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-    #loading-logo-bsp {
-        width: 500px;
-        max-width: 70vw;
-        margin-bottom: 50px;
-    }
-    .bsp-progress-container {
-        margin-top: 30px;
-    }
-}
-
-@media (max-width: 767px) {
-    .loading-content-bsp {
-        justify-content: center;
-        padding: 10px;
-        transform: scale(0.85);
-        transform-origin: center center;
-    }
-    
-    #loading-logo-bsp {
-        width: 160px !important;
-        max-width: 60vw;
-        margin-bottom: 5px;
-    }
-    
-    .bsp-progress-container {
-        width: 280px;
-        margin-top: -20px !important;
-        position: relative;
-        top: -10px;
-    }
-    
-    .bsp-progress-text {
-        font-size: 12px;
-        margin-top: 8px;
-    }
-}
-
-@media (max-width: 480px) {
-    .loading-content-bsp {
-        justify-content: center;
-        padding: 5px;
-    }
-    
-    #loading-logo-bsp {
-        width: 140px;
-        max-width: 55vw;
-        margin-bottom: 0;
-    }
-    
-    .bsp-progress-container {
-        width: 250px;
-        margin-top: 0;
-        position: relative;
-        top: -15px;
-    }
-    
-    .bsp-progress-text {
-        font-size: 11px;
-        margin-top: 6px;
-    }
 }
 
 @keyframes logo-pulse {
@@ -228,18 +160,17 @@ body {
         filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));
     }
     50% {
-        transform: scale(1.08);
+        transform: scale(1.06);
         filter: drop-shadow(0 0 25px rgba(255,255,255,0.9));
     }
 }
 
-/* ==========================================================================
-   PASEK POSTĘPU Z TEKSTURAMI (bar-empty.png oraz bar-filled.png)
-   ========================================================================== */
+/* Pasek postępu tuż pod logiem */
 .bsp-progress-container {
-    width: 400px;
+    width: 380px;
     max-width: 80vw;
     text-align: center;
+    margin-top: 16px; /* Niewielki odstęp bezpośrednio pod logiem */
 }
 
 .bsp-progress-border {
@@ -250,7 +181,6 @@ body {
     border-radius: 14px;
 }
 
-/* Tło pustego paska: bar-empty.png */
 .bsp-progress-bar {
     position: relative;
     width: 100%;
@@ -261,7 +191,6 @@ body {
     border-radius: 14px;
 }
 
-/* Okienko wypełnienia rozszerzające się od lewej */
 .bsp-progress-fill {
     position: absolute;
     top: 0;
@@ -272,13 +201,12 @@ body {
     transition: width 0.3s ease-out;
 }
 
-/* Nakładka wypełnionego paska: bar-filled.png (zawsze pełnej szerokości, odkrywana bez zniekształcania) */
 .bsp-progress-fill::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
-    width: 400px;
+    width: 380px;
     max-width: 80vw;
     width: 100cqw;
     height: 100%;
@@ -287,11 +215,60 @@ body {
 
 .bsp-progress-text {
     font-family: 'Titan One', cursive;
-    font-size: 16px;
+    font-size: 14px;
     color: white;
-    margin-top: 15px;
+    margin-top: 10px;
     text-shadow: 2px 2px 0 #000;
     letter-spacing: 1px;
+}
+
+/* --- DOPASOWANIE DO TELEFONÓW W POZIOMIE (LANDSCAPE, max-height: 520px) --- */
+@media (max-height: 520px) {
+    .loading-content-bsp {
+        padding: 5px 10px;
+    }
+
+    #loading-logo-bsp {
+        max-height: 110px; /* Zmniejszone logo, aby nie spychało paska w dół */
+        max-width: 250px;
+    }
+
+    .bsp-progress-container {
+        width: 290px;
+        max-width: 75vw;
+        margin-top: 8px; /* Pasek tuż pod logiem */
+    }
+
+    .bsp-progress-bar {
+        height: 22px;
+    }
+
+    .bsp-progress-text {
+        font-size: 11px;
+        margin-top: 6px;
+    }
+}
+
+/* Bardzo małe ekrany w poziomie (wysokość <= 380px) */
+@media (max-height: 380px) {
+    #loading-logo-bsp {
+        max-height: 85px;
+        max-width: 210px;
+    }
+
+    .bsp-progress-container {
+        width: 260px;
+        margin-top: 5px;
+    }
+
+    .bsp-progress-bar {
+        height: 19px;
+    }
+
+    .bsp-progress-text {
+        font-size: 10px;
+        margin-top: 4px;
+    }
 }
 
 /* --- EKRAN LOGOWANIA / REJESTRACJI --- */
