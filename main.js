@@ -20,7 +20,6 @@ import { MultiplayerManager } from './multiplayer.js';
 import { PlayerController, ThirdPersonCameraController } from './controls.js';
 import { ParkourManager } from './ParkourManager.js';
 
-// --- IMPORTY MANAGERÓW ---
 import { AudioManager } from './AudioManager.js';
 import { DiggingManager } from './DiggingManager.js';
 
@@ -31,6 +30,21 @@ import { HyperCubePartBuilderManager } from './HyperCubePartBuilderManager.js';
 
 import { SkinStorage } from './SkinStorage.js';
 import { WorldStorage } from './WorldStorage.js';
+
+// ============================================================================
+// DYNAMICZNY CANVAS SCALER UI (Obliczanie --ui-scale na podstawie okna)
+// ============================================================================
+export function updateUIScale() {
+    const baseHeight = 720;
+    const baseWidth = 1280;
+    let scale = Math.min(window.innerHeight / baseHeight, window.innerWidth / baseWidth);
+    // Bezpieczne granice skali (od małych smartfonów po ekrany 4K)
+    scale = Math.max(0.48, Math.min(scale, 1.6));
+    document.documentElement.style.setProperty('--ui-scale', scale.toFixed(3));
+}
+window.addEventListener('resize', updateUIScale);
+window.addEventListener('orientationchange', updateUIScale);
+updateUIScale();
 
 class OptimizedGameCore {
     constructor(containerId = 'gameContainer') {
@@ -92,6 +106,7 @@ class OptimizedGameCore {
         if(this.css2dRenderer) {
             this.css2dRenderer.setSize(this.width, this.height);
         }
+        updateUIScale();
     }
 
     render(activeScene) {
@@ -111,7 +126,6 @@ class BlockStarPlanetGame {
       0, 50, 125, 250, 400, 750, 1500, 3000, 5000, 8000, 12000, 17000, 22500, 29000, 37500, 47000, 58500, 71500, 87000, 104500, 124000, 140000, 170000, 190000, 230000, 260000, 300000, 340000, 390000, 440000, 490000, 550000, 620000, 690000, 760000, 840000, 930000, 1020000, 1120000, 1230000, 1340000, 1460000, 1590000, 1730000, 1880000, 2030000, 2190000, 2360000, 2540000, 2730000, 2930000, 3150000, 3370000, 3600000, 3850000, 4100000, 4370000, 4650000, 4940000, 5250000, 5570000, 5900000, 6250000, 6610000, 6990000, 7380000, 7790000, 8220000, 8660000, 9120000, 9590000, 10000000, 10500000, 11100000, 11600000, 12200000, 12800000, 13400000, 14000000, 14700000, 15300000, 16000000, 16700000, 17500000, 18200000, 19000000, 19800000, 20600000, 21500000, 25000000, 30000000, 40000000, 50000000, 60000000, 70000000, 80000000, 90000000, 100000000, 125000000, 150000000, 200000000, 250000000, 300000000, 350000000, 400000000, 450000000, 500000000, 550000000, 600000000, 1000000000, 1500000000, 2000000000, 2500000000, 3000000000, 5000000000, 7000000000, 10000000000, 15000000000, 20000000000, 30000000000
     ];
 
-    // Inicjalizacja rdzenia
     this.core = new OptimizedGameCore('gameContainer');
     this.scene = this.core.scene;
     this.camera = this.core.camera;
@@ -123,7 +137,6 @@ class BlockStarPlanetGame {
         if (this.multiplayer) this.multiplayer.sendMessage({ type: 'chatMessage', text: msg });
     });
 
-    // Audio Manager
     this.audioManager = new AudioManager(this.camera);
 
     this.stateManager = new GameStateManager(this.core, this.ui, this.audioManager);
@@ -147,35 +160,26 @@ class BlockStarPlanetGame {
     this.isPreviewDragging = false;
     this.previewMouseX = 0;
 
-    // Ładowanie definicji bloków (szybkie)
     this.blockManager.load();
-
-    // Obsługa sekwencji ekranów ładowania
     this.handleInitialLoadingSequence();
   }
 
   handleInitialLoadingSequence() {
-      // Czekamy 1 sekundę na ekranie studia (po załadowaniu skryptów)
       setTimeout(() => {
           const studioScreen = document.getElementById('studio-screen');
           const loadingScreen = document.getElementById('loading-screen');
 
-          // Przejście: Ukryj Studio -> Pokaż Ładowanie Gry
           if (studioScreen) {
               studioScreen.style.opacity = '0';
               setTimeout(() => {
                   studioScreen.style.display = 'none';
                   if (loadingScreen) loadingScreen.style.display = 'flex';
-                  
-                  // Teraz rozpoczynamy faktyczne ładowanie assetów
                   this.loader.preload();
-                  
-              }, 500); // Czas trwania animacji css transition
+              }, 500);
           } else {
-              // Fallback gdyby coś poszło nie tak z HTML
               this.loader.preload();
           }
-      }, 1000); // 1 sekunda gapienia się na logo Nereida
+      }, 1000);
   }
 
   onAssetsLoaded() {
@@ -187,19 +191,15 @@ class BlockStarPlanetGame {
       
       try {
         this.ui.initialize(this.isMobile);
-
-        // Uruchom muzykę logowania
         this.audioManager.playLoginMusic();
 
         const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
         if (token) {
             this.auth.showAuthScreen = () => {
-                console.log("Sesja nieważna, uruchamianie Intro.");
                 this.intro.start();
             };
             this.auth.checkSession(this.ui);
         } else {
-            console.log("Brak tokenu, uruchamianie Intro.");
             this.intro.start();
         }
 
@@ -227,7 +227,6 @@ class BlockStarPlanetGame {
   async startGame(user, token, thumbnail) {
       console.log("Start gry dla:", user.username);
       
-      // Zatrzymaj muzykę logowania i włącz nexus
       this.audioManager.stopLoginMusic();
       this.audioManager.playNexusMusic();
 
@@ -259,7 +258,6 @@ class BlockStarPlanetGame {
       if (user.pendingXp) this.ui.updatePendingRewards(user.pendingXp);
       if (user.ownedBlocks) this.blockManager.setOwnedBlocks(user.ownedBlocks);
       
-      // Ustaw posiadane panoramy
       if (user.ownedSkies) {
           this.blockManager.setOwnedSkies(user.ownedSkies);
       }
@@ -306,8 +304,6 @@ class BlockStarPlanetGame {
       this.prefabBuilderManager = new PrefabBuilderManager(this, loadingManager, this.blockManager);
       this.partBuilderManager = new HyperCubePartBuilderManager(this, loadingManager, this.blockManager);
       this.parkourManager = new ParkourManager(this, this.ui);
-      
-      // DiggingManager
       this.diggingManager = new DiggingManager(this, this.ui);
 
       this.stateManager.setManagers({
@@ -405,7 +401,6 @@ class BlockStarPlanetGame {
 
   setupMultiplayerCallbacks() { 
       this.ui.onSendPrivateMessage = (recipient, text) => this.multiplayer.sendPrivateMessage(recipient, text); 
-      
       this.coinManager.onCollect = () => {}; 
       
       const originalHandle = this.multiplayer.handleMessage.bind(this.multiplayer); 
@@ -428,34 +423,26 @@ class BlockStarPlanetGame {
       this.ui.onPlayClick = () => this.ui.openPanel('play-choice-panel'); 
       this.ui.onOpenOtherProfile = (username) => this.ui.openOtherPlayerProfile(username);
       
-      // Callback dla trybu kopania
       this.ui.onDiggingClick = () => this.stateManager.switchToDiggingMode();
-
-      // Callbacki dla akcji w trybie kopania
       this.ui.onDiggingMove = (direction) => {
           if (this.diggingManager) this.diggingManager.movePlayer(direction);
       };
-      
       this.ui.onDiggingMine = () => {
           if (this.diggingManager) this.diggingManager.startMining();
       };
-      
       this.ui.onDiggingRedeem = () => {
           if (this.diggingManager) this.diggingManager.redeemCrystals();
       };
-      
       this.ui.onDiggingUpgrade = (type) => {
           if (this.diggingManager) {
               if (type === 'laser') this.diggingManager.upgradeLaser();
               else if (type === 'storage') this.diggingManager.upgradeStorage();
           }
       };
-      
       this.ui.onDiggingUseDynamite = () => {
           if (this.diggingManager) this.diggingManager.useDynamite();
       };
 
-      // Callback dla zakupu panoram
       this.ui.onBuySky = async (skyItem) => {
           const result = await this.blockManager.buySky(skyItem.id, skyItem.name, skyItem.cost);
           if(result.success) {
@@ -468,7 +455,6 @@ class BlockStarPlanetGame {
           }
       };
 
-      // BLOKADA STEROWANIA PRZY WYGRANEJ
       this.ui.onVictoryScreenOpen = () => {
           if (this.playerController) {
               this.playerController.enabled = false;
@@ -484,14 +470,8 @@ class BlockStarPlanetGame {
 
       this.ui.onReplayParkour = () => {
           this.parkourManager.restartParkour(); 
-          
-          if (this.playerController) {
-              this.playerController.reset(); 
-          }
-          
-          if (this.cameraController) {
-              this.cameraController.reset(); 
-          }
+          if (this.playerController) this.playerController.reset(); 
+          if (this.cameraController) this.cameraController.reset(); 
 
           if (this.isMobile) {
               this.ui.toggleMobileControls(true); 
@@ -596,7 +576,6 @@ class BlockStarPlanetGame {
 
       this.ui.onShopOpen = () => {
           const blocks = this.blockManager.getAllBlockDefinitions();
-          // Przekazujemy callback dla panoram
           this.ui.populateShop(blocks, 
               (name) => this.blockManager.isOwned(name),
               (skyId) => this.blockManager.isSkyOwned(skyId)
@@ -606,7 +585,6 @@ class BlockStarPlanetGame {
 
   recreatePlayerController(collidables, collisionMap = null) { 
       if(this.playerController) this.playerController.destroy(); 
-      
       const map = collisionMap || this.sceneManager.collisionMap;
 
       this.playerController = new PlayerController(
@@ -636,7 +614,6 @@ class BlockStarPlanetGame {
       const exploreScene = new THREE.Scene();
       exploreScene.background = new THREE.Color(0x87CEEB);
       
-      // Dodaj panoramę nieba dla świata
       const skyMesh = new THREE.Mesh(
           new THREE.SphereGeometry(500, 60, 40),
           new THREE.MeshBasicMaterial({
@@ -657,7 +634,7 @@ class BlockStarPlanetGame {
       const materials = {};
 
       const floorGeo = new THREE.BoxGeometry(worldSize, 1, worldSize);
-    const floorMat = new THREE.MeshBasicMaterial({ color: 0x559022 });
+      const floorMat = new THREE.MeshBasicMaterial({ color: 0x559022 });
       const floor = new THREE.Mesh(floorGeo, floorMat);
       floor.position.y = -0.5;
       exploreScene.add(floor);
@@ -736,9 +713,7 @@ class BlockStarPlanetGame {
 
       this.stateManager.exploreScene = exploreScene;
       this.multiplayer.setScene(exploreScene);
-      
       this.multiplayer.joinWorld(worldData.id, worldData.spawnPoint); 
-      
       this.stateManager.switchToExploreMode(exploreScene);
       
       const exitBtn = document.getElementById('explore-exit-button');
