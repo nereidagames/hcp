@@ -191,15 +191,6 @@ body {
         top: -10px;
     }
     
-    .bsp-progress-border {
-        border-width: 2px;
-        padding: 2px;
-    }
-    
-    .bsp-progress-bar {
-        height: 20px;
-    }
-    
     .bsp-progress-text {
         font-size: 12px;
         margin-top: 8px;
@@ -225,15 +216,6 @@ body {
         top: -15px;
     }
     
-    .bsp-progress-border {
-        border-width: 2px;
-        padding: 2px;
-    }
-    
-    .bsp-progress-bar {
-        height: 18px;
-    }
-    
     .bsp-progress-text {
         font-size: 11px;
         margin-top: 6px;
@@ -251,6 +233,9 @@ body {
     }
 }
 
+/* ==========================================================================
+   PASEK POSTĘPU Z TEKSTURAMI (bar-empty.png oraz bar-filled.png)
+   ========================================================================== */
 .bsp-progress-container {
     width: 400px;
     max-width: 80vw;
@@ -258,27 +243,46 @@ body {
 }
 
 .bsp-progress-border {
-    background: rgba(0,0,0,0.4);
-    border: 3px solid #f1c40f;
-    border-radius: 15px;
-    padding: 3px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    background: transparent;
+    border: none;
+    padding: 0;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    border-radius: 14px;
 }
 
+/* Tło pustego paska: bar-empty.png */
 .bsp-progress-bar {
-    background: rgba(0,0,0,0.3);
-    border-radius: 12px;
-    height: 30px;
+    position: relative;
+    width: 100%;
+    height: 26px;
+    background: url('icons/loading/bar-empty.png') no-repeat center / 100% 100%;
+    container-type: inline-size;
     overflow: hidden;
+    border-radius: 14px;
 }
 
+/* Okienko wypełnienia rozszerzające się od lewej */
 .bsp-progress-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 0%;
     height: 100%;
-    background: linear-gradient(90deg, #f1c40f, #e67e22);
-    border-radius: 12px;
+    overflow: hidden;
     transition: width 0.3s ease-out;
-    box-shadow: inset 0 1px 2px rgba(255,255,255,0.3);
+}
+
+/* Nakładka wypełnionego paska: bar-filled.png (zawsze pełnej szerokości, odkrywana bez zniekształcania) */
+.bsp-progress-fill::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 400px;
+    max-width: 80vw;
+    width: 100cqw;
+    height: 100%;
+    background: url('icons/loading/bar-filled.png') no-repeat center / 100% 100%;
 }
 
 .bsp-progress-text {
@@ -511,7 +515,7 @@ canvas { display: block; }
    ========================================================================== */
 .chat-container { 
     position: absolute; 
-    top: 60px; /* Zaczyna się DOKŁADNIE tam, gdzie kończy się górny pasek (brak szpary) */
+    top: 60px; 
     left: 10px; 
     display: flex; 
     flex-direction: column;
@@ -519,13 +523,11 @@ canvas { display: block; }
     pointer-events: auto;
 }
 
-/* Wiersz z oknem czatu oraz przyciskiem dymka/anulowania */
 .chat-top-row {
     display: flex;
     align-items: flex-end;
 }
 
-/* Okienko czatu: proste kąty (border-radius: 0), zwinięte (68px) -> rozwinięte (240px) */
 .chat-area { 
     width: 320px; 
     height: 68px; 
@@ -547,14 +549,12 @@ canvas { display: block; }
     transition: height 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), background-color 0.2s ease;
 }
 
-/* Rozwinięty czat */
 .chat-area.expanded {
     height: 240px;
     border-radius: 0 !important;
     background: linear-gradient(180deg, rgba(212, 238, 255, 0.88) 0%, rgba(170, 218, 250, 0.95) 100%);
 }
 
-/* Wyrównanie wiadomości do dołu jak w oryginale */
 .chat-area > :first-child {
     margin-top: auto;
 }
@@ -570,7 +570,6 @@ canvas { display: block; }
     background: transparent;
 }
 
-/* Komunikat powitalny: Arial Bold Italic */
 .chat-msg-welcome {
     font-family: Arial, Helvetica, sans-serif !important;
     font-size: 13px;
@@ -584,7 +583,6 @@ canvas { display: block; }
     -webkit-user-select: text;
 }
 
-/* Komunikaty systemowe (<...>): Arial Italic */
 .chat-msg-system {
     font-family: Arial, Helvetica, sans-serif !important;
     font-size: 12.5px;
@@ -598,7 +596,6 @@ canvas { display: block; }
     -webkit-user-select: text;
 }
 
-/* Zwykłe wiadomości z czatu: Arial Normal */
 .chat-msg-player {
     font-family: Arial, Helvetica, sans-serif !important;
     font-size: 13px;
@@ -612,7 +609,6 @@ canvas { display: block; }
     -webkit-user-select: text;
 }
 
-/* Nick gracza na czacie */
 .chat-nick-span {
     font-weight: bold;
     color: #0066cc;
@@ -623,7 +619,6 @@ canvas { display: block; }
     color: #004499;
 }
 
-/* Przycisk czatu: sam przezroczysty kontener bez obramówki i bez szpary */
 #chat-toggle-button { 
     width: 44px; 
     height: 44px; 
@@ -632,7 +627,7 @@ canvas { display: block; }
     box-shadow: none; 
     padding: 0; 
     cursor: pointer; 
-    margin-left: 0; /* Zlikwidowano szparę */
+    margin-left: 0; 
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -653,7 +648,6 @@ canvas { display: block; }
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));
 }
 
-/* Formularz wpisywania wiadomości bezpośrednio pod oknem czatu */
 #chat-form { 
     display: none; 
     flex-direction: row; 
@@ -663,7 +657,6 @@ canvas { display: block; }
     z-index: 3002;
 }
 
-/* Białe pole wpisywania tekstu o prostych kątach (wysokość 44px zrównana z ikoną send) */
 #chat-input-field { 
     width: 320px; 
     height: 44px; 
@@ -679,7 +672,6 @@ canvas { display: block; }
     pointer-events: auto;
 }
 
-/* Przycisk wysyłania (send.png) przylegający bezpośrednio do pola tekstowego */
 #chat-send-btn { 
     width: 44px; 
     height: 44px; 
@@ -688,7 +680,7 @@ canvas { display: block; }
     box-shadow: none; 
     padding: 0; 
     cursor: pointer; 
-    margin-left: 0; /* Zlikwidowano szparę */
+    margin-left: 0; 
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -762,7 +754,7 @@ canvas { display: block; }
     background-image: url('icons/icon-jump2.png') !important;
 }
 
-/* Dynamiczna strefa joysticka: zaczyna się poniżej czatu (top: 175px) */
+/* Dynamiczna strefa joysticka */
 #joystick-zone { 
     position: fixed !important; 
     top: 175px; 
