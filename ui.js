@@ -5,6 +5,7 @@ import { modalPreview } from './ModalPreview.js';
 
 const HUD_HTML = `
     <div class="top-bar ui-element">
+        <!-- Przycisk VIP w lewym górnym rogu -->
         <div id="btn-vip-corner" class="ui-element" title="Kup VIP"></div>
 
         <div id="player-avatar-button" class="top-bar-item">
@@ -434,7 +435,9 @@ export class UIManager {
   
   toggleMobileControls(s) { 
       const m = document.getElementById('mobile-game-controls'); 
-      if(m) m.style.display = s ? 'block' : 'none'; 
+      if (m) m.style.display = (s && this.isMobile) ? 'block' : 'none'; 
+      const j = document.getElementById('jump-button');
+      if (j) j.style.display = (s && this.isMobile) ? 'block' : 'none';
   }
   
   updatePendingRewards(count) {
@@ -485,6 +488,7 @@ export class UIManager {
       }
   }
   
+  // Formatowanie wiadomości na czcionki Arial
   addChatMessage(m, senderName = null) { 
       const c = document.querySelector('.chat-area'); 
       if (!c) return; 
@@ -527,7 +531,7 @@ export class UIManager {
       if(c) c.innerHTML = ''; 
   }
   
-  // Przełączanie pola pisania (saysomething.png <-> cancel.png)
+  // Przełączanie pola pisania pod czatem (saysomething.png <-> cancel.png)
   handleChatClick() { 
       const form = document.getElementById('chat-form'); 
       const icon = document.getElementById('chat-toggle-icon');
@@ -639,6 +643,7 @@ export class UIManager {
   }
   
   setupButtonHandlers() {
+      // Obsługa przycisku zakupu VIP
       const vipBtn = document.getElementById('btn-vip-corner');
       if (vipBtn) {
           vipBtn.addEventListener('mousedown', () => {
