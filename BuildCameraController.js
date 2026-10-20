@@ -53,9 +53,9 @@ export class BuildCameraController {
           this.joystick = null;
       }
 
-      // Nowy, zoptymalizowany joystick o promieniu 38px
+      // Podwojony promień wychylenia dopasowany do bazy joysticka (maxRadius: 76)
       this.joystick = new VirtualJoystick(zone, {
-          maxRadius: 38,
+          maxRadius: 76,
           onMove: (vector) => {
               this.joystickData.x = vector.x;
               this.joystickData.y = vector.y;
@@ -197,7 +197,7 @@ export class BuildCameraController {
     const moveDir = new THREE.Vector3(0, 0, 0);
     let hasInput = false;
 
-    // Joystick mobilny (sterowanie pozycją kamery/celu)
+    // Joystick mobilny (sterowanie pozycją kamery/celu w przestrzeni)
     if (this.isMobile && (Math.abs(this.joystickData.x) > 0.01 || Math.abs(this.joystickData.y) > 0.01)) {
         moveDir.z = -this.joystickData.y; 
         moveDir.x = this.joystickData.x;
