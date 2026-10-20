@@ -8,8 +8,8 @@ import * as THREE from 'three';
 export class VirtualJoystick {
   constructor(zoneElement, options = {}) {
     this.zone = zoneElement;
-    // Promień wychylenia dopasowany do zmniejszonej o 25% bazy
-    this.maxRadius = options.maxRadius || 38;
+    // Podwojony promień wychylenia dopasowany do bazy 196px (2x)
+    this.maxRadius = options.maxRadius || 76;
     this.onMove = options.onMove || null;
     this.onEnd = options.onEnd || null;
 
@@ -588,7 +588,7 @@ export class PlayerController {
                     this.playerBox.copy(this.tempBox);
                     stepped = true;
 
-                    // Płynne uniesienie offsetem wizualnym
+                    // Płynne uniesienie offsetem wizualnym w osi Z
                     this.stepVisualOffset -= stepDiff;
                 }
             }
@@ -674,7 +674,7 @@ export class PlayerController {
         jumpButton.addEventListener('mouseleave', this.handleMouseJumpEnd);
     }
 
-    // Dynamiczny joystick dotykowy (Floating Touch Joystick o promieniu 38px)
+    // Dynamiczny joystick dotykowy o podwojonym promieniu 76px
     const joystickZone = document.getElementById('joystick-zone');
     if (joystickZone) {
         if (this.joystick) {
@@ -683,7 +683,7 @@ export class PlayerController {
         }
 
         this.joystick = new VirtualJoystick(joystickZone, {
-            maxRadius: 38,
+            maxRadius: 76,
             onMove: (vector) => {
                 if (this.enabled) {
                     this.joystickDirection.set(vector.x, vector.y);
