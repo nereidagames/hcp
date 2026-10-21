@@ -5,7 +5,6 @@ import { modalPreview } from './ModalPreview.js';
 
 const HUD_HTML = `
     <div class="top-bar ui-element">
-        <!-- Przycisk VIP w lewym górnym rogu -->
         <div id="btn-vip-corner" class="ui-element" title="Kup VIP"></div>
 
         <div id="player-avatar-button" class="top-bar-item">
@@ -28,7 +27,6 @@ const HUD_HTML = `
     
     <div id="parkour-timer" class="text-outline">00:00.00</div>
     
-    <!-- CZAT BSP: Okno czatu + pole wpisywania pod nim ze screena -->
     <div class="chat-container ui-element">
         <div class="chat-top-row">
             <div class="chat-area" title="Kliknij, aby rozwinąć / zwinąć"></div>
@@ -98,6 +96,36 @@ const GLOBAL_MODALS_HTML = `
             <button id="name-submit-btn">OK</button>
         </div>
     </div>
+
+    <!-- NOWE OKNO MODALNE: OPCJE -->
+    <div id="options-panel" class="panel-modal" style="display:none;">
+        <div class="panel-content" style="background: transparent; border: none; box-shadow: none; padding: 0;">
+            <div class="options-card">
+                <h2 class="text-outline" style="font-size: 26px; margin-bottom: 20px;">Opcje</h2>
+                
+                <!-- Opcja 1: Licznik FPS -->
+                <div class="options-row">
+                    <span class="options-label text-outline">Licznik FPS</span>
+                    <button id="btn-fps-toggle" class="options-btn off">Wyłączony</button>
+                </div>
+
+                <!-- Opcja 2: Głośność Muzyki -->
+                <div class="options-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                    <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                        <span class="options-label text-outline">Muzyka</span>
+                        <span id="options-music-val" class="text-outline" style="color: #f1c40f; font-size: 15px;">70%</span>
+                    </div>
+                    <div class="options-slider-group" style="width:100%;">
+                        <span style="font-size: 12px; opacity: 0.8;">🔈</span>
+                        <input type="range" id="options-music-slider" min="0" max="100" value="70" class="options-slider">
+                        <span style="font-size: 14px;">🔊</span>
+                    </div>
+                </div>
+
+                <button class="panel-close-button" id="btn-options-close" style="margin-top: 15px;">Zamknij</button>
+            </div>
+        </div>
+    </div>
 `;
 
 import { FriendsManager } from './FriendsManager.js';
@@ -124,6 +152,10 @@ export class UIManager {
     this.onPlayClick = null;
     this.onPlayerAvatarClick = null;
     this.onToggleFPS = null;
+    this.getFPSEnabled = null;
+    this.onSetMusicVolume = null;
+    this.getMusicVolume = null;
+
     this.onShopOpen = null;
     this.onBuyBlock = null;
     this.onBuySky = null;
@@ -428,9 +460,32 @@ export class UIManager {
       if(e) e.textContent = val; 
   }
   
-  updateFPSToggleText(e) { 
-      const f = document.getElementById('fps-status'); 
-      if(f) f.textContent = e ? 'Włączony' : 'Wyłączony'; 
+  updateFPSToggleText(enabled) { 
+      const btn = document.getElementById('btn-fps-toggle'); 
+      if (btn) {
+          btn.textContent = enabled ? 'Włączony' : 'Wyłączony';
+          btn.className = `options-btn ${enabled ? 'on' : 'off'}`;
+      }
+  }
+
+  // --- NOWE OKNO MODALNE: OPCJE ---
+  openOptionsPanel() {
+      const panel = document.getElementById('options-panel');
+      if (!panel) return;
+
+      this.bringToFront(panel);
+      panel.style.display = 'flex';
+
+      // 1. Ustaw stan licznika FPS
+      const isFPS = this.getFPSEnabled ? this.getFPSEnabled() : false;
+      this.updateFPSToggleText(isFPS);
+
+      // 2. Ustaw stan suwaka głośności muzyki
+      const currentVol = this.getMusicVolume ? this.getMusicVolume() : 70;
+      const slider = document.getElementById('options-music-slider');
+      const volText = document.getElementById('options-music-val');
+      if (slider) slider.value = currentVol;
+      if (volText) volText.textContent = `${currentVol}%`;
   }
   
   toggleMobileControls(s) { 
@@ -455,7 +510,6 @@ export class UIManager {
       }
   }
   
-  // --- OBSŁUGA CZATU W STYLU BSP (ROZSZERZANIE I PRZEŁĄCZANIE FORMULARZA) ---
   setupChatSystem() { 
       this.setupChatInput(); 
       
@@ -475,7 +529,6 @@ export class UIManager {
               }
           }, { passive: true });
 
-          // Kliknięcie w okno czatu rozwija / zwija je z animacją
           chatArea.addEventListener('click', (e) => {
               if (e.target.classList.contains('chat-nick-span')) return;
               if (isSwiping) return;
@@ -488,7 +541,6 @@ export class UIManager {
       }
   }
   
-  // Formatowanie wiadomości na czcionki Arial
   addChatMessage(m, senderName = null) { 
       const c = document.querySelector('.chat-area'); 
       if (!c) return; 
@@ -531,7 +583,6 @@ export class UIManager {
       if(c) c.innerHTML = ''; 
   }
   
-  // Przełączanie pola pisania pod czatem (saysomething.png <-> cancel.png)
   handleChatClick() { 
       const form = document.getElementById('chat-form'); 
       const icon = document.getElementById('chat-toggle-icon');
@@ -566,7 +617,6 @@ export class UIManager {
           if (icon) icon.src = 'icons/saysomething.png';
       }); 
 
-      // Klawisz Escape zamyka wpisywanie bez wysyłania
       input.addEventListener('keydown', e => {
           if (e.key === 'Escape') {
               form.style.display = 'none';
@@ -675,6 +725,7 @@ export class UIManager {
           };
       }
 
+      // Obsługa zamykania modali
       document.querySelectorAll('.panel-close-button').forEach(btn => {
           btn.onclick = () => { 
               const p = btn.closest('.panel-modal') || btn.closest('#skin-comments-panel'); 
@@ -682,7 +733,7 @@ export class UIManager {
           };
       });
 
-      ['more-options-panel','player-profile-panel','play-choice-panel','build-choice-panel','other-player-profile-panel'].forEach(id=>{
+      ['more-options-panel','player-profile-panel','play-choice-panel','build-choice-panel','other-player-profile-panel','options-panel'].forEach(id=>{
           const e=document.getElementById(id); 
           if(e) e.addEventListener('click', ev=>{ 
               if(ev.target.id===id){ 
@@ -691,6 +742,37 @@ export class UIManager {
           });
       });
       
+      // Obsługa przycisku i suwaka w panelu Opcji
+      const btnFps = document.getElementById('btn-fps-toggle');
+      if (btnFps) {
+          btnFps.onclick = () => {
+              if (this.onToggleFPS) {
+                  const state = this.onToggleFPS();
+                  this.updateFPSToggleText(state);
+              }
+          };
+      }
+
+      const musicSlider = document.getElementById('options-music-slider');
+      const musicVal = document.getElementById('options-music-val');
+      if (musicSlider) {
+          musicSlider.oninput = (e) => {
+              const val = parseInt(e.target.value, 10);
+              if (musicVal) musicVal.textContent = `${val}%`;
+              if (this.onSetMusicVolume) {
+                  this.onSetMusicVolume(val);
+              }
+          };
+      }
+
+      const btnOptionsClose = document.getElementById('btn-options-close');
+      if (btnOptionsClose) {
+          btnOptionsClose.onclick = () => {
+              const p = document.getElementById('options-panel');
+              if (p) p.style.display = 'none';
+          };
+      }
+
       document.querySelectorAll('.game-btn').forEach(btn => { 
           const t = this.getButtonType(btn); 
           btn.onclick = () => this.handleButtonClick(t, btn); 
@@ -709,7 +791,6 @@ export class UIManager {
           } 
       });
       
-      // Przycisk dymka przełącza stan wpisywania
       const chatToggle = document.getElementById('chat-toggle-button'); 
       if (chatToggle) chatToggle.addEventListener('click', () => this.handleChatClick());
       
@@ -721,7 +802,6 @@ export class UIManager {
       setClick('name-submit-btn', () => { const i=document.getElementById('name-input-field'); const v=i.value.trim(); if(v&&this.onNameSubmit){ this.onNameSubmit(v); document.getElementById('name-input-panel').style.display='none'; } else alert('Nazwa!'); });
       setClick('btn-open-news', () => { this.newsManager.open(); });
       setClick('btn-open-highscores', () => { this.highScoresManager.open(); });
-      setClick('btn-nav-options', () => { if(this.onToggleFPS) { this.onToggleFPS(); this.showMessage("Przełączono FPS", "info"); } });
       setClick('logout-btn', () => { localStorage.removeItem(STORAGE_KEYS.JWT_TOKEN); window.location.reload(); });
       setClick('btn-news-claim-all', () => { this.newsManager.claimReward(null); });
   }
