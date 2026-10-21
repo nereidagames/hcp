@@ -121,6 +121,9 @@ body {
     }
 }
 
+/* ==========================================================================
+   UKŁAD EKRANU ŁADOWANIA (Logo + pasek tuż pod nim)
+   ========================================================================== */
 .loading-content-bsp {
     position: relative;
     z-index: 10;
@@ -219,6 +222,7 @@ body {
     letter-spacing: 1px;
 }
 
+/* --- DOPASOWANIE DO TELEFONÓW W POZIOMIE (LANDSCAPE, max-height: 520px) --- */
 @media (max-height: 520px) {
     .loading-content-bsp {
         padding: 5px 10px;
@@ -430,12 +434,12 @@ canvas { display: block; }
 .ui-element { pointer-events: auto; }
 
 /* ==========================================================================
-   GÓRNY PASEK (Top Bar) – ZWIĘKSZONA WYSOKOŚĆ O KOLEJNE 10px (z 66px na 76px)
+   GÓRNY PASEK (Top Bar) – ZWARTE PRZERWY MIĘDZY PRZYCISKAMI
    ========================================================================== */
 .top-bar { 
     position: absolute; 
     top: 0; left: 0; right: 0; 
-    height: calc(76px * var(--ui-scale)); /* Zwiększono do 76px */
+    height: calc(76px * var(--ui-scale)); 
     background-image: url('icons/icon-bar.png');
     background-repeat: repeat-x; 
     background-size: auto 100%; 
@@ -444,12 +448,12 @@ canvas { display: block; }
     box-shadow: 0 4px 8px rgba(0,0,0,0.4);
     display: flex; 
     align-items: center; 
-    padding: 0 15px 0 calc(84px * var(--ui-scale)); /* 76px szerokość VIP + 8px odstępu */
-    gap: calc(15px * var(--ui-scale)); 
+    padding: 0 15px 0 calc(84px * var(--ui-scale)); 
+    gap: calc(6px * var(--ui-scale)); /* Znacznie zmniejszona przerwa między przyciskami */
     z-index: 2100;
 }
 
-/* Przycisk zakupu VIP stricte w lewym górnym rogu dopasowany do wysokości 76px */
+/* Przycisk zakupu VIP stricte w lewym górnym rogu */
 #btn-vip-corner {
     position: absolute;
     top: 0;
@@ -472,21 +476,22 @@ canvas { display: block; }
     background-image: url('icons/icon-vip2.png') !important;
 }
 
+/* Skalowane przyciski paska bez martwych pustych przestrzeni flexboxa */
 .top-bar-item { 
     display: flex; 
     flex-direction: column; 
     align-items: center; 
-    gap: 2px; 
+    justify-content: center;
+    gap: calc(2px * var(--ui-scale)); 
     cursor: pointer; 
-    transform: scale(var(--ui-scale));
-    transform-origin: center center;
+    min-width: calc(48px * var(--ui-scale));
 }
 
 .player-avatar { 
-    width: 48px; 
-    height: 48px; 
+    width: calc(46px * var(--ui-scale)); 
+    height: calc(46px * var(--ui-scale)); 
     background-color: transparent; 
-    border-radius: 8px; 
+    border-radius: calc(8px * var(--ui-scale)); 
     display: flex; 
     align-items: center; 
     justify-content: center; 
@@ -494,34 +499,61 @@ canvas { display: block; }
     background-size: cover; 
     background-position: center; 
 }
-.player-name { color: white; font-size: 10px; }
 
-/* Friends Bar */
+.player-name { 
+    color: white; 
+    font-size: calc(10px * var(--ui-scale)); 
+    white-space: nowrap;
+}
+
+/* Pasek znajomych przylegający bezpośrednio do przycisków */
 #active-friends-container { 
     display: flex; 
-    gap: 10px; 
-    margin-left: 10px; 
+    gap: calc(6px * var(--ui-scale)); 
+    margin-left: calc(6px * var(--ui-scale)); 
     overflow-x: auto; 
     max-width: 40vw; 
     align-items: center; 
     height: 100%; 
     padding-right: 10px; 
     scrollbar-width: none; 
-    transform: scale(var(--ui-scale));
-    transform-origin: center left;
 }
 #active-friends-container::-webkit-scrollbar { display: none; }
-.active-friend-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; flex-shrink: 0; transition: transform 0.1s; }
+
+.active-friend-item { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    cursor: pointer; 
+    flex-shrink: 0; 
+    transition: transform 0.1s; 
+    min-width: calc(40px * var(--ui-scale));
+}
 .active-friend-item:hover { transform: scale(1.1); }
-.active-friend-avatar { width: 42px; height: 42px; background-color: #333; border: 2px solid var(--color-primary); border-radius: 8px; background-size: cover; background-position: center; }
-.active-friend-name { color: var(--color-primary); font-size: 9px; margin-top: 2px; text-shadow: 1px 1px 0 #000; }
+
+.active-friend-avatar { 
+    width: calc(40px * var(--ui-scale)); 
+    height: calc(40px * var(--ui-scale)); 
+    background-color: #333; 
+    border: calc(2px * var(--ui-scale)) solid var(--color-primary); 
+    border-radius: calc(8px * var(--ui-scale)); 
+    background-size: cover; 
+    background-position: center; 
+}
+
+.active-friend-name { 
+    color: var(--color-primary); 
+    font-size: calc(9px * var(--ui-scale)); 
+    margin-top: calc(2px * var(--ui-scale)); 
+    text-shadow: 1px 1px 0 #000; 
+}
 
 /* ==========================================================================
    CZAT W STYLU BLOCKSTARPLANET (Zaczyna się na 76px, bezpośrednio pod paskiem)
    ========================================================================== */
 .chat-container { 
     position: absolute; 
-    top: calc(76px * var(--ui-scale)); /* Zaczyna się DOKŁADNIE tam, gdzie kończy się pasek 76px */
+    top: calc(76px * var(--ui-scale)); 
     left: 10px; 
     display: flex; 
     flex-direction: column;
@@ -703,11 +735,11 @@ canvas { display: block; }
 }
 
 /* ==========================================================================
-   PRAWY INTERFEJS (Right UI: Zagraj, Poziom, Monety) – PRZESUNIĘTY NA 84px
+   PRAWY INTERFEJS (Right UI: Zagraj, Poziom, Monety)
    ========================================================================== */
 .right-ui { 
     position: absolute; 
-    top: calc(84px * var(--ui-scale)); /* Zwiększono z 74px na 84px */
+    top: calc(84px * var(--ui-scale)); 
     right: 15px; 
     display: flex; 
     flex-direction: column; 
@@ -743,7 +775,7 @@ canvas { display: block; }
 .level-plus-btn { position: absolute; right: 0; width: 35px; height: 35px; background-color: #74b9ff; border: 2px solid white; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: white; font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
 
 /* ==========================================================================
-   KONTROLKI MOBILNE – PODWOJONY PRZYCISK SKOKU ORAZ JOYSTICK
+   KONTROLKI MOBILNE – PRZYCISK SKOKU (120px) ORAZ JOYSTICK (196px)
    ========================================================================== */
 #mobile-game-controls { 
     position: fixed; 
@@ -754,13 +786,13 @@ canvas { display: block; }
     pointer-events: none; 
 }
 
-/* Podwojony przycisk skoku (160px x 160px) */
+/* Przycisk skoku zmniejszony o 25% (z 160px na 120px) */
 #jump-button { 
     position: absolute !important; 
     bottom: 25px; 
     right: 25px; 
-    width: 160px; /* Podwojony z 80px */
-    height: 160px; /* Podwojony z 80px */
+    width: 120px; /* Zmniejszono o 25% ze 160px */
+    height: 120px; /* Zmniejszono o 25% ze 160px */
     background-color: transparent; 
     background-image: url('icons/icon-jump.png'); 
     background-size: contain; 
@@ -783,10 +815,10 @@ canvas { display: block; }
     background-image: url('icons/icon-jump2.png') !important;
 }
 
-/* Dynamiczna strefa joysticka odsunięta w dół o kolejne 10px (top: 191px) */
+/* Dynamiczna strefa joysticka */
 #joystick-zone { 
     position: fixed !important; 
-    top: calc(191px * var(--ui-scale)); /* Zwiększono z 181px na 191px */
+    top: calc(191px * var(--ui-scale)); 
     left: 0; 
     width: 50vw; 
     height: calc(100vh - 191px * var(--ui-scale)); 
@@ -799,11 +831,11 @@ canvas { display: block; }
     -webkit-touch-callout: none;
 }
 
-/* Podwojona baza joysticka (196px x 196px) */
+/* Baza joysticka zachowana w rozmiarze 196px */
 .custom-joystick-base {
     position: fixed;
-    width: 196px; /* Podwojona z 98px */
-    height: 196px; /* Podwojona z 98px */
+    width: 196px; 
+    height: 196px; 
     border-radius: 50%;
     background: radial-gradient(circle, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.6) 100%);
     border: none;
@@ -817,13 +849,13 @@ canvas { display: block; }
     transition: opacity 0.15s ease-out;
 }
 
-/* Podwojona gałka joysticka (102px x 102px) */
+/* Gałka joysticka zachowana w rozmiarze 102px */
 .custom-joystick-thumb {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 102px; /* Podwojona z 51px */
-    height: 102px; /* Podwojona z 51px */
+    width: 102px; 
+    height: 102px; 
     border-radius: 50%;
     background-image: url('icons/icon-joystick.png');
     background-size: contain;
@@ -872,12 +904,12 @@ canvas { display: block; }
 .panel-item:hover { background: #4c8cff; } 
 .panel-close-button { margin-top: 20px; background: #ff4757; padding: 10px 20px; border-radius: 8px; cursor: pointer; color: white; font-family: var(--font-main); }
 
-/* --- BUILDER UI (Przesunięte w dół o kolejne 10px) --- */
+/* --- BUILDER UI --- */
 .build-ui-button { display: none !important; }
 
 .build-top-left {
     position: absolute; 
-    top: calc(86px * var(--ui-scale)); /* Zwiększono z 76px na 86px */
+    top: calc(86px * var(--ui-scale)); 
     left: 10px;
     display: none; 
     gap: 10px; 
@@ -911,7 +943,7 @@ canvas { display: block; }
 .build-sidebar-right {
     position: absolute; 
     right: 10px; 
-    top: calc(96px * var(--ui-scale)); /* Zwiększono z 86px na 96px */
+    top: calc(96px * var(--ui-scale)); 
     display: none;
     flex-direction: column; gap: 15px;
     pointer-events: auto; align-items: flex-end; z-index: 2005;
@@ -1047,10 +1079,10 @@ canvas { display: block; }
 }
 .part-item, .prefab-item { width: 100%; height: auto; padding: 10px; text-align: left; font-size: 16px; }
 
-/* --- PARKOUR & EXPLORE UI (Przesunięte w dół o kolejne 10px) --- */
+/* --- PARKOUR & EXPLORE UI --- */
 #parkour-timer {
     position: absolute;
-    top: calc(91px * var(--ui-scale)); /* Zwiększono z 81px na 91px */
+    top: calc(91px * var(--ui-scale)); 
     left: 50%;
     transform: translateX(-50%) scale(var(--ui-scale));
     transform-origin: top center;
@@ -1065,7 +1097,7 @@ canvas { display: block; }
 
 #explore-exit-button {
     position: absolute;
-    top: calc(91px * var(--ui-scale)); /* Zwiększono z 81px na 91px */
+    top: calc(91px * var(--ui-scale)); 
     left: 15px;
     width: 60px;
     height: 60px;
