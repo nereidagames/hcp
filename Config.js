@@ -1,12 +1,14 @@
+/* PLIK: Config.js */
+
 // Adres Twojego serwera na Render.com
-// WAŻNE: Musi być bez ukośnika '/' na końcu!
 export const API_BASE_URL = 'https://hypercubes-nexus-server.onrender.com';
 
 export const STORAGE_KEYS = {
     PLAYER_NAME: 'bsp_clone_player_name',
     JWT_TOKEN: 'bsp_clone_jwt_token',
     USER_ID: 'bsp_clone_user_id',
-    FPS_ENABLED: 'bsp_clone_fps_enabled'
+    FPS_ENABLED: 'bsp_clone_fps_enabled',
+    MUSIC_VOLUME: 'bsp_clone_music_volume' // Klucz zapisu głośności (0-100)
 };
 
 export const LOADING_TEXTS = [
