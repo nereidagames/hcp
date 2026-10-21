@@ -1,9 +1,9 @@
 /* PLIK: NavigationManager.js */
+
 import { STORAGE_KEYS } from './Config.js';
 
 const TEMPLATE = `
     <style>
-        /* STYLE DLA GRIDU NAWIGACYJNEGO (Wspólne dla Zagraj, Buduj, Więcej) */
         .nav-grid-container {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -90,7 +90,6 @@ const TEMPLATE = `
             z-index: 10;
         }
 
-        /* Konfiguracja Modali Nawigacyjnych */
         #more-options-panel .panel-content,
         #play-choice-panel .panel-content,
         #build-choice-panel .panel-content {
@@ -132,7 +131,7 @@ const TEMPLATE = `
                         <span class="nav-label">Parkour</span>
                     </div>
                 </div>
-                <div class="nav-item" id="btn-play-digging"> <!-- NOWY PRZYCISK -->
+                <div class="nav-item" id="btn-play-digging">
                     <div class="nav-btn-box">
                         <img src="icons/kopanie.png" class="nav-icon">
                         <span class="nav-label">Kopanie</span>
@@ -155,7 +154,6 @@ const TEMPLATE = `
                 Co chcesz zbudować?
             </h1>
             <div class="nav-grid-container">
-                <!-- GÓRNY RZĄD (ZIELONY - NOWE) -->
                 <div class="nav-item" id="build-choice-new-skin">
                     <div class="nav-btn-box-green"><img src="icons/icon-newhypercube.png" class="nav-icon"><span class="nav-label">Nowa HyperCube</span></div>
                 </div>
@@ -169,7 +167,6 @@ const TEMPLATE = `
                     <div class="nav-btn-box-green"><img src="icons/icon-newprefab.png" class="nav-icon"><span class="nav-label">Nowy Prefab</span></div>
                 </div>
 
-                <!-- DOLNY RZĄD (NIEBIESKI - EDYCJA) -->
                 <div class="nav-item" id="build-choice-edit-skin">
                     <div class="nav-btn-box"><img src="icons/icon-newhypercube.png" class="nav-icon"><span class="nav-label">Edytuj HyperCube</span></div>
                 </div>
@@ -192,9 +189,10 @@ const TEMPLATE = `
             <div class="nav-item"><div class="nav-btn-box"><img src="icons/misje.png" onerror="this.src='icons/icon-friends.png'" class="nav-icon"><span class="nav-label">Misje</span></div></div>
             <div class="nav-item" id="btn-open-news"><div class="nav-btn-box"><img src="icons/nagrody.png" onerror="this.src='icons/icon-shop.png'" class="nav-icon"><span class="nav-label">Nagrody</span><div id="rewards-badge" class="nav-badge" style="display:none;">0</div></div></div>
             <div class="nav-item" id="btn-open-highscores"><div class="nav-btn-box"><img src="icons/highscores.png" onerror="this.src='icons/icon-level.png'" class="nav-icon"><span class="nav-label">HighScores</span></div></div>
-            <!-- Admin buttons will be injected here by UI -->
             <div class="nav-item"><div class="nav-btn-box"><img src="icons/tworzenie.png" onerror="this.src='icons/icon-build.png'" class="nav-icon"><span class="nav-label">Tworzenie</span></div></div>
             <div class="nav-item"><div class="nav-btn-box"><img src="icons/bezpieczenstwo.png" onerror="this.src='icons/icon-more.png'" class="nav-icon"><span class="nav-label">Bezpiecz.</span></div></div>
+            
+            <!-- PRZYCISK OPCJI: Otwiera okno Opcji -->
             <div class="nav-item" id="btn-nav-options"><div class="nav-btn-box"><img src="icons/opcje.png" onerror="this.src='icons/icon-more.png'" class="nav-icon"><span class="nav-label">Opcje</span></div></div>
             <div class="nav-item" id="logout-btn"><div class="nav-btn-box"><img src="icons/wyloguj.png" onerror="this.src='icons/icon-back.png'" class="nav-icon"><span class="nav-label">Wyloguj</span></div></div>
         </div>
@@ -217,27 +215,22 @@ export class NavigationManager {
     }
 
     setupEventListeners() {
-        // --- ZAMYKANIE NA TŁO ---
         const panels = ['play-choice-panel', 'build-choice-panel', 'more-options-panel'];
         panels.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.onclick = (e) => { if (e.target.id === id) this.closePanel(id); };
         });
 
-        // --- PANEL ZAGRAJ ---
         this.bindClick('btn-play-parkour', () => {
             this.closePanel('play-choice-panel');
             this.ui.showDiscoverPanel('worlds', 'parkour');
         });
         
-        // NOWY: przycisk Kopanie
         this.bindClick('btn-play-digging', () => {
             this.closePanel('play-choice-panel');
             if (this.ui.onDiggingClick) {
                 this.ui.onDiggingClick();
             } else {
-                console.warn("onDiggingClick not defined in UI manager");
-                // Fallback - pokaż komunikat
                 this.ui.showMessage("Tryb kopania w przygotowaniu...", "info");
             }
         });
@@ -247,7 +240,6 @@ export class NavigationManager {
             this.ui.showDiscoverPanel('worlds', 'creative');
         });
 
-        // --- PANEL BUDUJ (NOWE) ---
         this.bindClick('build-choice-new-world', () => {
             this.closePanel('build-choice-panel');
             this.ui.openPanel('world-size-panel');
@@ -265,21 +257,18 @@ export class NavigationManager {
             if(this.ui.onPartBuilderClick) this.ui.onPartBuilderClick();
         });
 
-        // --- PANEL BUDUJ (EDYCJA - PLACEHOLDERY) ---
         this.bindClick('build-choice-edit-skin', () => this.ui.showMessage("Funkcja edycji HyperCube wkrótce!", "info"));
         this.bindClick('build-choice-edit-part', () => this.ui.showMessage("Funkcja edycji Części wkrótce!", "info"));
         this.bindClick('build-choice-edit-world', () => this.ui.showMessage("Funkcja edycji Świata wkrótce!", "info"));
         this.bindClick('build-choice-edit-prefab', () => this.ui.showMessage("Funkcja edycji Prefabrykatu wkrótce!", "info"));
 
-        // --- PANEL WIĘCEJ ---
         this.bindClick('btn-open-news', () => this.ui.newsManager.open());
         this.bindClick('btn-open-highscores', () => this.ui.highScoresManager.open());
         
+        // ZMIANA: Otwiera okno Opcji
         this.bindClick('btn-nav-options', () => {
-            if(this.ui.onToggleFPS) {
-                this.ui.onToggleFPS();
-                this.ui.showMessage("Przełączono licznik FPS", "info");
-            }
+            this.closePanel('more-options-panel');
+            this.ui.openOptionsPanel();
         });
 
         this.bindClick('logout-btn', () => {
@@ -296,7 +285,6 @@ export class NavigationManager {
         const el = document.getElementById(id);
         if (el) {
             el.onclick = () => {
-                // Efekt kliknięcia
                 el.style.transform = 'scale(0.95)';
                 setTimeout(() => el.style.transform = 'scale(1)', 100);
                 callback();
