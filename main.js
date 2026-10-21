@@ -31,14 +31,10 @@ import { HyperCubePartBuilderManager } from './HyperCubePartBuilderManager.js';
 import { SkinStorage } from './SkinStorage.js';
 import { WorldStorage } from './WorldStorage.js';
 
-// ============================================================================
-// DYNAMICZNY CANVAS SCALER UI (Obliczanie --ui-scale na podstawie okna)
-// ============================================================================
 export function updateUIScale() {
     const baseHeight = 720;
     const baseWidth = 1280;
     let scale = Math.min(window.innerHeight / baseHeight, window.innerWidth / baseWidth);
-    // Bezpieczne granice skali (od małych smartfonów po ekrany 4K)
     scale = Math.max(0.48, Math.min(scale, 1.6));
     document.documentElement.style.setProperty('--ui-scale', scale.toFixed(3));
 }
@@ -138,6 +134,10 @@ class BlockStarPlanetGame {
     });
 
     this.audioManager = new AudioManager(this.camera);
+
+    // Połączenie managera audio z panelem opcji UI
+    this.ui.onSetMusicVolume = (percent) => this.audioManager.setVolume(percent);
+    this.ui.getMusicVolume = () => this.audioManager.getVolume();
 
     this.stateManager = new GameStateManager(this.core, this.ui, this.audioManager);
     this.auth = new AuthManager(this.startGame.bind(this));
@@ -387,16 +387,19 @@ class BlockStarPlanetGame {
 
   setupStats() { 
       const fpsPref = localStorage.getItem(STORAGE_KEYS.FPS_ENABLED) === 'true'; 
-      if (fpsPref) { this.isFPSEnabled = true; this.stats.dom.style.display = 'block'; } 
+      if (fpsPref) { 
+          this.isFPSEnabled = true; 
+          this.stats.dom.style.display = 'block'; 
+      } 
       
       this.ui.onToggleFPS = () => { 
           this.isFPSEnabled = !this.isFPSEnabled; 
           this.stats.dom.style.display = this.isFPSEnabled ? 'block' : 'none'; 
-          if(this.ui.updateFPSToggleText) this.ui.updateFPSToggleText(this.isFPSEnabled); 
           localStorage.setItem(STORAGE_KEYS.FPS_ENABLED, this.isFPSEnabled.toString()); 
+          return this.isFPSEnabled;
       }; 
-      
-      if(this.ui.updateFPSToggleText) this.ui.updateFPSToggleText(this.isFPSEnabled); 
+
+      this.ui.getFPSEnabled = () => this.isFPSEnabled;
   }
 
   setupMultiplayerCallbacks() { 
