@@ -5,11 +5,14 @@ import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 const TEMPLATE = `
     <style>
         .news-container {
-            width: 85vw; max-width: 600px; height: 70vh;
-            background-color: #e0e0e0; border-radius: 15px;
+            width: 100% !important; 
+            max-width: none !important; 
+            height: 100% !important;
+            background-color: #e0e0e0; 
+            border-radius: 0 !important;
+            border: none !important;
             display: flex; flex-direction: column; overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border: 4px solid white;
+            box-shadow: none !important;
             font-family: 'Titan One', cursive;
             pointer-events: auto;
         }
