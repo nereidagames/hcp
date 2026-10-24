@@ -15,20 +15,21 @@ const TEMPLATE = `
             pointer-events: auto;
         }
 
-        .friends-full-container {
+.friends-full-container {
             width: 100%; height: 100%;
             background-color: #1e375a; 
             display: flex; flex-direction: column;
             position: relative;
-            padding-top: 60px; 
+            padding-top: 0 !important; 
         }
 
         .friends-nav-bar {
             background-color: #3498db;
-            height: 60px;
+            height: 54px;
             display: flex; align-items: center; justify-content: space-between;
-            padding: 0 10px;
-            border-bottom: 4px solid #2980b9;
+            padding: 0 15px;
+            border-bottom: 3px solid #2980b9;
+            flex-shrink: 0;
         }
         
         .friends-back-btn {
