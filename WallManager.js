@@ -28,18 +28,23 @@ const TEMPLATE = `
             z-index: 10;
         }
 
+        /* PRZYCISK POWROTU: Usunięto czerwoną obwódkę, tło i cienie */
         .wall-back-btn {
-            width: 48px;
-            height: 44px;
-            background: #e74c3c url('icons/icon-back.png') center/65% no-repeat;
-            border: 2.5px solid white;
-            border-radius: 10px;
+            width: 46px;
+            height: 46px;
+            background: transparent url('icons/icon-back.png') center/contain no-repeat;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
             cursor: pointer;
-            box-shadow: 0 4px 0 #b02a1b;
             flex-shrink: 0;
-            transition: transform 0.1s;
+            transition: transform 0.1s ease-out;
+            padding: 0;
         }
-        .wall-back-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #b02a1b; }
+        .wall-back-btn:active { 
+            transform: scale(0.92); 
+            box-shadow: none !important; 
+        }
 
         /* ZAKŁADKI W CENTRUM (Dzieła, Kryształy, Zwierzaki, Fotki) */
         .wall-tabs {
@@ -232,7 +237,7 @@ const TEMPLATE = `
                         </div>
                     </div>
 
-                    <div style="width: 48px;"></div> <!-- Balans do lewego przycisku -->
+                    <div style="width: 46px;"></div> <!-- Symetryczny odstęp wyrównujący nagłówek -->
                 </div>
 
                 <!-- CIEMNY PASEK TYTUŁU ŚCIANY -->
