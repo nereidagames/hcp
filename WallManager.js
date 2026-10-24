@@ -1,144 +1,217 @@
+/* PLIK: WallManager.js */
+
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 
 const TEMPLATE = `
     <style>
-        #wall-panel .panel-content {
-            background: transparent !important;
-            box-shadow: none !important;
-            border: none !important;
-            padding: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            max-width: none !important;
-            pointer-events: auto;
-        }
-
         .wall-container {
-            width: 100%; height: 100%;
-            background-color: #0c2461; /* Ciemne tło */
-            display: flex; flex-direction: column;
+            width: 100%;
+            height: 100%;
+            background-color: #0b598d;
+            display: flex;
+            flex-direction: column;
             position: relative;
-            padding-top: 60px; /* Miejsce na HUD */
             font-family: 'Titan One', cursive;
+            overflow: hidden;
         }
 
-        /* HEADER ŚCIANY */
+        /* 1. GŁÓWNY NIEBIESKI PASEK NAWIGACJI ŚCIANY */
         .wall-header-bar {
-            height: 50px;
-            background: linear-gradient(to bottom, #3498db, #2980b9);
-            display: flex; align-items: center; padding: 0 10px;
-            border-bottom: 3px solid rgba(0,0,0,0.3);
-            position: relative;
+            height: 54px;
+            background: linear-gradient(to bottom, #3498db, #2475b0);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+            flex-shrink: 0;
+            z-index: 10;
         }
 
         .wall-back-btn {
-            width: 45px; height: 45px;
-            background: #e74c3c url('icons/icon-back.png') center/60% no-repeat;
-            border: 2px solid white; border-radius: 8px;
-            cursor: pointer; box-shadow: 0 3px 0 #c0392b;
-            margin-right: 15px;
+            width: 48px;
+            height: 44px;
+            background: #e74c3c url('icons/icon-back.png') center/65% no-repeat;
+            border: 2.5px solid white;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #b02a1b;
+            flex-shrink: 0;
+            transition: transform 0.1s;
         }
-        .wall-back-btn:active { transform: translateY(2px); box-shadow: none; }
+        .wall-back-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #b02a1b; }
 
-        .wall-title {
-            font-size: 18px; color: white; text-shadow: 2px 2px 0 #000;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-
-        /* ZAKŁADKI GÓRNE */
+        /* ZAKŁADKI W CENTRUM (Dzieła, Kryształy, Zwierzaki, Fotki) */
         .wall-tabs {
-            display: flex; justify-content: center; gap: 5px;
-            position: absolute; left: 50%; transform: translateX(-50%); bottom: 0;
-            height: 100%; align-items: flex-end;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 12px;
+            height: 100%;
+            margin: 0 auto;
+            padding-bottom: 2px;
         }
         
         .wall-tab {
-            display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-            width: 70px; height: 45px; cursor: pointer;
-            opacity: 0.7; transition: 0.2s;
-            padding-bottom: 2px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            min-width: 68px;
+            height: 48px;
+            cursor: pointer;
+            opacity: 0.85;
+            transition: all 0.15s ease-out;
+            padding: 2px 8px;
+            border-radius: 8px 8px 0 0;
         }
-        .wall-tab.active { opacity: 1; background-color: rgba(255,255,255,0.2); border-radius: 8px 8px 0 0; }
+
+        .wall-tab.active {
+            opacity: 1;
+            background: linear-gradient(to bottom, #5cb8ff, #2980b9);
+            border: 2px solid #a4dbff;
+            border-bottom: none;
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.6);
+        }
         
-        .wall-tab-icon { width: 24px; height: 24px; background-size: contain; background-repeat: no-repeat; background-position: center; filter: drop-shadow(1px 1px 0 #000); }
-        .wall-tab-label { font-size: 10px; color: white; text-shadow: 1px 1px 0 #000; }
-
-        /* OBSZAR TREŚCI */
-        .wall-content {
-            flex: 1; overflow-y: auto; overflow-x: hidden;
-            background: #1e3799; /* Niebieskie tło treści */
-            padding: 10px 0;
+        .wall-tab-icon {
+            width: 24px;
+            height: 24px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.4));
+        }
+        
+        .wall-tab-label {
+            font-size: 11px;
+            color: white;
+            text-shadow: 1.5px 1.5px 0 #000;
+            margin-top: 2px;
         }
 
-        /* SEKCJA KATEGORII */
-        .wall-section { margin-bottom: 20px; }
+        /* 2. CIEMNONIEBIESKI PASEK TYTUŁOWY: Ściana użytkownika [NICK] */
+        .wall-sub-bar {
+            height: 32px;
+            background-color: #0c436b;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+            z-index: 9;
+        }
+
+        .wall-sub-title {
+            color: white;
+            font-size: 15px;
+            text-shadow: 1.5px 1.5px 0 #000;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 3. OBSZAR PRZEWIJANIA */
+        .wall-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background-color: #0b598d;
+            padding: 12px 0 30px 0;
+        }
+
+        .wall-section {
+            margin-bottom: 18px;
+        }
         
         .wall-section-title {
-            color: #00cec9; /* Turkusowy tytuł */
-            font-size: 18px; margin: 0 0 5px 15px;
-            text-shadow: 2px 2px 0 #000;
+            color: #00cec9;
+            font-size: 18px;
+            margin: 0 0 8px 15px;
+            text-shadow: 1.5px 1.5px 0 #000;
         }
 
-        /* LISTA POZIOMA (SCROLL) */
         .wall-horizontal-list {
-            display: flex; gap: 10px;
-            padding: 0 15px;
+            display: flex;
+            gap: 12px;
+            padding: 0 15px 8px 15px;
             overflow-x: auto;
-            padding-bottom: 10px;
             scrollbar-width: thin;
         }
         .wall-horizontal-list::-webkit-scrollbar { height: 6px; }
         .wall-horizontal-list::-webkit-scrollbar-thumb { background: #3498db; border-radius: 3px; }
 
-        /* KAFELEK ELEMENTU */
+        /* KAFELEK DŁUGOŚCIOWY BLOCKSTARPLANET */
         .wall-card {
-            width: 130px; height: 160px; flex-shrink: 0;
-            background-color: #00d2d3; /* Turkusowe tło kafelka */
-            border: 2px solid white; border-radius: 8px;
-            display: flex; flex-direction: column;
-            overflow: hidden; cursor: pointer;
+            width: 145px;
+            height: 190px;
+            flex-shrink: 0;
+            background-color: #00d2d3;
+            border: 2px solid white;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            cursor: pointer;
             box-shadow: 0 4px 0 rgba(0,0,0,0.3);
             transition: transform 0.1s;
         }
-        .wall-card:active { transform: scale(0.95); }
+        .wall-card:active { transform: scale(0.96); }
 
         .wall-card-header {
             background-color: #01a3a4;
-            color: white; font-size: 10px; padding: 2px 4px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            text-shadow: 1px 1px 0 #000; font-weight: bold;
+            color: white;
+            font-size: 11px;
+            padding: 4px 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: 1px 1px 0 #000;
+            font-weight: bold;
+            text-align: center;
         }
 
         .wall-card-thumb {
-            flex: 1; background-color: #fff;
+            flex: 1;
+            background-color: #63addb;
             background-image: url('icons/avatar_placeholder.png');
-            background-size: cover; background-position: center;
+            background-size: contain;
+            background-position: center bottom;
+            background-repeat: no-repeat;
             position: relative;
         }
-        
-        /* FOOTER KAFELKA (Lajki i Komentarze) */
+
         .wall-card-footer {
-            height: 25px; background-color: #01a3a4;
-            display: flex; justify-content: space-around; align-items: center;
-            color: white; font-size: 12px; text-shadow: 1px 1px 0 #000;
+            height: 28px;
+            background-color: #01a3a4;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            color: white;
+            font-size: 13px;
+            text-shadow: 1px 1px 0 #000;
         }
         
-        .stat-item { display: flex; align-items: center; gap: 3px; }
-        .stat-icon { width: 14px; height: 14px; background-size: contain; background-repeat: no-repeat; }
+        .stat-item { display: flex; align-items: center; gap: 4px; }
+        .stat-icon { width: 16px; height: 16px; background-size: contain; background-repeat: no-repeat; }
         
-        /* PLACEHOLDERY */
-        .wall-placeholder-tab { display: none; text-align: center; color: white; margin-top: 50px; font-size: 18px; }
+        .wall-placeholder-tab {
+            display: none;
+            text-align: center;
+            color: white;
+            margin-top: 50px;
+            font-size: 18px;
+        }
         .wall-placeholder-tab.active { display: block; }
-
     </style>
 
     <div id="wall-panel" class="panel-modal" style="display:none;">
         <div class="panel-content">
             <div class="wall-container">
                 
+                <!-- GÓRNY PASEK Z PRZYCISKIEM POWROTU I ZAKŁADKAMI -->
                 <div class="wall-header-bar">
                     <div id="btn-wall-close" class="wall-back-btn"></div>
-                    <div id="wall-header-title" class="wall-title">Ściana użytkownika ...</div>
                     
                     <div class="wall-tabs">
                         <div class="wall-tab active" data-tab="wall-creations">
@@ -146,28 +219,32 @@ const TEMPLATE = `
                             <span class="wall-tab-label">Dzieła</span>
                         </div>
                         <div class="wall-tab" data-tab="wall-crystals">
-                            <div class="wall-tab-icon" style="background-image: url('icons/icon-shop.png');"></div> <!-- Placeholder icon -->
+                            <div class="wall-tab-icon" style="background-image: url('icons/icon-shop.png');"></div>
                             <span class="wall-tab-label">Kryształy</span>
                         </div>
                         <div class="wall-tab" data-tab="wall-pets">
-                            <div class="wall-tab-icon" style="background-image: url('icons/icon-friends.png');"></div> <!-- Placeholder icon -->
+                            <div class="wall-tab-icon" style="background-image: url('icons/icon-friends.png');"></div>
                             <span class="wall-tab-label">Zwierzaki</span>
                         </div>
                         <div class="wall-tab" data-tab="wall-photos">
-                            <div class="wall-tab-icon" style="background-image: url('icons/icon-build.png');"></div> <!-- Placeholder icon -->
+                            <div class="wall-tab-icon" style="background-image: url('icons/icon-build.png');"></div>
                             <span class="wall-tab-label">Fotki</span>
                         </div>
                     </div>
+
+                    <div style="width: 48px;"></div> <!-- Balans do lewego przycisku -->
                 </div>
 
-                <!-- ZAKŁADKA DZIEŁA -->
+                <!-- CIEMNY PASEK TYTUŁU ŚCIANY -->
+                <div class="wall-sub-bar">
+                    <span id="wall-sub-title" class="wall-sub-title">Ściana użytkownika ...</span>
+                </div>
+
+                <!-- TREŚĆ GŁÓWNA -->
                 <div id="wall-creations" class="wall-content active">
-                    
                     <div class="wall-section">
                         <div class="wall-section-title">Najnowsze BlockStars</div>
-                        <div id="wall-list-skins" class="wall-horizontal-list">
-                            <!-- Kafelki JS -->
-                        </div>
+                        <div id="wall-list-skins" class="wall-horizontal-list"></div>
                     </div>
 
                     <div class="wall-section">
@@ -184,14 +261,11 @@ const TEMPLATE = `
                         <div class="wall-section-title">Najnowsze Części</div>
                         <div id="wall-list-parts" class="wall-horizontal-list"></div>
                     </div>
-
                 </div>
 
-                <!-- PLACEHOLDERY DLA INNYCH ZAKŁADEK -->
                 <div id="wall-crystals" class="wall-content wall-placeholder-tab">Brak kryształów</div>
                 <div id="wall-pets" class="wall-content wall-placeholder-tab">Brak zwierzaków</div>
                 <div id="wall-photos" class="wall-content wall-placeholder-tab">Brak fotek</div>
-
             </div>
         </div>
     </div>
@@ -243,9 +317,10 @@ export class WallManager {
         panel.style.display = 'flex';
         
         this.currentUserId = userId;
-        document.getElementById('wall-header-title').textContent = `Ściana użytkownika ${username || 'Gracz'}`;
+        document.getElementById('wall-sub-title').textContent = `Ściana użytkownika ${username || 'Gracz'}`;
         
-        document.querySelector('.wall-tab[data-tab="wall-creations"]').click();
+        const defaultTab = document.querySelector('.wall-tab[data-tab="wall-creations"]');
+        if (defaultTab) defaultTab.click();
 
         this.loadWallData(userId);
     }
@@ -257,7 +332,8 @@ export class WallManager {
 
     async loadWallData(userId) {
         ['skins', 'worlds', 'prefabs', 'parts'].forEach(type => {
-            document.getElementById(`wall-list-${type}`).innerHTML = '<p style="color:white; padding:10px;">Ładowanie...</p>';
+            const listEl = document.getElementById(`wall-list-${type}`);
+            if (listEl) listEl.innerHTML = '<p style="color:white; padding:15px;">Ładowanie...</p>';
         });
 
         const t = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
@@ -279,7 +355,8 @@ export class WallManager {
         } catch (e) {
             console.error(e);
             ['skins', 'worlds', 'prefabs', 'parts'].forEach(type => {
-                document.getElementById(`wall-list-${type}`).innerHTML = '<p style="color:white; padding:10px;">Błąd pobierania.</p>';
+                const listEl = document.getElementById(`wall-list-${type}`);
+                if (listEl) listEl.innerHTML = '<p style="color:white; padding:15px;">Błąd pobierania.</p>';
             });
         }
     }
@@ -290,7 +367,7 @@ export class WallManager {
         container.innerHTML = '';
 
         if (!items || items.length === 0) {
-            container.innerHTML = '<div style="color:rgba(255,255,255,0.5); padding:20px; font-size:12px;">Pusto :(</div>';
+            container.innerHTML = '<div style="color:rgba(255,255,255,0.6); padding:15px; font-size:13px;">Brak elementów.</div>';
             return;
         }
 
@@ -313,18 +390,17 @@ export class WallManager {
             <div class="wall-card-thumb" style="background-image: url('${thumbUrl}');"></div>
             <div class="wall-card-footer">
                 <div class="stat-item">
-                    <div class="stat-icon" style="background-image: url('icons/icon-like.png');"></div>
+                    <span style="font-size:13px;">👍</span>
                     <span>${likes}</span>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-icon" style="background-image: url('icons/icon-chat.png');"></div>
+                    <span style="font-size:13px;">💬</span>
                     <span>${comments}</span>
                 </div>
             </div>
         `;
 
         div.onclick = () => this.handleItemClick(item, type);
-
         return div;
     }
 
@@ -337,9 +413,8 @@ export class WallManager {
                 }
             }
         } else {
-            // FIX: Dodano true, aby nie zamykać innych paneli (czyli Ściany)
-            if (this.ui.showItemDetails) {
-                this.ui.showItemDetails(item, type, true); 
+            if (this.ui.skinDetailsManager) {
+                this.ui.skinDetailsManager.showItemDetails(item, type, true); 
             }
         }
     }
