@@ -5,12 +5,14 @@ import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 const TEMPLATE = `
     <style>
         .mail-wrapper {
-            width: 85vw; max-width: 600px; height: 70vh;
+            width: 100% !important; 
+            max-width: none !important; 
+            height: 100% !important;
             background-color: #74b9ff;
-            border-radius: 10px;
+            border-radius: 0 !important;
+            border: none !important;
             display: flex; flex-direction: column; overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border: 4px solid white;
+            box-shadow: none !important;
             font-family: 'Titan One', sans-serif;
             position: relative;
             pointer-events: auto;
