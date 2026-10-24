@@ -18,15 +18,16 @@ const TEMPLATE = `
         }
 
         .hs-container {
-            width: 100%; height: 100%;
+            width: 100% !important; 
+            height: 100% !important;
             background-color: #3498db;
-            border: 4px solid white;
-            border-radius: 15px;
+            border: none !important;
+            border-radius: 0 !important;
             display: flex; flex-direction: column;
             overflow: hidden;
             font-family: 'Titan One', cursive;
             position: relative;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: none !important;
         }
 
         /* PRZYCISK ZAMKNIĘCIA */
