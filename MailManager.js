@@ -4,7 +4,7 @@ import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 
 const TEMPLATE = `
     <style>
-        /* GŁÓWNA NAKŁADKA MODALA POCZTY */
+        /* NAKŁADKA MODALA POCZTY (ZACIEMNIENIE TŁA) */
         #mail-panel {
             position: fixed !important;
             top: calc(76px * var(--ui-scale)) !important;
@@ -15,13 +15,23 @@ const TEMPLATE = `
             height: calc(100vh - 76px * var(--ui-scale)) !important;
             display: none;
             justify-content: center !important;
-            align-items: flex-start !important;
-            background: rgba(0, 0, 0, 0.45) !important;
+            align-items: center !important;
+            background: rgba(0, 0, 0, 0.4) !important;
             z-index: 25000 !important;
             padding: 0 !important;
             margin: 0 !important;
             border: none !important;
             box-shadow: none !important;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.28s ease-out;
+            overflow: hidden !important;
+        }
+
+        #mail-panel.active {
+            display: flex !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
         }
 
         #mail-panel .panel-content {
@@ -34,15 +44,17 @@ const TEMPLATE = `
             height: 100% !important;
             display: flex !important;
             justify-content: center !important;
-            align-items: flex-start !important;
+            align-items: flex-end !important;
             transform: none !important;
+            pointer-events: none;
         }
 
-        /* ORYGINALNE PIONOWE OKNO POCZTY BSP */
+        /* OKNO POCZTY BSP - ANIMOWANE WSUWANIE OD DOŁU */
         .bsp-mail-card {
-            width: 480px;
-            max-width: 94vw;
-            height: 100%;
+            width: 490px;
+            max-width: 92vw;
+            height: 94%;
+            max-height: 520px;
             background-color: #68b8f8;
             border-radius: 18px 18px 0 0;
             border: 3.5px solid white;
@@ -54,11 +66,21 @@ const TEMPLATE = `
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             pointer-events: auto;
             position: relative;
+            margin: 0 auto;
+            
+            /* Animacja wysuwania od dołu */
+            transform: translateY(110%);
+            transition: transform 0.28s cubic-bezier(0.18, 0.89, 0.32, 1.05);
+            will-change: transform;
         }
 
-        /* 1. NAGŁÓWEK POCZTY (BŁĘKITNY) */
+        #mail-panel.active .bsp-mail-card {
+            transform: translateY(0);
+        }
+
+        /* 1. NAGŁÓWEK POCZTY */
         .bsp-mail-header {
-            height: 52px;
+            height: 54px;
             background: linear-gradient(to bottom, #5cb4f8, #2a94f0);
             display: flex;
             align-items: center;
@@ -70,7 +92,7 @@ const TEMPLATE = `
 
         .bsp-mail-title {
             color: white;
-            font-size: 24px;
+            font-size: 26px;
             text-shadow: 2px 2px 0 #000;
             letter-spacing: 0.5px;
         }
@@ -80,8 +102,8 @@ const TEMPLATE = `
             right: 12px;
             top: 50%;
             transform: translateY(-50%);
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             background: linear-gradient(to bottom, #8ede13, #5ba806);
             border: 2.5px solid white;
             border-radius: 10px;
@@ -89,7 +111,7 @@ const TEMPLATE = `
             justify-content: center;
             align-items: center;
             color: white;
-            font-size: 28px;
+            font-size: 30px;
             line-height: 1;
             cursor: pointer;
             box-shadow: 0 3px 0 #3e7504;
@@ -97,13 +119,13 @@ const TEMPLATE = `
         }
         .bsp-btn-compose:active { transform: translateY(-45%) scale(0.95); box-shadow: none; }
 
-        /* PRZYCISK POWROTU (CZERWONY Z BIAŁĄ STRZAŁKĄ) */
+        /* CZERWONY PRZYCISK COFANIA DO LISTY */
         .bsp-mail-back-btn {
             position: absolute;
             left: 10px;
             top: 50%;
             transform: translateY(-50%);
-            width: 42px;
+            width: 44px;
             height: 40px;
             background: transparent url('icons/icon-back.png') center/contain no-repeat;
             border: none;
@@ -124,8 +146,8 @@ const TEMPLATE = `
         .bsp-mail-row {
             display: flex;
             align-items: center;
-            height: 68px;
-            padding: 6px 12px;
+            height: 70px;
+            padding: 6px 14px;
             cursor: pointer;
             border-bottom: 2px solid rgba(255,255,255,0.4);
             position: relative;
@@ -133,12 +155,12 @@ const TEMPLATE = `
         }
         .bsp-mail-row:hover { filter: brightness(1.05); }
 
-        /* Przeczytana konwersacja: Błękitna */
+        /* Przeczytana konwersacja */
         .bsp-mail-row.read {
             background-color: #7dc5fb;
         }
 
-        /* Nieprzeczytana konwersacja: Soczyście zielona jak na screenie */
+        /* Nieprzeczytana konwersacja */
         .bsp-mail-row.unread {
             background-color: #8ede13;
         }
@@ -209,7 +231,7 @@ const TEMPLATE = `
             text-shadow: 1px 1px 0 rgba(0,0,0,0.4);
         }
 
-        /* 3. WIDOK ROZMOWY (CZATU) */
+        /* 3. ROZMOWA (CZAT) */
         .bsp-chat-user-pill {
             height: 38px;
             padding: 0 20px;
@@ -319,7 +341,7 @@ const TEMPLATE = `
         }
         .bsp-chat-send-btn:active { transform: translateY(2px); box-shadow: none; }
 
-        /* 4. WIDOK NOWA WIADOMOŚĆ (WYSZUKIWANIE ODBIORCY) */
+        /* 4. NOWA WIADOMOŚĆ (WYSZUKIWANIE) */
         .bsp-composer-search-row {
             height: 52px;
             background: #72bdf8;
@@ -394,14 +416,13 @@ const TEMPLATE = `
         .hidden { display: none !important; }
     </style>
 
-    <div id="mail-panel" class="panel-modal" style="display:none;">
+    <div id="mail-panel" class="panel-modal">
         <div class="panel-content">
-            <div class="bsp-mail-card">
+            <div class="bsp-mail-card" id="bsp-mail-card-el">
                 
-                <!-- WIDOK 1: LISTA KONWERSACJI (INBOX) -->
+                <!-- WIDOK 1: LISTA (INBOX) - BEZ PRZYCISKU COFANIA -->
                 <div id="mail-inbox-view" style="display: flex; flex-direction: column; height: 100%; width: 100%;">
                     <div class="bsp-mail-header">
-                        <div id="btn-mail-close-inbox" class="bsp-mail-back-btn"></div>
                         <span class="bsp-mail-title">Poczta</span>
                         <div id="btn-mail-compose" class="bsp-btn-compose">+</div>
                     </div>
@@ -421,7 +442,7 @@ const TEMPLATE = `
                     </div>
                 </div>
 
-                <!-- WIDOK 3: NOWA WIADOMOŚĆ (WYSZUKIWANIE / WYBÓR GRACZA) -->
+                <!-- WIDOK 3: NOWA WIADOMOŚĆ -->
                 <div id="new-mail-composer" class="hidden" style="flex-direction: column; height: 100%; width: 100%;">
                     <div class="bsp-mail-header">
                         <div id="btn-cancel-composer" class="bsp-mail-back-btn"></div>
@@ -449,6 +470,7 @@ export class MailManager {
         this.ui = uiManager;
         this.activeConversation = null;
         this.friendsCache = [];
+        this.isClosing = false;
     }
 
     initialize() {
@@ -468,11 +490,6 @@ export class MailManager {
                 this.switchView('composer');
                 this.loadComposerFriends();
             };
-        }
-
-        const btnCloseInbox = document.getElementById('btn-mail-close-inbox');
-        if (btnCloseInbox) {
-            btnCloseInbox.onclick = () => this.close();
         }
 
         const btnBack = document.getElementById('btn-mail-back');
@@ -519,14 +536,19 @@ export class MailManager {
             });
         }
 
-        // Zamknięcie po kliknięciu poza kartą poczty
+        // Zamknięcie po kliknięciu W DOWOLNYM MIEJSCU poza kartą poczty
         const panel = document.getElementById('mail-panel');
         if (panel) {
-            panel.addEventListener('click', (e) => {
-                if (e.target.id === 'mail-panel') {
+            panel.addEventListener('mousedown', (e) => {
+                if (!e.target.closest('#bsp-mail-card-el')) {
                     this.close();
                 }
             });
+            panel.addEventListener('touchstart', (e) => {
+                if (!e.target.closest('#bsp-mail-card-el')) {
+                    this.close();
+                }
+            }, { passive: true });
         }
     }
 
@@ -553,18 +575,60 @@ export class MailManager {
 
     open() {
         const panel = document.getElementById('mail-panel');
-        if (panel) {
-            this.ui.bringToFront(panel);
-            panel.style.display = 'flex';
-            this.switchView('inbox');
-            this.loadMailData();
-        }
+        if (!panel) return;
+
+        this.isClosing = false;
+        if (this.ui.bringToFront) this.ui.bringToFront(panel);
+
+        // Ukryj elementy interfejsu Nexusa
+        this.setHudVisibility(false);
+
+        panel.style.display = 'flex';
+        // Wymuszenie reflow i włączenie animacji wślizgnięcia
+        requestAnimationFrame(() => {
+            panel.classList.add('active');
+        });
+
+        this.switchView('inbox');
+        this.loadMailData();
     }
 
     close() {
         const panel = document.getElementById('mail-panel');
-        if (panel) panel.style.display = 'none';
-        this.activeConversation = null;
+        if (!panel || this.isClosing) return;
+
+        this.isClosing = true;
+        panel.classList.remove('active');
+
+        // Przywróć elementy interfejsu Nexusa
+        this.setHudVisibility(true);
+
+        // Odczekaj czas trwania animacji zjeżdżania (280ms) i ukryj kontener
+        setTimeout(() => {
+            if (this.isClosing) {
+                panel.style.display = 'none';
+                this.isClosing = false;
+                this.activeConversation = null;
+            }
+        }, 280);
+    }
+
+    setHudVisibility(visible) {
+        const displayVal = visible ? '' : 'none';
+        
+        // Czat Nexusa
+        const chat = document.querySelector('.chat-container');
+        if (chat) chat.style.display = visible ? 'flex' : 'none';
+
+        // Prawy HUD (Zagraj, Buduj, Poziom, Monety)
+        const rightUi = document.querySelector('.right-ui');
+        if (rightUi) rightUi.style.display = displayVal;
+
+        // Kontrolki mobilne (joystick, skok)
+        const mobileControls = document.getElementById('mobile-game-controls');
+        if (mobileControls && this.ui.isMobile) {
+            mobileControls.style.display = visible ? 'block' : 'none';
+        }
     }
 
     switchView(viewName) {
@@ -624,14 +688,10 @@ export class MailManager {
 
         messages.forEach(msg => {
             const div = document.createElement('div');
-            
-            // Jeśli wiadomość nie była przeczytana i nie jest od nas -> kolor zielony z badge !
             const isUnread = Boolean(msg.is_read === false && msg.sender_username !== myName);
             div.className = `bsp-mail-row ${isUnread ? 'unread' : 'read'}`;
 
-            // Czas relatywny jak na screenach
             const timeStr = this.formatTimeAgo(msg.created_at);
-
             const isMeLastSender = msg.sender_username === myName;
             const previewText = (isMeLastSender ? 'Ty: ' : '') + msg.message_text;
             const avatarUrl = msg.other_avatar || 'icons/avatar_placeholder.png';
