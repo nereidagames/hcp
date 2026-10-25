@@ -899,12 +899,12 @@ canvas { display: block; }
 
 /* ==========================================================================
    PEŁNOEKRANOWE PANELE (DOKŁADNIE POD GÓRNYM PASKIEM - 100% SZEROKOŚCI I WYSOKOŚCI)
-   Ściana, Przyjaciele, HighScores, Poczta, Nagrody
+   Ściana, Przyjaciele, HighScores, Nagrody
+   (Poczta #mail-panel została wyłączona z tego bloku i zarządza własnym oknem w MailManager.js)
    ========================================================================== */
 #wall-panel,
 #friends-panel,
 #highscores-panel,
-#mail-panel,
 #news-modal {
     position: fixed !important;
     top: calc(76px * var(--ui-scale)) !important;
@@ -930,7 +930,6 @@ canvas { display: block; }
 #wall-panel .panel-content,
 #friends-panel .panel-content,
 #highscores-panel .panel-content,
-#mail-panel .panel-content,
 #news-modal .panel-content {
     position: relative !important;
     top: 0 !important;
