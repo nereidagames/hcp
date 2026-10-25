@@ -49,10 +49,10 @@ const TEMPLATE = `
             pointer-events: none;
         }
 
-        /* OKNO POCZTY BSP - DOLEGA DO SAMEGO DOŁU BEZ BIAŁEJ RAMKI */
+        /* OKNO POCZTY BSP */
         .bsp-mail-card {
-            width: 490px;
-            max-width: 94vw;
+            width: 495px;
+            max-width: 95vw;
             height: 100%;
             background-color: #68b8f8;
             border-radius: 18px 18px 0 0;
@@ -131,6 +131,7 @@ const TEMPLATE = `
             border: none;
             cursor: pointer;
             transition: transform 0.1s;
+            z-index: 2;
         }
         .bsp-mail-back-btn:active { transform: translateY(-50%) scale(0.92); }
 
@@ -231,10 +232,11 @@ const TEMPLATE = `
             text-shadow: 1px 1px 0 rgba(0,0,0,0.4);
         }
 
-        /* 3. ROZMOWA (CZAT) */
+        /* 3. ROZMOWA (CZAT) - ZIELONY PASEK MA ZAWSZE 75% DŁUGOŚCI OKNA */
         .bsp-chat-user-pill {
+            width: 75%;
             height: 38px;
-            padding: 0 20px;
+            padding: 0 16px;
             background: linear-gradient(to bottom, #8ede13, #5ba806);
             border: 2.5px solid white;
             border-radius: 12px;
@@ -242,9 +244,14 @@ const TEMPLATE = `
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 16px;
+            font-size: 17px;
             text-shadow: 1.5px 1.5px 0 #000;
             box-shadow: 0 3px 0 #3e7504;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin: 0 auto;
+            box-sizing: border-box;
         }
 
         .bsp-chat-area {
