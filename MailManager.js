@@ -15,7 +15,7 @@ const TEMPLATE = `
             height: calc(100vh - 76px * var(--ui-scale)) !important;
             display: none;
             justify-content: center !important;
-            align-items: center !important;
+            align-items: flex-end !important;
             background: rgba(0, 0, 0, 0.4) !important;
             z-index: 25000 !important;
             padding: 0 !important;
@@ -49,27 +49,27 @@ const TEMPLATE = `
             pointer-events: none;
         }
 
-        /* OKNO POCZTY BSP - ANIMOWANE WSUWANIE OD DOŁU */
+        /* OKNO POCZTY BSP - DOLEGA DO SAMEGO DOŁU BEZ BIAŁEJ RAMKI */
         .bsp-mail-card {
             width: 490px;
-            max-width: 92vw;
-            height: 94%;
-            max-height: 520px;
+            max-width: 94vw;
+            height: 100%;
             background-color: #68b8f8;
             border-radius: 18px 18px 0 0;
-            border: 3.5px solid white;
-            border-bottom: none;
+            border: none !important;
+            outline: none !important;
             display: flex;
             flex-direction: column;
             overflow: hidden;
             font-family: 'Titan One', cursive;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.35);
             pointer-events: auto;
             position: relative;
             margin: 0 auto;
+            margin-bottom: 0 !important;
             
-            /* Animacja wysuwania od dołu */
-            transform: translateY(110%);
+            /* Animacja wysuwania od samego dołu */
+            transform: translateY(105%);
             transition: transform 0.28s cubic-bezier(0.18, 0.89, 0.32, 1.05);
             will-change: transform;
         }
@@ -86,7 +86,7 @@ const TEMPLATE = `
             align-items: center;
             justify-content: center;
             position: relative;
-            border-bottom: 3px solid rgba(255,255,255,0.4);
+            border-bottom: 2px solid rgba(255,255,255,0.4);
             flex-shrink: 0;
         }
 
@@ -302,7 +302,7 @@ const TEMPLATE = `
         .bsp-chat-footer {
             height: 58px;
             background: #68b8f8;
-            border-top: 3px solid white;
+            border-top: 2px solid rgba(255,255,255,0.4);
             padding: 6px 10px;
             display: flex;
             align-items: center;
@@ -420,7 +420,7 @@ const TEMPLATE = `
         <div class="panel-content">
             <div class="bsp-mail-card" id="bsp-mail-card-el">
                 
-                <!-- WIDOK 1: LISTA (INBOX) - BEZ PRZYCISKU COFANIA -->
+                <!-- WIDOK 1: LISTA (INBOX) -->
                 <div id="mail-inbox-view" style="display: flex; flex-direction: column; height: 100%; width: 100%;">
                     <div class="bsp-mail-header">
                         <span class="bsp-mail-title">Poczta</span>
@@ -536,7 +536,7 @@ export class MailManager {
             });
         }
 
-        // Zamknięcie po kliknięciu W DOWOLNYM MIEJSCU poza kartą poczty
+        // Zamykanie poczty po kliknięciu poza samą kartą
         const panel = document.getElementById('mail-panel');
         if (panel) {
             panel.addEventListener('mousedown', (e) => {
@@ -580,11 +580,9 @@ export class MailManager {
         this.isClosing = false;
         if (this.ui.bringToFront) this.ui.bringToFront(panel);
 
-        // Ukryj elementy interfejsu Nexusa
         this.setHudVisibility(false);
 
         panel.style.display = 'flex';
-        // Wymuszenie reflow i włączenie animacji wślizgnięcia
         requestAnimationFrame(() => {
             panel.classList.add('active');
         });
@@ -600,10 +598,8 @@ export class MailManager {
         this.isClosing = true;
         panel.classList.remove('active');
 
-        // Przywróć elementy interfejsu Nexusa
         this.setHudVisibility(true);
 
-        // Odczekaj czas trwania animacji zjeżdżania (280ms) i ukryj kontener
         setTimeout(() => {
             if (this.isClosing) {
                 panel.style.display = 'none';
@@ -616,15 +612,12 @@ export class MailManager {
     setHudVisibility(visible) {
         const displayVal = visible ? '' : 'none';
         
-        // Czat Nexusa
         const chat = document.querySelector('.chat-container');
         if (chat) chat.style.display = visible ? 'flex' : 'none';
 
-        // Prawy HUD (Zagraj, Buduj, Poziom, Monety)
         const rightUi = document.querySelector('.right-ui');
         if (rightUi) rightUi.style.display = displayVal;
 
-        // Kontrolki mobilne (joystick, skok)
         const mobileControls = document.getElementById('mobile-game-controls');
         if (mobileControls && this.ui.isMobile) {
             mobileControls.style.display = visible ? 'block' : 'none';
