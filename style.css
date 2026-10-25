@@ -434,7 +434,7 @@ canvas { display: block; }
 
 /* ==========================================================================
    GÓRNY PASEK (Top Bar) – ZWARTE PRZERWY MIĘDZY PRZYCISKAMI
-   ========================================================================== */
+   ========================================================================= */
 .top-bar { 
     position: absolute !important; 
     top: 0 !important; left: 0 !important; right: 0 !important; 
@@ -449,7 +449,7 @@ canvas { display: block; }
     align-items: center; 
     padding: 0 15px 0 calc(84px * var(--ui-scale)); 
     gap: calc(6px * var(--ui-scale));
-    z-index: 50000 !important; /* Zawsze na samej górze */
+    z-index: 50000 !important; /* Zawsze na samej górze nad wszystkimi ekranami */
 }
 
 /* Przycisk zakupu VIP stricte w lewym górnym rogu */
@@ -900,7 +900,6 @@ canvas { display: block; }
 /* ==========================================================================
    PEŁNOEKRANOWE PANELE (DOKŁADNIE POD GÓRNYM PASKIEM - 100% SZEROKOŚCI I WYSOKOŚCI)
    Ściana, Przyjaciele, HighScores, Nagrody
-   (Poczta #mail-panel została wyłączona z tego bloku i zarządza własnym oknem w MailManager.js)
    ========================================================================== */
 #wall-panel,
 #friends-panel,
@@ -922,7 +921,7 @@ canvas { display: block; }
     box-shadow: none !important;
     background: transparent !important;
     display: none;
-    z-index: 25000 !important;
+    z-index: 25000; /* Bez !important, aby modale podglądu skina mogły wejść nad ten panel */
     align-items: stretch !important;
     justify-content: flex-start !important;
 }
@@ -949,6 +948,17 @@ canvas { display: block; }
     flex-direction: column !important;
     align-items: stretch !important;
     overflow: hidden !important;
+}
+
+/* ==========================================================================
+   POZIOMY Z-INDEX DLA PODGLĄDU SKINA I KOMENTARZY (ZAWSZE NAD ŚCIANĄ/PROFILEM)
+   ========================================================================== */
+#skin-details-modal {
+    z-index: 31000 !important;
+}
+
+#skin-comments-panel {
+    z-index: 32000 !important;
 }
 
 /* ==========================================================================
