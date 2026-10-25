@@ -8,6 +8,10 @@ import { modalPreview } from './ModalPreview.js';
 
 const SKIN_DETAILS_TEMPLATE = `
     <style>
+        #skin-details-modal {
+            z-index: 31000 !important;
+        }
+
         #skin-details-modal .panel-content {
             background: transparent !important;
             box-shadow: none !important;
@@ -194,12 +198,32 @@ const SKIN_DETAILS_TEMPLATE = `
 `;
 
 const SKIN_COMMENTS_TEMPLATE = `
+    <style>
+        #skin-comments-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 440px;
+            max-width: 92vw;
+            height: 520px;
+            max-height: 82vh;
+            background: rgba(12, 36, 97, 0.95);
+            border: 3.5px solid white;
+            border-radius: 18px;
+            z-index: 32000 !important;
+            display: none;
+            flex-direction: column;
+            padding: 15px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.7);
+        }
+    </style>
     <div id="skin-comments-panel" style="display:none;">
-        <div class="panel-close-button" id="close-comments-btn" style="position: absolute; top: 10px; left: -50px; z-index: 10; background: #e74c3c; width: 40px; height: 40px; display:flex; justify-content:center; align-items:center; font-weight:bold;">X</div>
-        <div class="comments-list-container"></div>
-        <div class="comments-input-area">
-            <input id="comment-input" type="text" placeholder="Napisz wiadomość...">
-            <button id="comment-submit-btn">✔</button>
+        <div class="panel-close-button" id="close-comments-btn" style="position: absolute; top: 10px; right: 10px; z-index: 10; background: #e74c3c; width: 36px; height: 36px; border-radius:50%; border:2px solid white; display:flex; justify-content:center; align-items:center; font-weight:bold; cursor:pointer;">X</div>
+        <div class="comments-list-container" style="flex:1; overflow-y:auto; margin-top:35px; padding-right:5px;"></div>
+        <div class="comments-input-area" style="display:flex; gap:8px; margin-top:10px;">
+            <input id="comment-input" type="text" placeholder="Napisz wiadomość..." style="flex:1; height:40px; border-radius:8px; border:2px solid #3498db; padding:0 10px; font-family:'Titan One', cursive; outline:none;">
+            <button id="comment-submit-btn" style="width:45px; height:40px; background:#2ecc71; border:2px solid white; border-radius:8px; color:white; font-size:20px; cursor:pointer;">✔</button>
         </div>
     </div>
 `;
@@ -368,7 +392,7 @@ export class SkinDetailsManager {
         const listContainer = this.commentsPanel.querySelector('.comments-list-container');
         if (!listContainer) return;
         
-        listContainer.innerHTML = '<p class="text-outline" style="text-align:center; padding:20px;">Ładowanie...</p>';
+        listContainer.innerHTML = '<p class="text-outline" style="text-align:center; padding:20px; color:white;">Ładowanie...</p>';
         
         const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
         if (!token) return;
@@ -427,7 +451,7 @@ export class SkinDetailsManager {
         listContainer.innerHTML = '';
         
         if (!comments || comments.length === 0) {
-            listContainer.innerHTML = '<p class="text-outline" style="text-align:center; padding:20px;">Brak komentarzy</p>';
+            listContainer.innerHTML = '<p class="text-outline" style="text-align:center; padding:20px; color:white;">Brak komentarzy</p>';
             return;
         }
         
