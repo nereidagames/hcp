@@ -97,19 +97,17 @@ const GLOBAL_MODALS_HTML = `
         </div>
     </div>
 
-    <!-- NOWE OKNO MODALNE: OPCJE -->
+    <!-- OKNO MODALNE: OPCJE -->
     <div id="options-panel" class="panel-modal" style="display:none;">
         <div class="panel-content" style="background: transparent; border: none; box-shadow: none; padding: 0;">
             <div class="options-card">
                 <h2 class="text-outline" style="font-size: 26px; margin-bottom: 20px;">Opcje</h2>
                 
-                <!-- Opcja 1: Licznik FPS -->
                 <div class="options-row">
                     <span class="options-label text-outline">Licznik FPS</span>
                     <button id="btn-fps-toggle" class="options-btn off">Wyłączony</button>
                 </div>
 
-                <!-- Opcja 2: Głośność Muzyki -->
                 <div class="options-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
                     <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
                         <span class="options-label text-outline">Muzyka</span>
@@ -196,7 +194,7 @@ export class UIManager {
 
     this.pendingRewardData = null;
     this.pendingNewsCount = 0;
-    this.activeZIndex = 20000; 
+    this.activeZIndex = 30000; // Podwyższony bazowy z-index ponad pełnoekranowe panele
     this.myProfileData = null;
   }
   
@@ -394,8 +392,8 @@ export class UIManager {
   
   bringToFront(element) {
       if (element) {
-          this.activeZIndex++;
-          element.style.zIndex = this.activeZIndex;
+          this.activeZIndex = Math.max(this.activeZIndex + 1, 30000);
+          element.style.setProperty('z-index', this.activeZIndex, 'important');
       }
   }
   
@@ -468,7 +466,6 @@ export class UIManager {
       }
   }
 
-  // --- NOWE OKNO MODALNE: OPCJE ---
   openOptionsPanel() {
       const panel = document.getElementById('options-panel');
       if (!panel) return;
@@ -476,11 +473,9 @@ export class UIManager {
       this.bringToFront(panel);
       panel.style.display = 'flex';
 
-      // 1. Ustaw stan licznika FPS
       const isFPS = this.getFPSEnabled ? this.getFPSEnabled() : false;
       this.updateFPSToggleText(isFPS);
 
-      // 2. Ustaw stan suwaka głośności muzyki
       const currentVol = this.getMusicVolume ? this.getMusicVolume() : 70;
       const slider = document.getElementById('options-music-slider');
       const volText = document.getElementById('options-music-val');
@@ -693,7 +688,6 @@ export class UIManager {
   }
   
   setupButtonHandlers() {
-      // Obsługa przycisku zakupu VIP
       const vipBtn = document.getElementById('btn-vip-corner');
       if (vipBtn) {
           vipBtn.addEventListener('mousedown', () => {
@@ -725,24 +719,26 @@ export class UIManager {
           };
       }
 
-      // Obsługa zamykania modali
       document.querySelectorAll('.panel-close-button').forEach(btn => {
           btn.onclick = () => { 
               const p = btn.closest('.panel-modal') || btn.closest('#skin-comments-panel'); 
-              if(p) p.style.display = 'none'; 
+              if(p) {
+                  p.style.display = 'none';
+                  modalPreview.stop();
+              }
           };
       });
 
-      ['more-options-panel','player-profile-panel','play-choice-panel','build-choice-panel','other-player-profile-panel','options-panel'].forEach(id=>{
-          const e=document.getElementById(id); 
-          if(e) e.addEventListener('click', ev=>{ 
-              if(ev.target.id===id){ 
-                  e.style.display='none'; 
+      ['more-options-panel','player-profile-panel','play-choice-panel','build-choice-panel','other-player-profile-panel','options-panel'].forEach(id => {
+          const e = document.getElementById(id); 
+          if(e) e.addEventListener('click', ev => { 
+              if(ev.target.id === id) { 
+                  e.style.display = 'none'; 
+                  modalPreview.stop();
               } 
           });
       });
       
-      // Obsługa przycisku i suwaka w panelu Opcji
       const btnFps = document.getElementById('btn-fps-toggle');
       if (btnFps) {
           btnFps.onclick = () => {
@@ -846,7 +842,13 @@ export class UIManager {
       } 
   }
   
-  closePanel(id) { const p = document.getElementById(id); if(p) p.style.display='none'; }
+  closePanel(id) { 
+      const p = document.getElementById(id); 
+      if(p) {
+          p.style.display='none';
+          modalPreview.stop();
+      } 
+  }
   
   closeAllPanels() { 
       modalPreview.stop();
