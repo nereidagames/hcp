@@ -3,15 +3,15 @@
 import * as THREE from 'three';
 
 // ============================================================================
-// DYNAMICZNY JOYSTICK MOBILNY (Floating Touch Joystick w stylu BlockStarPlanet)
+// DYNAMICZNY ORAZ STAŁY JOYSTICK MOBILNY (VirtualJoystick)
 // ============================================================================
 export class VirtualJoystick {
   constructor(zoneElement, options = {}) {
     this.zone = zoneElement;
-    // Podwojony promień wychylenia dopasowany do bazy 196px (2x)
     this.maxRadius = options.maxRadius || 76;
     this.onMove = options.onMove || null;
     this.onEnd = options.onEnd || null;
+    this.fixed = options.fixed || false; // Tryb stałego joysticka w rogu ekranu
 
     this.activeTouchId = null;
     this.originX = 0;
@@ -23,13 +23,18 @@ export class VirtualJoystick {
 
     this.base = document.createElement('div');
     this.base.className = 'custom-joystick-base';
-    this.base.style.display = 'none';
 
     this.thumb = document.createElement('div');
     this.thumb.className = 'custom-joystick-thumb';
 
     this.base.appendChild(this.thumb);
     this.zone.appendChild(this.base);
+
+    if (this.fixed) {
+      this.base.style.display = 'block';
+    } else {
+      this.base.style.display = 'none';
+    }
 
     this.handleTouchStart = this.onTouchStart.bind(this);
     this.handleTouchMove = this.onTouchMove.bind(this);
@@ -49,18 +54,58 @@ export class VirtualJoystick {
     // Zabezpieczenie: ignoruj dotyk w obrębie okna czatu i formularza pisania
     if (touch.target.closest('#chat-form') || touch.target.closest('.chat-container')) return;
 
+    if (this.fixed) {
+      const rect = this.base.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dist = Math.hypot(touch.clientX - centerX, touch.clientY - centerY);
+
+      // Aktywacja wyłącznie przy dotknięciu w obrębie stałego joysticka
+      if (dist > (rect.width / 2 + 30)) return;
+
+      this.activeTouchId = touch.identifier;
+      this.originX = centerX;
+      this.originY = centerY;
+
+      this.updateMovement(touch.clientX, touch.clientY);
+      if (e.cancelable) e.preventDefault();
+      return;
+    }
+
+    // Tryb pływający (dla swobodnej eksploracji)
     this.activeTouchId = touch.identifier;
     this.originX = touch.clientX;
     this.originY = touch.clientY;
 
-    // Środek joysticka pojawia się dokładnie w miejscu dotknięcia palcem
     this.base.style.left = `${this.originX}px`;
     this.base.style.top = `${this.originY}px`;
     this.base.style.display = 'block';
-
     this.thumb.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
 
     if (e.cancelable) e.preventDefault();
+  }
+
+  updateMovement(clientX, clientY) {
+    const deltaX = clientX - this.originX;
+    const deltaY = clientY - this.originY;
+    const distance = Math.hypot(deltaX, deltaY);
+
+    let clampedX = deltaX;
+    let clampedY = deltaY;
+
+    if (distance > this.maxRadius && distance > 0) {
+      clampedX = (deltaX / distance) * this.maxRadius;
+      clampedY = (deltaY / distance) * this.maxRadius;
+    }
+
+    this.thumb.style.transform = `translate(-50%, -50%) translate(${clampedX}px, ${clampedY}px)`;
+
+    if (this.onMove) {
+      this.onMove({
+        x: clampedX / this.maxRadius,
+        y: -clampedY / this.maxRadius
+      });
+    }
   }
 
   onTouchMove(e) {
@@ -69,29 +114,7 @@ export class VirtualJoystick {
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
       if (touch.identifier === this.activeTouchId) {
-        const deltaX = touch.clientX - this.originX;
-        const deltaY = touch.clientY - this.originY;
-        const distance = Math.hypot(deltaX, deltaY);
-
-        let clampedX = deltaX;
-        let clampedY = deltaY;
-
-        if (distance > this.maxRadius && distance > 0) {
-          clampedX = (deltaX / distance) * this.maxRadius;
-          clampedY = (deltaY / distance) * this.maxRadius;
-        }
-
-        // Płynny ruch gałki wewnątrz bazy
-        this.thumb.style.transform = `translate(-50%, -50%) translate(${clampedX}px, ${clampedY}px)`;
-
-        if (this.onMove) {
-          // Normalizacja: X w prawo = +, Y w górę = +
-          this.onMove({
-            x: clampedX / this.maxRadius,
-            y: -clampedY / this.maxRadius
-          });
-        }
-
+        this.updateMovement(touch.clientX, touch.clientY);
         if (e.cancelable) e.preventDefault();
         break;
       }
@@ -105,7 +128,9 @@ export class VirtualJoystick {
       const touch = e.changedTouches[i];
       if (touch.identifier === this.activeTouchId) {
         this.activeTouchId = null;
-        this.base.style.display = 'none';
+        if (!this.fixed) {
+          this.base.style.display = 'none';
+        }
         this.thumb.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
 
         if (this.onEnd) {
@@ -129,7 +154,7 @@ export class VirtualJoystick {
 }
 
 // ============================================================================
-// KONTROLER POSTACI GRACZA (Player Controller)
+// KONTROLER POSTACI GRACZA (PlayerController)
 // ============================================================================
 export class PlayerController {
   constructor(player, collidableObjects, collisionMap, options = {}) {
@@ -212,7 +237,6 @@ export class PlayerController {
     const joystickZone = document.getElementById('joystick-zone');
     const jumpButton = document.getElementById('jump-button');
 
-    // Bezpośrednie włączanie wszystkich elementów mobilnych
     if (mobileControls) mobileControls.style.display = isMobile ? 'block' : 'none';
     if (joystickZone) joystickZone.style.display = isMobile ? 'block' : 'none';
     if (jumpButton) jumpButton.style.display = isMobile ? 'block' : 'none';
@@ -305,7 +329,6 @@ export class PlayerController {
   }
   
   update(deltaTime, cameraRotation) {
-    // 1. Zawsze przywróć czystą pozycję fizyczną przed wykonaniem obliczeń fizyki
     if (this.stepVisualOffset !== 0) {
         this.player.position.y -= this.stepVisualOffset;
     }
@@ -360,10 +383,9 @@ export class PlayerController {
         this.velocity.z += (targetVZ - this.velocity.z) * airControlFactor;
     }
 
-    // 2. Obliczenia fizyki i kolizji
     this.applyMovementAndCollisions(timeStep);
 
-    // 3. Płynna animacja podnoszenia postaci (Smooth Step-Up Decay)
+    // Płynna animacja podnoszenia postaci (Smooth Step-Up Decay)
     if (this.stepVisualOffset !== 0) {
         const decay = Math.exp(-18 * timeStep);
         this.stepVisualOffset *= decay;
@@ -405,7 +427,7 @@ export class PlayerController {
       this.candidateBoxes.push(box);
     }
 
-    // 2. Klocki wokół gracza (Math.round centrowany na środku klocka)
+    // 2. Klocki wokół gracza
     if (this.collisionMap && this.collisionMap.size > 0) {
         const playerX = Math.round(this.player.position.x);
         const playerY = Math.round(this.player.position.y);
@@ -424,7 +446,6 @@ export class PlayerController {
                         if (typeof block === 'object' && block.boundingBox) {
                             this.candidateBoxes.push(block.boundingBox);
                         } else {
-                            // Centrowanie bryły kolizji w punkcie (x, y, z)
                             const box = this.getPooledBox();
                             box.min.set(x - 0.5, y - 0.5, z - 0.5);
                             box.max.set(x + 0.5, y + 0.5, z + 0.5);
@@ -439,9 +460,7 @@ export class PlayerController {
     let landedOnBlock = false;
     const numCandidates = this.candidateBoxes.length;
 
-    // ==========================================
-    // --- OŚ Y (Ruch pionowy i lądowanie) ---
-    // ==========================================
+    // --- OŚ Y ---
     const verticalMovement = this.velocity.y * deltaTime;
     this.player.position.y += verticalMovement;
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
@@ -466,9 +485,7 @@ export class PlayerController {
     
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    // ==========================================
-    // --- OŚ X (Ruch poziomy X + Płynny Autostep 1x1) ---
-    // ==========================================
+    // --- OŚ X (Autostep 1x1) ---
     const horizontalMovementX = this.velocity.x * deltaTime;
     if (Math.abs(horizontalMovementX) > 0.00001) {
         this.player.position.x += horizontalMovementX;
@@ -500,7 +517,6 @@ export class PlayerController {
                 this.tempPosition.set(this.player.position.x, targetY, this.player.position.z);
                 this.tempBox.setFromCenterAndSize(this.tempPosition, this.playerDimensions);
 
-                // Sprawdź czy nad schodkiem jest wolna przestrzeń na głowę
                 let blockedAbove = false;
                 for (let i = 0; i < numCandidates; i++) {
                     if (this.tempBox.intersectsBox(this.candidateBoxes[i])) {
@@ -514,8 +530,6 @@ export class PlayerController {
                     this.player.position.y = targetY;
                     this.playerBox.copy(this.tempBox);
                     stepped = true;
-
-                    // Płynne uniesienie offsetem wizualnym (brak teleportacji)
                     this.stepVisualOffset -= stepDiff;
                 }
             }
@@ -540,9 +554,7 @@ export class PlayerController {
         }
     }
 
-    // ==========================================
-    // --- OŚ Z (Ruch poziomy Z + Płynny Autostep 1x1) ---
-    // ==========================================
+    // --- OŚ Z (Autostep 1x1) ---
     const horizontalMovementZ = this.velocity.z * deltaTime;
     if (Math.abs(horizontalMovementZ) > 0.00001) {
         this.player.position.z += horizontalMovementZ;
@@ -587,8 +599,6 @@ export class PlayerController {
                     this.player.position.y = targetY;
                     this.playerBox.copy(this.tempBox);
                     stepped = true;
-
-                    // Płynne uniesienie offsetem wizualnym w osi Z
                     this.stepVisualOffset -= stepDiff;
                 }
             }
@@ -674,7 +684,6 @@ export class PlayerController {
         jumpButton.addEventListener('mouseleave', this.handleMouseJumpEnd);
     }
 
-    // Dynamiczny joystick dotykowy o podwojonym promieniu 76px
     const joystickZone = document.getElementById('joystick-zone');
     if (joystickZone) {
         if (this.joystick) {
@@ -684,6 +693,7 @@ export class PlayerController {
 
         this.joystick = new VirtualJoystick(joystickZone, {
             maxRadius: 76,
+            fixed: false,
             onMove: (vector) => {
                 if (this.enabled) {
                     this.joystickDirection.set(vector.x, vector.y);
@@ -698,7 +708,7 @@ export class PlayerController {
 }
 
 // ============================================================================
-// KONTROLER KAMERY TRZECIOOSOBOWEJ (Third Person Camera Controller)
+// KONTROLER KAMERY TRZECIOOSOBOWEJ (ThirdPersonCameraController)
 // ============================================================================
 export class ThirdPersonCameraController {
     constructor(camera, target, domElement, collidableObjects, options = {}) {
@@ -746,7 +756,7 @@ export class ThirdPersonCameraController {
 
     setupControls() {
         this.handleMouseDown = (e) => {
-            if (!this.enabled || e.target.closest('.ui-element') || e.target.closest('.panel-modal') || e.target.closest('#victory-panel') || e.target.closest('#digging-ui-container')) return;
+            if (!this.enabled || e.target.closest('.ui-element') || e.target.closest('.panel-modal') || e.target.closest('#bsp-victory-screen') || e.target.closest('#digging-ui-container')) return;
             this.isDragging = true;
             this.mousePosition = { x: e.clientX, y: e.clientY };
         };
@@ -771,7 +781,7 @@ export class ThirdPersonCameraController {
         this.handleTouchStart = (e) => {
             if (!this.enabled) return;
             for (const touch of e.changedTouches) {
-                if (this.cameraTouchId === null && !touch.target.closest('#joystick-zone') && !touch.target.closest('#jump-button') && !touch.target.closest('.ui-element') && !touch.target.closest('#digging-ui-container')) {
+                if (this.cameraTouchId === null && !touch.target.closest('#joystick-zone') && !touch.target.closest('#jump-button') && !touch.target.closest('.ui-element') && !touch.target.closest('#bsp-victory-screen') && !touch.target.closest('#digging-ui-container')) {
                     this.cameraTouchId = touch.identifier;
                     this.isDragging = true;
                     this.mousePosition = { x: touch.clientX, y: touch.clientY };
@@ -848,7 +858,7 @@ export class ThirdPersonCameraController {
         
         const idealCameraPosition = this.cameraPosition.copy(targetPosition).add(offset);
 
-        // Kolizja kamery
+        // Kolizja kamery ze światem
         const direction = this.direction.subVectors(idealCameraPosition, targetPosition).normalize();
         this.raycaster.set(targetPosition, direction);
         this.raycaster.far = currentDistance;
