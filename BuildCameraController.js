@@ -25,6 +25,7 @@ export class BuildCameraController {
     
     // Obsługa urządzeń mobilnych
     this.isMobile = false;
+    this.enableJoystick = true;
     this.cameraTouchId = null;
     this.joystick = null;
     this.joystickData = { x: 0, y: 0 };
@@ -32,15 +33,22 @@ export class BuildCameraController {
     this.boundOnKeyDown = this.onKeyDown.bind(this);
     this.boundOnKeyUp = this.onKeyUp.bind(this);
 
-    // Opóźnienie na załadowanie DOM (strefy joysticka i obrotu)
-    setTimeout(() => this.bindEvents(), 100);
+    // Zabezpieczony uchwyt timeoutu
+    this.bindTimeout = setTimeout(() => this.bindEvents(), 100);
     this.updateCameraPosition();
   }
 
-  setIsMobile(isMobile) {
+  setIsMobile(isMobile, enableJoystick = true) {
       this.isMobile = isMobile;
-      if (this.isMobile) {
+      this.enableJoystick = enableJoystick;
+      
+      if (this.isMobile && this.enableJoystick) {
           this.setupJoystick();
+      } else {
+          if (this.joystick) {
+              this.joystick.destroy();
+              this.joystick = null;
+          }
       }
   }
 
@@ -53,9 +61,10 @@ export class BuildCameraController {
           this.joystick = null;
       }
 
-      // Podwojony promień wychylenia dopasowany do bazy joysticka (maxRadius: 76)
+      // Stały joystick w lewym dolnym rogu ekranu
       this.joystick = new VirtualJoystick(zone, {
-          maxRadius: 76,
+          maxRadius: 40,
+          fixed: true,
           onMove: (vector) => {
               this.joystickData.x = vector.x;
               this.joystickData.y = vector.y;
@@ -159,12 +168,22 @@ export class BuildCameraController {
   }
   
   destroy() {
-    document.removeEventListener('mousedown', this.handleMouseDown);
-    document.removeEventListener('mousemove', this.handleMouseMove);
-    document.removeEventListener('mouseup', this.handleMouseUp);
-    document.removeEventListener('touchstart', this.handleTouchStart);
-    document.removeEventListener('touchmove', this.handleTouchMove);
-    document.removeEventListener('touchend', this.handleTouchEnd);
+    if (this.bindTimeout) {
+        clearTimeout(this.bindTimeout);
+    }
+
+    if (this.handleMouseDown) {
+        document.removeEventListener('mousedown', this.handleMouseDown);
+        document.removeEventListener('mousemove', this.handleMouseMove);
+        document.removeEventListener('mouseup', this.handleMouseUp);
+    }
+    
+    if (this.handleTouchStart) {
+        document.removeEventListener('touchstart', this.handleTouchStart);
+        document.removeEventListener('touchmove', this.handleTouchMove);
+        document.removeEventListener('touchend', this.handleTouchEnd);
+    }
+
     window.removeEventListener('keydown', this.boundOnKeyDown);
     window.removeEventListener('keyup', this.boundOnKeyUp);
     
