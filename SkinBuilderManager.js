@@ -1,3 +1,4 @@
+/* PLIK: SkinBuilderManager.js */
 
 import * as THREE from 'three';
 import { BuildCameraController } from './BuildCameraController.js';
@@ -36,6 +37,10 @@ export class SkinBuilderManager {
     this.materials = {};
     this.sharedBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
     
+    this.touchStartPosition = { x: 0, y: 0 };
+    this.longPressTimer = null;
+    this.isLongPress = false;
+
     this.onMouseMove = this.onMouseMove.bind(this);
     this.onMouseDown = this.onMouseDown.bind(this);
     this.onMouseUp = this.onMouseUp.bind(this);
@@ -101,7 +106,7 @@ export class SkinBuilderManager {
     });
 
     const rightUi = document.querySelector('.right-ui');
-    if(rightUi) rightUi.style.display = 'none';
+    if (rightUi) rightUi.style.display = 'none';
 
     const saveBtn = document.getElementById('build-save-btn-new');
     if (saveBtn) {
@@ -113,14 +118,35 @@ export class SkinBuilderManager {
     }
     this.updateHotbarUI();
 
-    this.cameraController = new BuildCameraController(this.game.camera, this.game.renderer.domElement);
-    if (this.game.isMobile) {
-        document.getElementById('mobile-game-controls').style.display = 'block';
-        document.getElementById('jump-button').style.display = 'none';
-        const joy = document.getElementById('joystick-zone');
-        if(joy) { joy.innerHTML = ''; joy.style.display = 'block'; }
+    if (this.cameraController) {
+        this.cameraController.destroy();
+        this.cameraController = null;
     }
-    this.cameraController.setIsMobile(this.game.isMobile);
+    this.cameraController = new BuildCameraController(this.game.camera, this.game.renderer.domElement);
+
+    // Na telefonie: brak joysticka i brak przesunięcia paska dolnego
+    if (this.game.isMobile) {
+        const mobileControls = document.getElementById('mobile-game-controls');
+        const jumpBtn = document.getElementById('jump-button');
+        const joy = document.getElementById('joystick-zone');
+        const bottomBar = document.querySelector('.build-bottom-bar');
+
+        if (mobileControls) mobileControls.style.display = 'block';
+        if (jumpBtn) jumpBtn.style.display = 'none';
+        
+        if (joy) { 
+            joy.className = '';
+            joy.innerHTML = ''; 
+            joy.style.display = 'none'; 
+        }
+
+        if (bottomBar) {
+            bottomBar.classList.remove('mobile-shifted');
+        }
+    }
+
+    // Wyłączenie joysticka w kontrolerze kamery
+    this.cameraController.setIsMobile(this.game.isMobile, false);
     this.cameraController.distance = 30;
 
     this.setupBuildEventListeners();
@@ -269,8 +295,8 @@ export class SkinBuilderManager {
         this.previewBlock.material.transparent = true;
         this.previewBlock.material.opacity = 0.6;
       }
-      if(this.previewPart) this.previewPart.visible = false;
-      if(this.previewBlock) this.previewBlock.visible = true;
+      if (this.previewPart) this.previewPart.visible = false;
+      if (this.previewBlock) this.previewBlock.visible = true;
       this.updateHotbarUI();
   }
 
@@ -288,19 +314,20 @@ export class SkinBuilderManager {
           block.position.set(blockData.x, blockData.y, blockData.z);
           this.previewPart.add(block);
       });
-      if(this.previewBlock) this.previewBlock.visible = false;
-      if(this.previewPart) this.previewPart.visible = true;
+      if (this.previewBlock) this.previewBlock.visible = false;
+      if (this.previewPart) this.previewPart.visible = true;
   }
 
-  toggleCameraMode() {
-      const button = document.getElementById('build-mode-toggle-new');
-      if (this.cameraController.mode === 'orbital') {
-          this.cameraController.setMode('free');
-          button.textContent = 'Tryb: Zaawansowany';
-      } else {
-          this.cameraController.setMode('orbital');
-          button.textContent = 'Tryb: Łatwy';
-      }
+  toggleCameraMode() { 
+      if (!this.cameraController) return;
+      const button = document.getElementById('build-mode-toggle-new'); 
+      if(this.cameraController.mode === 'orbital'){ 
+          this.cameraController.setMode('free'); 
+          button.textContent = 'Tryb: Zaawansowany'; 
+      } else { 
+          this.cameraController.setMode('orbital'); 
+          button.textContent = 'Tryb: Łatwy'; 
+      } 
   }
 
   removeBuildEventListeners() {
@@ -320,7 +347,10 @@ export class SkinBuilderManager {
     document.getElementById('add-choice-parts').onclick = null;
     document.getElementById('add-choice-close').onclick = null;
 
-    if (this.cameraController) this.cameraController.destroy();
+    if (this.cameraController) {
+        this.cameraController.destroy();
+        this.cameraController = null;
+    }
   }
   
   onMouseMove(e) { 
@@ -396,6 +426,7 @@ export class SkinBuilderManager {
   
   updateSaveButton() {
     const button = document.getElementById('build-save-btn-new');
+    if (!button) return;
     if (this.placedBlocks.length > 0) {
       button.style.opacity = '1';
       button.style.cursor = 'pointer';
@@ -445,10 +476,10 @@ export class SkinBuilderManager {
     thumbnailRenderer.render(thumbnailScene, thumbnailCamera);
     const dataURL = thumbnailRenderer.domElement.toDataURL('image/png');
     thumbnailRenderer.dispose();
+    thumbnailRenderer.forceContextLoss?.();
     return dataURL;
   }
 
-  // --- NOWOŚĆ: Użycie askForInput ---
   async saveSkin() {
     if (this.placedBlocks.length === 0) return;
     
@@ -476,9 +507,17 @@ export class SkinBuilderManager {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ name: skinName, blocks: blocksData, thumbnail })
             });
-            if (res.ok) { alert("Starter Skin zapisany!"); this.game.stateManager.switchToMainMenu(); }
-            else { const d=await res.json(); alert("Błąd: " + d.message); }
-        } catch(e) { console.error(e); alert("Błąd sieci"); }
+            if (res.ok) { 
+                alert("Starter Skin zapisany!"); 
+                this.game.stateManager.switchToMainMenu(); 
+            } else { 
+                const d = await res.json(); 
+                alert("Błąd: " + d.message); 
+            }
+        } catch(e) { 
+            console.error(e); 
+            alert("Błąd sieci"); 
+        }
     } else {
         const success = await SkinStorage.saveSkin(skinName, blocksData, thumbnail);
         if (success) {
@@ -496,27 +535,48 @@ export class SkinBuilderManager {
     this.placedBlocks = [];
     while(this.scene.children.length > 0){ this.scene.remove(this.scene.children[0]); }
     this.baseCharacterVisuals = null;
+    
+    if (this.previewBlock) {
+        if (this.previewBlock.geometry) this.previewBlock.geometry.dispose();
+        this.previewBlock = null;
+    }
+    if (this.previewPart) {
+        while(this.previewPart.children.length > 0) {
+            this.previewPart.remove(this.previewPart.children[0]);
+        }
+        this.previewPart = null;
+    }
+
     document.getElementById('build-ui-container').style.display = 'none';
     
     const rightUi = document.querySelector('.right-ui');
-    if(rightUi) rightUi.style.display = 'flex';
+    if (rightUi) rightUi.style.display = 'flex';
     const buildElements = ['.build-top-left', '.build-sidebar-right', '.build-bottom-bar', '#build-rotate-zone'];
     buildElements.forEach(selector => { const el = document.querySelector(selector); if(el) el.style.display='none'; });
 
     if (this.game.isMobile) {
-        document.getElementById('jump-button').style.display = 'block';
-        // --- FIX: Czyścimy joystick przed ukryciem ---
+        const jumpBtn = document.getElementById('jump-button');
+        if (jumpBtn) jumpBtn.style.display = 'block';
+
         const joystickZone = document.getElementById('joystick-zone');
         if (joystickZone) {
+            joystickZone.className = '';
             joystickZone.style.display = 'none';
             joystickZone.innerHTML = '';
+        }
+
+        const bottomBar = document.querySelector('.build-bottom-bar');
+        if (bottomBar) {
+            bottomBar.classList.remove('mobile-shifted');
         }
     }
   }
   
   update(deltaTime) {
     if (!this.isActive) return;
-    this.cameraController.update(deltaTime);
+    if (this.cameraController) {
+        this.cameraController.update(deltaTime);
+    }
     this.raycaster.setFromCamera(this.mouse, this.game.camera);
     const intersects = this.raycaster.intersectObjects(this.collidableBuildObjects);
     
@@ -553,15 +613,21 @@ export class SkinBuilderManager {
     this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
     this.touchStartPosition = { x: touch.clientX, y: touch.clientY };
     clearTimeout(this.longPressTimer);
-    this.longPressTimer = setTimeout(() => { this.isLongPress = true; this.removeBlock(); }, 500);
+    this.longPressTimer = setTimeout(() => { 
+        this.isLongPress = true; 
+        this.removeBlock(); 
+    }, 500);
   }
 
   onTouchEnd(event) {
     if (!this.isActive || !this.game.isMobile || this.isEventOnUI(event)) return;
     clearTimeout(this.longPressTimer);
     if (!this.isLongPress) {
-        if (this.currentBuildMode === 'block' && this.previewBlock && this.previewBlock.visible) { this.placeBlock(); } 
-        else if (this.currentBuildMode === 'part' && this.previewPart && this.previewPart.visible) { this.placePart(); }
+        if (this.currentBuildMode === 'block' && this.previewBlock && this.previewBlock.visible) { 
+            this.placeBlock(); 
+        } else if (this.currentBuildMode === 'part' && this.previewPart && this.previewPart.visible) { 
+            this.placePart(); 
+        }
     }
   }
 
@@ -571,7 +637,9 @@ export class SkinBuilderManager {
     const deltaX = touch.clientX - this.touchStartPosition.x;
     const deltaY = touch.clientY - this.touchStartPosition.y;
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    if (distance > 10) { clearTimeout(this.longPressTimer); }
+    if (distance > 10) { 
+        clearTimeout(this.longPressTimer); 
+    }
     this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
     this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
   }
