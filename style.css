@@ -433,8 +433,8 @@ canvas { display: block; }
 .ui-element { pointer-events: auto; }
 
 /* ==========================================================================
-   GÓRNY PASEK (Top Bar) – ZWARTE PRZERWY MIĘDZY PRZYCISKAMI
-   ========================================================================= */
+   GÓRNY PASEK (Top Bar)
+   ========================================================================== */
 .top-bar { 
     position: absolute !important; 
     top: 0 !important; left: 0 !important; right: 0 !important; 
@@ -449,10 +449,9 @@ canvas { display: block; }
     align-items: center; 
     padding: 0 15px 0 calc(84px * var(--ui-scale)); 
     gap: calc(6px * var(--ui-scale));
-    z-index: 50000 !important; /* Zawsze na samej górze nad wszystkimi ekranami */
+    z-index: 50000 !important;
 }
 
-/* Przycisk zakupu VIP stricte w lewym górnym rogu */
 #btn-vip-corner {
     position: absolute;
     top: 0;
@@ -596,16 +595,9 @@ canvas { display: block; }
     margin-top: auto;
 }
 
-.chat-area::-webkit-scrollbar {
-    width: 5px;
-}
-.chat-area::-webkit-scrollbar-thumb {
-    background: rgba(93, 173, 226, 0.7);
-    border-radius: 0;
-}
-.chat-area::-webkit-scrollbar-track {
-    background: transparent;
-}
+.chat-area::-webkit-scrollbar { width: 5px; }
+.chat-area::-webkit-scrollbar-thumb { background: rgba(93, 173, 226, 0.7); border-radius: 0; }
+.chat-area::-webkit-scrollbar-track { background: transparent; }
 
 .chat-msg-welcome {
     font-family: Arial, Helvetica, sans-serif !important;
@@ -652,9 +644,7 @@ canvas { display: block; }
     cursor: pointer;
     text-decoration: underline;
 }
-.chat-nick-span:hover {
-    color: #004499;
-}
+.chat-nick-span:hover { color: #004499; }
 
 #chat-toggle-button { 
     width: 44px; 
@@ -732,7 +722,7 @@ canvas { display: block; }
 }
 
 /* ==========================================================================
-   PRAWY INTERFEJS (Right UI: Zagraj, Poziom, Monety)
+   PRAWY INTERFEJS (Right UI: Zagraj, Poziom, Monety, Diamenty)
    ========================================================================== */
 .right-ui { 
     position: absolute; 
@@ -740,15 +730,30 @@ canvas { display: block; }
     right: 15px; 
     display: flex; 
     flex-direction: column; 
-    gap: 10px; 
+    gap: 8px; 
     align-items: flex-end; 
     transform: scale(var(--ui-scale));
     transform-origin: top right;
     z-index: 1500; 
 }
 
-.game-buttons { display: flex; gap: 15px; align-items: center; margin-bottom: 5px; }
-.game-btn { width: 75px; height: 75px; cursor: pointer; transition: transform 0.2s ease; background-color: transparent; background-size: contain; background-position: center; background-repeat: no-repeat; border: none; }
+.game-buttons { 
+    display: flex; 
+    gap: 12px; 
+    align-items: center; 
+    margin-bottom: 6px; 
+}
+.game-btn { 
+    width: 75px; 
+    height: 75px; 
+    cursor: pointer; 
+    transition: transform 0.2s ease; 
+    background-color: transparent; 
+    background-size: contain; 
+    background-position: center; 
+    background-repeat: no-repeat; 
+    border: none; 
+}
 .game-btn:active { transform: scale(0.95); }
 .btn-zagraj { background-image: url('icons/icon-play.png'); background-size: 110%; } 
 .btn-buduj { background-image: url('icons/icon-build.png'); } 
@@ -756,20 +761,138 @@ canvas { display: block; }
 .btn-odkryj { background-image: url('icons/icon-discover.png'); } 
 .btn-wiecej { background-image: url('icons/icon-more.png'); }
 
-/* Counters */
-#coin-counter { position: relative; display: flex; align-items: center; height: 50px; width: 170px; margin-top: 5px; }
-.coin-bar-background { position: absolute; left: 25px; right: 25px; top: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6); border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 15px; display: flex; justify-content: center; align-items: center; }
-.coin-icon { position: absolute; left: 0; width: 50px; height: 50px; background-image: url('icons/icon-coin.png'); background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 1; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5)); }
-#coin-value { color: #ffd700; font-size: 22px; z-index: 1; text-shadow: var(--text-shadow); }
-#coin-add-btn { position: absolute; right: 0; width: 50px; height: 50px; background-color: #74b9ff; border: 2px solid white; border-radius: 15px; display: flex; justify-content: center; align-items: center; color: white; font-size: 40px; font-weight: bold; cursor: pointer; z-index: 1; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+/* ==========================================================================
+   ODWZOROWANE 1:1 PASKI STATYSTYK: POZIOM, MONETY, DIAMENTY
+   ========================================================================== */
+.hud-stat-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 236px;
+    height: 40px;
+    margin-bottom: 4px;
+    user-select: none;
+}
 
-#level-container { position: relative; display: flex; align-items: center; height: 50px; width: 220px; margin-top: 5px; margin-bottom: 5px; }
-.level-star { position: absolute; left: 0; width: 55px; height: 55px; background: url('icons/icon-level.png') center / contain no-repeat; z-index: 2; display: flex; justify-content: center; align-items: center; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3)); }
-#level-value { font-size: 24px; color: white; z-index: 3; margin-top: 2px; text-shadow: 2px 2px 0 #000; }
-.level-bar-background { position: absolute; left: 30px; right: 40px; top: 10px; bottom: 10px; background-color: rgba(0, 0, 0, 0.6); border: 2px solid white; border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-#level-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background: linear-gradient(to bottom, #3498db, #2980b9); transition: width 0.5s ease-out; }
-#level-text { position: relative; z-index: 1; font-size: 14px; color: white; }
-.level-plus-btn { position: absolute; right: 0; width: 35px; height: 35px; background-color: #74b9ff; border: 2px solid white; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: white; font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+/* Poziom: Gwiazdka z numerem poziomu po lewej */
+.level-star {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 46px;
+    height: 46px;
+    background: url('icons/icon-level.png') center / contain no-repeat;
+    z-index: 3;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+}
+
+#level-value {
+    font-size: 17px;
+    color: white;
+    margin-top: 2px;
+}
+
+/* Ikony po lewej dla monet i diamentów */
+.hud-stat-icon {
+    position: absolute;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    z-index: 3;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+}
+
+.coin-icon {
+    background-image: url('icons/icon-coin.png');
+}
+
+.diamond-icon {
+    background-image: url('icons/icon-diamond.png');
+}
+
+/* Zaokrąglony grafitowy pasek bazowy */
+.hud-bar-pill {
+    position: absolute;
+    left: 26px;
+    right: 40px;
+    top: 4px;
+    bottom: 4px;
+    background: rgba(38, 48, 58, 0.88);
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.55);
+    z-index: 1;
+}
+
+/* Zielony pasek postępu doświadczenia */
+#level-bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0%;
+    background: linear-gradient(to bottom, #6be938 0%, #30b814 100%);
+    transition: width 0.4s ease-out;
+}
+
+#level-text {
+    position: relative;
+    z-index: 2;
+    font-size: 13px;
+    color: white;
+    letter-spacing: 0.5px;
+}
+
+#coin-value,
+#diamond-value {
+    position: relative;
+    z-index: 2;
+    font-size: 17px;
+    color: white;
+    letter-spacing: 0.5px;
+}
+
+/* Błękitny przycisk z plusem po prawej stronie */
+.hud-plus-btn {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 34px;
+    background: linear-gradient(to bottom, #7ac0ff, #298fed);
+    border: 2px solid white;
+    border-radius: 9px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 24px;
+    font-family: var(--font-main);
+    cursor: pointer;
+    box-shadow: 0 3px 0 #1b63ab, 0 3px 6px rgba(0,0,0,0.35);
+    transition: transform 0.1s;
+    z-index: 3;
+}
+
+.hud-plus-btn:active {
+    transform: translateY(-40%) scale(0.96);
+    box-shadow: 0 1px 0 #1b63ab;
+}
 
 /* ==========================================================================
    KONTROLKI MOBILNE – PRZYCISK SKOKU ORAZ JOYSTICK
@@ -921,7 +1044,7 @@ canvas { display: block; }
     box-shadow: none !important;
     background: transparent !important;
     display: none;
-    z-index: 25000; /* Bez !important, aby modale podglądu skina mogły wejść nad ten panel */
+    z-index: 25000;
     align-items: stretch !important;
     justify-content: flex-start !important;
 }
@@ -943,7 +1066,7 @@ canvas { display: block; }
     border-radius: 0 !important;
     box-shadow: none !important;
     background: transparent !important;
-    transform: none !important; /* Wyłączenie skalowania kurczącego panel */
+    transform: none !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
@@ -951,7 +1074,7 @@ canvas { display: block; }
 }
 
 /* ==========================================================================
-   POZIOMY Z-INDEX DLA PODGLĄDU SKINA I KOMENTARZY (ZAWSZE NAD ŚCIANĄ/PROFILEM)
+   POZIOMY Z-INDEX DLA PODGLĄDU SKINA I KOMENTARZY
    ========================================================================== */
 #skin-details-modal {
     z-index: 31000 !important;
