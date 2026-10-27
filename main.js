@@ -99,7 +99,7 @@ class OptimizedGameCore {
         this.camera.updateProjectionMatrix();
         
         this.renderer.setSize(this.width, this.height);
-        if(this.css2dRenderer) {
+        if (this.css2dRenderer) {
             this.css2dRenderer.setSize(this.width, this.height);
         }
         updateUIScale();
@@ -108,7 +108,7 @@ class OptimizedGameCore {
     render(activeScene) {
         const sceneToRender = activeScene || this.scene;
         this.renderer.render(sceneToRender, this.camera);
-        if(this.css2dRenderer) {
+        if (this.css2dRenderer) {
             this.css2dRenderer.render(sceneToRender, this.camera);
         }
     }
@@ -118,6 +118,7 @@ class BlockStarPlanetGame {
   constructor() {
     console.log("Uruchamianie silnika gry (Performance Mode)...");
     this.isGameRunning = false; 
+    this.emergencyTimeout = null;
     this.levelXpRequirements = [
       0, 50, 125, 250, 400, 750, 1500, 3000, 5000, 8000, 12000, 17000, 22500, 29000, 37500, 47000, 58500, 71500, 87000, 104500, 124000, 140000, 170000, 190000, 230000, 260000, 300000, 340000, 390000, 440000, 490000, 550000, 620000, 690000, 760000, 840000, 930000, 1020000, 1120000, 1230000, 1340000, 1460000, 1590000, 1730000, 1880000, 2030000, 2190000, 2360000, 2540000, 2730000, 2930000, 3150000, 3370000, 3600000, 3850000, 4100000, 4370000, 4650000, 4940000, 5250000, 5570000, 5900000, 6250000, 6610000, 6990000, 7380000, 7790000, 8220000, 8660000, 9120000, 9590000, 10000000, 10500000, 11100000, 11600000, 12200000, 12800000, 13400000, 14000000, 14700000, 15300000, 16000000, 16700000, 17500000, 18200000, 19000000, 19800000, 20600000, 21500000, 25000000, 30000000, 40000000, 50000000, 60000000, 70000000, 80000000, 90000000, 100000000, 125000000, 150000000, 200000000, 250000000, 300000000, 350000000, 400000000, 450000000, 500000000, 550000000, 600000000, 1000000000, 1500000000, 2000000000, 2500000000, 3000000000, 5000000000, 7000000000, 10000000000, 15000000000, 20000000000, 30000000000
     ];
@@ -135,7 +136,6 @@ class BlockStarPlanetGame {
 
     this.audioManager = new AudioManager(this.camera);
 
-    // Połączenie managera audio z panelem opcji UI
     this.ui.onSetMusicVolume = (percent) => this.audioManager.setVolume(percent);
     this.ui.getMusicVolume = () => this.audioManager.getVolume();
 
@@ -165,6 +165,13 @@ class BlockStarPlanetGame {
   }
 
   handleInitialLoadingSequence() {
+      this.emergencyTimeout = setTimeout(() => {
+          if (!this.isGameRunning) {
+              console.warn("Awaryjny start po przekroczeniu limitu czasu ładowania.");
+              this.onAssetsLoaded();
+          }
+      }, 7000);
+
       setTimeout(() => {
           const studioScreen = document.getElementById('studio-screen');
           const loadingScreen = document.getElementById('loading-screen');
@@ -202,7 +209,6 @@ class BlockStarPlanetGame {
         } else {
             this.intro.start();
         }
-
       } catch (e) {
           console.error("Błąd init:", e);
           this.intro.start();
@@ -254,6 +260,10 @@ class BlockStarPlanetGame {
           const xp = totalXp > 0 ? progress.xp : (parseInt(user.xp) || 0);
           const maxXp = totalXp > 0 ? progress.maxXp : (parseInt(user.maxXp) || 100);
           this.ui.updateLevelInfo(level, xp, maxXp || 100);
+
+          // Inicjalizacja salda diamentów pobranego z bazy (lub domyślnie 3)
+          const diamonds = user.diamonds !== undefined && user.diamonds !== null ? user.diamonds : 3;
+          this.ui.updateDiamondCounter(diamonds);
       }
       if (user.pendingXp) this.ui.updatePendingRewards(user.pendingXp);
       if (user.ownedBlocks) this.blockManager.setOwnedBlocks(user.ownedBlocks);
@@ -325,6 +335,12 @@ class BlockStarPlanetGame {
           const targetMap = collidables ? null : this.sceneManager.collisionMap;
           this.recreatePlayerController(targetCollidables, targetMap);
           this.stateManager.setManagers({ playerController: this.playerController });
+
+          // Reset kolizji kamery do Nexusa po opuszczeniu innych światów
+          if (this.cameraController && !collidables) {
+              this.cameraController.collidableObjects = this.sceneManager.collidableObjects;
+              this.cameraController.floorY = this.sceneManager.FLOOR_TOP_Y;
+          }
       };
 
       this.setupCharacterPreview();
@@ -338,6 +354,11 @@ class BlockStarPlanetGame {
       const container = document.getElementById('player-preview-renderer-container'); 
       if (!container) return; 
       
+      if (this.previewRenderer) {
+          this.previewRenderer.dispose();
+          this.previewRenderer = null;
+      }
+
       const previewScene = new THREE.Scene(); 
       previewScene.background = new THREE.Color(0x333333); 
       const previewCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 100); 
@@ -764,4 +785,8 @@ class BlockStarPlanetGame {
   }
 }
 
-if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', () => new BlockStarPlanetGame()); } else { new BlockStarPlanetGame(); }
+if (document.readyState === 'loading') { 
+    document.addEventListener('DOMContentLoaded', () => new BlockStarPlanetGame()); 
+} else { 
+    new BlockStarPlanetGame(); 
+}
