@@ -2,6 +2,16 @@
 
 import { STORAGE_KEYS } from './Config.js';
 import { modalPreview } from './ModalPreview.js';
+import { FriendsManager } from './FriendsManager.js';
+import { MailManager } from './MailManager.js';
+import { NewsManager } from './NewsManager.js';
+import { HighScoresManager } from './HighScoresManager.js';
+import { WallManager } from './WallManager.js'; 
+import { NavigationManager } from './NavigationManager.js';
+import { ShopManager } from './ShopManager.js';
+import { SkinDetailsManager } from './SkinDetailsManager.js';
+import { DiscoverManager } from './DiscoverManager.js';
+import { ProfileManager } from './ProfileManager.js';
 
 const HUD_HTML = `
     <div class="top-bar ui-element">
@@ -51,13 +61,36 @@ const HUD_HTML = `
             <button class="game-btn btn-odkryj"></button>
             <button class="game-btn btn-wiecej"></button>
         </div>
-        <div id="level-container">
+
+        <!-- 1. Pasek Poziomu (Level) -->
+        <div id="level-container" class="hud-stat-bar">
             <div class="level-star"><div id="level-value" class="text-outline">1</div></div>
-            <div class="level-bar-background"><div id="level-bar-fill"></div><div id="level-text" class="text-outline">0/50</div></div>
-            <div class="level-plus-btn">+</div>
+            <div class="hud-bar-pill">
+                <div id="level-bar-fill"></div>
+                <div id="level-text" class="text-outline">0/50</div>
+            </div>
+            <div id="level-plus-btn" class="hud-plus-btn">+</div>
         </div>
-        <div id="coin-counter"><div class="coin-icon"></div><div class="coin-bar-background"><div id="coin-value" class="text-outline">0</div></div><div id="coin-add-btn" class="ui-element">+</div></div>
+
+        <!-- 2. Pasek Monet (Coins) -->
+        <div id="coin-counter" class="hud-stat-bar">
+            <div class="hud-stat-icon coin-icon"></div>
+            <div class="hud-bar-pill">
+                <div id="coin-value" class="text-outline">0</div>
+            </div>
+            <div id="coin-add-btn" class="hud-plus-btn">+</div>
+        </div>
+
+        <!-- 3. Pasek Diamentów (Diamonds) -->
+        <div id="diamond-counter" class="hud-stat-bar">
+            <div class="hud-stat-icon diamond-icon"></div>
+            <div class="hud-bar-pill">
+                <div id="diamond-value" class="text-outline">3</div>
+            </div>
+            <div id="diamond-add-btn" class="hud-plus-btn">+</div>
+        </div>
     </div>
+
     <div id="mobile-game-controls"><div id="joystick-zone"></div><button id="jump-button"></button></div>
 `;
 
@@ -126,17 +159,6 @@ const GLOBAL_MODALS_HTML = `
     </div>
 `;
 
-import { FriendsManager } from './FriendsManager.js';
-import { MailManager } from './MailManager.js';
-import { NewsManager } from './NewsManager.js';
-import { HighScoresManager } from './HighScoresManager.js';
-import { WallManager } from './WallManager.js'; 
-import { NavigationManager } from './NavigationManager.js';
-import { ShopManager } from './ShopManager.js';
-import { SkinDetailsManager } from './SkinDetailsManager.js';
-import { DiscoverManager } from './DiscoverManager.js';
-import { ProfileManager } from './ProfileManager.js';
-
 export class UIManager {
   constructor(onSendMessage) {
     this.onSendMessage = onSendMessage;
@@ -194,7 +216,7 @@ export class UIManager {
 
     this.pendingRewardData = null;
     this.pendingNewsCount = 0;
-    this.activeZIndex = 30000; // Podwyższony bazowy z-index ponad pełnoekranowe panele
+    this.activeZIndex = 30000;
     this.myProfileData = null;
   }
   
@@ -259,7 +281,8 @@ export class UIManager {
   }
   
   showDiggingMode() {
-    document.getElementById('digging-ui-container').style.display = 'block';
+    const container = document.getElementById('digging-ui-container');
+    if (container) container.style.display = 'block';
     const overlay = document.querySelector('.ui-overlay');
     if (overlay) overlay.style.display = 'none';
     const gameButtons = document.querySelector('.game-buttons');
@@ -271,9 +294,12 @@ export class UIManager {
   }
   
   hideDiggingMode() {
-    document.getElementById('digging-ui-container').style.display = 'none';
-    document.querySelector('.ui-overlay').style.display = 'block';
-    document.querySelector('.game-buttons').style.display = 'flex';
+    const container = document.getElementById('digging-ui-container');
+    if (container) container.style.display = 'none';
+    const overlay = document.querySelector('.ui-overlay');
+    if (overlay) overlay.style.display = 'block';
+    const gameButtons = document.querySelector('.game-buttons');
+    if (gameButtons) gameButtons.style.display = 'flex';
     if (this.isMobile) {
         const joystickZone = document.getElementById('joystick-zone');
         if (joystickZone) joystickZone.style.display = 'block';
@@ -455,7 +481,12 @@ export class UIManager {
   
   updateCoinCounter(val) { 
       const e = document.getElementById('coin-value'); 
-      if(e) e.textContent = val; 
+      if (e) e.textContent = val; 
+  }
+
+  updateDiamondCounter(val) {
+      const e = document.getElementById('diamond-value');
+      if (e) e.textContent = val;
   }
   
   updateFPSToggleText(enabled) { 
@@ -575,7 +606,7 @@ export class UIManager {
   
   clearChat() { 
       const c = document.querySelector('.chat-area'); 
-      if(c) c.innerHTML = ''; 
+      if (c) c.innerHTML = ''; 
   }
   
   handleChatClick() { 
@@ -722,7 +753,7 @@ export class UIManager {
       document.querySelectorAll('.panel-close-button').forEach(btn => {
           btn.onclick = () => { 
               const p = btn.closest('.panel-modal') || btn.closest('#skin-comments-panel'); 
-              if(p) {
+              if (p) {
                   p.style.display = 'none';
                   modalPreview.stop();
               }
@@ -731,8 +762,8 @@ export class UIManager {
 
       ['more-options-panel','player-profile-panel','play-choice-panel','build-choice-panel','other-player-profile-panel','options-panel'].forEach(id => {
           const e = document.getElementById(id); 
-          if(e) e.addEventListener('click', ev => { 
-              if(ev.target.id === id) { 
+          if (e) e.addEventListener('click', ev => { 
+              if (ev.target.id === id) { 
                   e.style.display = 'none'; 
                   modalPreview.stop();
               } 
@@ -790,35 +821,40 @@ export class UIManager {
       const chatToggle = document.getElementById('chat-toggle-button'); 
       if (chatToggle) chatToggle.addEventListener('click', () => this.handleChatClick());
       
-      const setClick = (id, fn) => { const el = document.getElementById(id); if(el) el.onclick = fn; }; 
+      const setClick = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; }; 
       
-      setClick('size-choice-new-small', () => { this.closePanel('world-size-panel'); if(this.onWorldSizeSelected) this.onWorldSizeSelected(64); }); 
-      setClick('size-choice-new-medium', () => { this.closePanel('world-size-panel'); if(this.onWorldSizeSelected) this.onWorldSizeSelected(128); }); 
-      setClick('size-choice-new-large', () => { this.closePanel('world-size-panel'); if(this.onWorldSizeSelected) this.onWorldSizeSelected(256); });
-      setClick('name-submit-btn', () => { const i=document.getElementById('name-input-field'); const v=i.value.trim(); if(v&&this.onNameSubmit){ this.onNameSubmit(v); document.getElementById('name-input-panel').style.display='none'; } else alert('Nazwa!'); });
+      setClick('size-choice-new-small', () => { this.closePanel('world-size-panel'); if (this.onWorldSizeSelected) this.onWorldSizeSelected(64); }); 
+      setClick('size-choice-new-medium', () => { this.closePanel('world-size-panel'); if (this.onWorldSizeSelected) this.onWorldSizeSelected(128); }); 
+      setClick('size-choice-new-large', () => { this.closePanel('world-size-panel'); if (this.onWorldSizeSelected) this.onWorldSizeSelected(256); });
+      setClick('name-submit-btn', () => { const i = document.getElementById('name-input-field'); const v = i.value.trim(); if (v && this.onNameSubmit) { this.onNameSubmit(v); document.getElementById('name-input-panel').style.display = 'none'; } else alert('Nazwa!'); });
       setClick('btn-open-news', () => { this.newsManager.open(); });
       setClick('btn-open-highscores', () => { this.highScoresManager.open(); });
       setClick('logout-btn', () => { localStorage.removeItem(STORAGE_KEYS.JWT_TOKEN); window.location.reload(); });
       setClick('btn-news-claim-all', () => { this.newsManager.claimReward(null); });
+
+      // Obsługa przycisków dodawania zasobów
+      setClick('level-plus-btn', () => this.showMessage("Graj w Parkour i Kopanie, aby zdobywać XP!", "info"));
+      setClick('coin-add-btn', () => this.showMessage("Sklep z monetami pojawi się wkrótce!", "info"));
+      setClick('diamond-add-btn', () => this.showMessage("Sklep z diamentami pojawi się wkrótce!", "info"));
   }
   
   getButtonType(b) { 
-      if(b.classList.contains('btn-zagraj')) return 'zagraj'; 
-      if(b.classList.contains('btn-buduj')) return 'buduj'; 
-      if(b.classList.contains('btn-kup')) return 'kup'; 
-      if(b.classList.contains('btn-odkryj')) return 'odkryj'; 
-      if(b.classList.contains('btn-wiecej')) return 'wiecej'; 
+      if (b.classList.contains('btn-zagraj')) return 'zagraj'; 
+      if (b.classList.contains('btn-buduj')) return 'buduj'; 
+      if (b.classList.contains('btn-kup')) return 'kup'; 
+      if (b.classList.contains('btn-odkryj')) return 'odkryj'; 
+      if (b.classList.contains('btn-wiecej')) return 'wiecej'; 
       return 'unknown'; 
   }
   
   handleButtonClick(t, b) { 
-      b.style.transform='translateY(-1px) scale(0.95)'; 
-      setTimeout(() => b.style.transform='', 150);
-      if(t==='zagraj') this.navigationManager.openPanel('play-choice-panel');
-      if(t==='buduj') this.navigationManager.openPanel('build-choice-panel');
-      if(t==='odkryj') this.discoverManager.openChoicePanel();
-      if(t==='wiecej') this.navigationManager.openPanel('more-options-panel');
-      if(t==='kup' && this.onShopOpen) this.onShopOpen();
+      b.style.transform = 'translateY(-1px) scale(0.95)'; 
+      setTimeout(() => b.style.transform = '', 150);
+      if (t === 'zagraj') this.navigationManager.openPanel('play-choice-panel');
+      if (t === 'buduj') this.navigationManager.openPanel('build-choice-panel');
+      if (t === 'odkryj') this.discoverManager.openChoicePanel();
+      if (t === 'wiecej') this.navigationManager.openPanel('more-options-panel');
+      if (t === 'kup' && this.onShopOpen) this.onShopOpen();
   }
   
   loadFriendsData() { this.friendsManager.loadFriendsData(); }
@@ -835,24 +871,24 @@ export class UIManager {
   
   openPanel(id) { 
       const p = document.getElementById(id); 
-      if(p){ 
+      if (p) { 
           this.bringToFront(p); 
-          p.style.display='flex'; 
-          if(id==='friends-panel') this.friendsManager.loadFriendsData(); 
+          p.style.display = 'flex'; 
+          if (id === 'friends-panel') this.friendsManager.loadFriendsData(); 
       } 
   }
   
   closePanel(id) { 
       const p = document.getElementById(id); 
-      if(p) {
-          p.style.display='none';
+      if (p) {
+          p.style.display = 'none';
           modalPreview.stop();
       } 
   }
   
   closeAllPanels() { 
       modalPreview.stop();
-      document.querySelectorAll('.panel-modal').forEach(p => p.style.display='none'); 
+      document.querySelectorAll('.panel-modal').forEach(p => p.style.display = 'none'); 
       this.newsManager.close(); 
       this.mailManager.close(); 
       this.friendsManager.close(); 
