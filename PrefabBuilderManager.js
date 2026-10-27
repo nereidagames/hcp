@@ -1,3 +1,4 @@
+/* PLIK: PrefabBuilderManager.js */
 
 import * as THREE from 'three';
 import { BuildCameraController } from './BuildCameraController.js';
@@ -27,6 +28,10 @@ export class PrefabBuilderManager {
     this.materials = {};
     this.sharedBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
 
+    this.touchStartPosition = { x: 0, y: 0 };
+    this.longPressTimer = null;
+    this.isLongPress = false;
+
     this.onMouseMove = this.onMouseMove.bind(this);
     this.onMouseDown = this.onMouseDown.bind(this);
     this.onMouseUp = this.onMouseUp.bind(this);
@@ -53,14 +58,12 @@ export class PrefabBuilderManager {
   enterBuildMode() {
     this.isActive = true;
     
-    // 1. Ustaw bloki
     this.blockTypes = this.blockManager.getOwnedBlockTypes();
     if (this.blockTypes.length > 0) this.selectedBlockType = this.blockTypes[0];
 
-    // 2. Tekstury
     this.preloadTextures();
 
-    // 3. UI
+    // UI SETUP
     document.getElementById('build-ui-container').style.display = 'block';
     
     const buildElements = ['.build-top-left', '.build-sidebar-right', '.build-bottom-bar', '#build-rotate-zone'];
@@ -70,15 +73,15 @@ export class PrefabBuilderManager {
     });
     
     const rightUi = document.querySelector('.right-ui');
-    if(rightUi) rightUi.style.display = 'none';
+    if (rightUi) rightUi.style.display = 'none';
 
     const saveBtn = document.getElementById('build-save-btn-new');
-    if(saveBtn) saveBtn.textContent = "Zapisz Prefab";
+    if (saveBtn) saveBtn.textContent = "Zapisz Prefab";
 
     if (this.selectedBlockType) this.selectBlockType(this.selectedBlockType);
     this.updateHotbarUI();
     
-    // 4. Scena
+    // SCENA
     this.scene.background = new THREE.Color(0x2c3e50);
     this.scene.fog = new THREE.Fog(0x2c3e50, 20, 150);
     
@@ -91,21 +94,40 @@ export class PrefabBuilderManager {
     this.createBuildPlatform();
     this.createPreviewBlock();
     
-    // 5. Kamera
-    this.cameraController = new BuildCameraController(this.game.camera, this.game.renderer.domElement);
-    if (this.game.isMobile) {
-        document.getElementById('mobile-game-controls').style.display = 'block';
-        document.getElementById('jump-button').style.display = 'none';
-        const joy = document.getElementById('joystick-zone');
-        if(joy) { joy.innerHTML = ''; joy.style.display = 'block'; }
+    if (this.cameraController) {
+        this.cameraController.destroy();
+        this.cameraController = null;
     }
-    this.cameraController.setIsMobile(this.game.isMobile);
+    this.cameraController = new BuildCameraController(this.game.camera, this.game.renderer.domElement);
+    
+    // Na telefonie: brak joysticka i menu pozostaje w lewym rogu
+    if (this.game.isMobile) {
+        const mobileControls = document.getElementById('mobile-game-controls');
+        const jumpBtn = document.getElementById('jump-button');
+        const joy = document.getElementById('joystick-zone');
+        const bottomBar = document.querySelector('.build-bottom-bar');
+
+        if (mobileControls) mobileControls.style.display = 'block';
+        if (jumpBtn) jumpBtn.style.display = 'none';
+        
+        if (joy) { 
+            joy.className = '';
+            joy.innerHTML = ''; 
+            joy.style.display = 'none'; 
+        }
+
+        if (bottomBar) {
+            bottomBar.classList.remove('mobile-shifted');
+        }
+    }
+
+    // Wyłączenie joysticka w kontrolerze kamery
+    this.cameraController.setIsMobile(this.game.isMobile, false);
     this.cameraController.distance = 35;
 
     this.setupBuildEventListeners();
   }
 
-  // --- HOTBAR ---
   addToHotbar(blockType) {
       const idx = this.recentBlocks.findIndex(b => b.name === blockType.name);
       if (idx !== -1) this.recentBlocks.splice(idx, 1);
@@ -219,7 +241,8 @@ export class PrefabBuilderManager {
   }
 
   toggleCameraMode() {
-      const button = document.getElementById('build-mode-toggle-new');
+      if (!this.cameraController) return;
+      const button = document.getElementById('build-mode-toggle-new'); 
       if (this.cameraController.mode === 'orbital') {
           this.cameraController.setMode('free');
           button.textContent = 'Tryb: Zaawansowany';
@@ -245,7 +268,10 @@ export class PrefabBuilderManager {
     document.getElementById('add-choice-blocks').onclick = null;
     document.getElementById('add-choice-close').onclick = null;
 
-    if (this.cameraController) this.cameraController.destroy();
+    if (this.cameraController) {
+        this.cameraController.destroy();
+        this.cameraController = null;
+    }
   }
   
   onMouseMove(e) {
@@ -261,14 +287,14 @@ export class PrefabBuilderManager {
 
   onMouseDown(event) {
     if (!this.isActive || this.game.isMobile || this.isEventOnUI(event)) return;
-    if (event.button === 0 && this.previewBlock.visible) this.placeBlock();
+    if (event.button === 0 && this.previewBlock && this.previewBlock.visible) this.placeBlock();
     else if (event.button === 2) this.removeBlock();
   }
   
   onMouseUp() {}
 
   placeBlock() {
-    if (!this.selectedBlockType) return;
+    if (!this.selectedBlockType || !this.previewBlock) return;
     const blockGeo = this.sharedBoxGeometry;
     const blockMat = this.materials[this.selectedBlockType.texturePath];
     const newBlock = new THREE.Mesh(blockGeo, blockMat);
@@ -294,6 +320,7 @@ export class PrefabBuilderManager {
   
   updateSaveButton() {
     const button = document.getElementById('build-save-btn-new');
+    if (!button) return;
     if (this.placedBlocks.length > 0) {
       button.style.opacity = '1';
       button.style.cursor = 'pointer';
@@ -334,14 +361,13 @@ export class PrefabBuilderManager {
     thumbnailRenderer.render(thumbnailScene, thumbnailCamera);
     const dataURL = thumbnailRenderer.domElement.toDataURL('image/png');
     thumbnailRenderer.dispose();
+    thumbnailRenderer.forceContextLoss?.();
     return dataURL;
   }
 
-  // --- ZMIANA: Zastąpiono prompt na askForInput ---
   async savePrefab() {
     if (this.placedBlocks.length === 0) return;
     
-    // NOWOŚĆ: Użycie custom UI
     const prefabName = await this.game.ui.askForInput("Nazwa Prefabu:", "Moja Konstrukcja");
     
     if (prefabName) {
@@ -366,27 +392,43 @@ export class PrefabBuilderManager {
     this.collidableBuildObjects = [];
     this.placedBlocks = [];
     while(this.scene.children.length > 0){ this.scene.remove(this.scene.children[0]); }
+    
+    if (this.previewBlock) {
+        if (this.previewBlock.geometry) this.previewBlock.geometry.dispose();
+        this.scene.remove(this.previewBlock);
+        this.previewBlock = null;
+    }
+
     document.getElementById('build-ui-container').style.display = 'none';
     
     const rightUi = document.querySelector('.right-ui');
-    if(rightUi) rightUi.style.display = 'flex';
+    if (rightUi) rightUi.style.display = 'flex';
     const buildElements = ['.build-top-left', '.build-sidebar-right', '.build-bottom-bar', '#build-rotate-zone'];
     buildElements.forEach(selector => { const el = document.querySelector(selector); if(el) el.style.display='none'; });
 
     if (this.game.isMobile) {
-        document.getElementById('jump-button').style.display = 'block';
-        // Czyścimy zawartość joysticka przed ukryciem
+        const jumpBtn = document.getElementById('jump-button');
+        if (jumpBtn) jumpBtn.style.display = 'block';
+
         const joystickZone = document.getElementById('joystick-zone');
         if (joystickZone) {
+            joystickZone.className = '';
             joystickZone.style.display = 'none';
             joystickZone.innerHTML = ''; 
+        }
+
+        const bottomBar = document.querySelector('.build-bottom-bar');
+        if (bottomBar) {
+            bottomBar.classList.remove('mobile-shifted');
         }
     }
   }
   
   update(deltaTime) {
     if (!this.isActive) return;
-    this.cameraController.update(deltaTime);
+    if (this.cameraController) {
+        this.cameraController.update(deltaTime);
+    }
     this.raycaster.setFromCamera(this.mouse, this.game.camera);
     const intersects = this.raycaster.intersectObjects(this.collidableBuildObjects);
     if (intersects.length > 0) {
@@ -416,20 +458,29 @@ export class PrefabBuilderManager {
     this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
     this.touchStartPosition = { x: touch.clientX, y: touch.clientY };
     clearTimeout(this.longPressTimer);
-    this.longPressTimer = setTimeout(() => { this.isLongPress = true; this.removeBlock(); }, 500);
+    this.longPressTimer = setTimeout(() => { 
+        this.isLongPress = true; 
+        this.removeBlock(); 
+    }, 500);
   }
+
   onTouchEnd(event) {
     if (!this.isActive || !this.game.isMobile || this.isEventOnUI(event)) return;
     clearTimeout(this.longPressTimer);
-    if (!this.isLongPress && this.previewBlock && this.previewBlock.visible) { this.placeBlock(); }
+    if (!this.isLongPress && this.previewBlock && this.previewBlock.visible) { 
+        this.placeBlock(); 
+    }
   }
+
   onTouchMove(event) {
     if (!this.isActive || !this.game.isMobile) return;
     const touch = event.touches[0];
     const deltaX = touch.clientX - this.touchStartPosition.x;
     const deltaY = touch.clientY - this.touchStartPosition.y;
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    if (distance > 10) { clearTimeout(this.longPressTimer); }
+    if (distance > 10) { 
+        clearTimeout(this.longPressTimer); 
+    }
     this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
     this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
   }
