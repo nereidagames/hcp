@@ -722,7 +722,7 @@ canvas { display: block; }
 }
 
 /* ==========================================================================
-   PRAWY INTERFEJS (Right UI: Zagraj, Poziom, Monety, Diamenty)
+   PRAWY INTERFEJS (Right UI)
    ========================================================================== */
 .right-ui { 
     position: absolute; 
@@ -762,54 +762,66 @@ canvas { display: block; }
 .btn-wiecej { background-image: url('icons/icon-more.png'); }
 
 /* ==========================================================================
-   ODWZOROWANE 1:1 PASKI STATYSTYK: POZIOM, MONETY, DIAMENTY
+   ODWZOROWANE 1:1 PASKI STATYSTYK: POZIOM, MONETY, DIAMENTY (PROSTOKĄTNE)
    ========================================================================== */
 .hud-stat-bar {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    width: 236px;
-    height: 40px;
-    margin-bottom: 4px;
+    height: 36px;
+    margin-bottom: 7px;
     user-select: none;
 }
 
-/* Poziom: Gwiazdka z numerem poziomu po lewej */
+/* 1. DŁUGOŚCI PASKÓW: Level najdłuższy, Monety krótsze, Diamenty najkrótsze */
+#level-container {
+    width: 245px;
+}
+
+#coin-counter {
+    width: 175px;
+}
+
+#diamond-counter {
+    width: 135px;
+}
+
+/* Gwiazdka poziomu nachodząca z lewej */
 .level-star {
     position: absolute;
     left: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 46px;
-    height: 46px;
+    width: 44px;
+    height: 44px;
     background: url('icons/icon-level.png') center / contain no-repeat;
-    z-index: 3;
+    z-index: 5;
     display: flex;
     justify-content: center;
     align-items: center;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
 
 #level-value {
     font-size: 17px;
     color: white;
-    margin-top: 2px;
+    margin-top: 1px;
 }
 
 /* Ikony po lewej dla monet i diamentów */
 .hud-stat-icon {
     position: absolute;
-    left: 2px;
+    left: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 40px;
-    height: 40px;
-    z-index: 3;
+    width: 38px;
+    height: 38px;
+    z-index: 5;
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
 
 .coin-icon {
@@ -820,32 +832,33 @@ canvas { display: block; }
     background-image: url('icons/icon-diamond.png');
 }
 
-/* Zaokrąglony grafitowy pasek bazowy */
+/* CAŁKOWICIE PROSTOKĄTNY CIEMNY PASEK BAZOWY (BEZ ZAOKRĄGLEŃ ROGÓW) */
 .hud-bar-pill {
     position: absolute;
-    left: 26px;
-    right: 40px;
+    left: 20px;
+    right: 12px; /* Wsuwa się pod przycisk plusa, eliminując przerwę */
     top: 4px;
     bottom: 4px;
-    background: rgba(38, 48, 58, 0.88);
-    border: 2px solid rgba(255, 255, 255, 0.7);
-    border-radius: 16px;
+    background: rgba(26, 42, 54, 0.92);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 0 !important; /* BRAK ZAOKRĄGLEŃ ROGÓW */
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.55);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
     z-index: 1;
 }
 
-/* Zielony pasek postępu doświadczenia */
+/* ZIELONY PROSTOKĄTNY PASEK POSTĘPU POZIOMU (BEZ ZAOKRĄGLEŃ) */
 #level-bar-fill {
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
     width: 0%;
-    background: linear-gradient(to bottom, #6be938 0%, #30b814 100%);
+    background: linear-gradient(to bottom, #5de836 0%, #28a712 100%);
+    border-radius: 0 !important; /* BRAK ZAOKRĄGLEŃ ROGÓW */
     transition: width 0.4s ease-out;
 }
 
@@ -855,28 +868,30 @@ canvas { display: block; }
     font-size: 13px;
     color: white;
     letter-spacing: 0.5px;
+    padding-left: 10px;
 }
 
 #coin-value,
 #diamond-value {
     position: relative;
     z-index: 2;
-    font-size: 17px;
+    font-size: 16px;
     color: white;
     letter-spacing: 0.5px;
+    padding-left: 10px;
 }
 
-/* Błękitny przycisk z plusem po prawej stronie */
+/* BŁĘKITNY PRZYCISK Z PLUSEM PO PRAWEJ (NACHODZĄCY NA PASEK) */
 .hud-plus-btn {
     position: absolute;
     right: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 36px;
-    height: 34px;
-    background: linear-gradient(to bottom, #7ac0ff, #298fed);
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(to bottom, #74b9ff, #0984e3);
     border: 2px solid white;
-    border-radius: 9px;
+    border-radius: 8px; /* Zaokrąglone rogi tylko na przycisku plusa */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -884,14 +899,14 @@ canvas { display: block; }
     font-size: 24px;
     font-family: var(--font-main);
     cursor: pointer;
-    box-shadow: 0 3px 0 #1b63ab, 0 3px 6px rgba(0,0,0,0.35);
+    box-shadow: 0 3px 0 #0c2461, 0 3px 6px rgba(0,0,0,0.35);
     transition: transform 0.1s;
-    z-index: 3;
+    z-index: 5; /* Ponad paskiem */
 }
 
 .hud-plus-btn:active {
-    transform: translateY(-40%) scale(0.96);
-    box-shadow: 0 1px 0 #1b63ab;
+    transform: translateY(-40%) scale(0.95);
+    box-shadow: 0 1px 0 #0c2461;
 }
 
 /* ==========================================================================
