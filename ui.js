@@ -89,6 +89,9 @@ const HUD_HTML = `
             </div>
             <div id="diamond-add-btn" class="hud-plus-btn">+</div>
         </div>
+
+        <!-- 4. Przycisk Koła Fortuny -->
+        <div id="wheel-fortune-btn" class="ui-element" title="Koło Fortuny"></div>
     </div>
 
     <div id="mobile-game-controls"><div id="joystick-zone"></div><button id="jump-button"></button></div>
@@ -195,6 +198,7 @@ export class UIManager {
     this.onOpenOtherProfile = null;
     this.onVictoryScreenOpen = null;
     this.onVipClick = null;
+    this.onWheelClick = null; // Callback dla przycisku Koła Fortuny
     
     this.onDiggingClick = null;
     this.onDiggingMove = null;
@@ -836,6 +840,15 @@ export class UIManager {
       setClick('level-plus-btn', () => this.showMessage("Graj w Parkour i Kopanie, aby zdobywać XP!", "info"));
       setClick('coin-add-btn', () => this.showMessage("Sklep z monetami pojawi się wkrótce!", "info"));
       setClick('diamond-add-btn', () => this.showMessage("Sklep z diamentami pojawi się wkrótce!", "info"));
+      
+      // Obsługa przycisku Koła Fortuny
+      setClick('wheel-fortune-btn', () => {
+          if (this.onWheelClick) {
+              this.onWheelClick();
+          } else {
+              this.showMessage("Koło fortuny pojawi się wkrótce!", "info");
+          }
+      });
   }
   
   getButtonType(b) { 
