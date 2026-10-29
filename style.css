@@ -122,7 +122,7 @@ body {
 }
 
 /* ==========================================================================
-   UKŁAD EKRANU ŁADOWANIA (Logo + pasek tuż pod nim)
+   UKŁAD EKRANU ŁADOWANIA
    ========================================================================== */
 .loading-content-bsp {
     position: relative;
@@ -1000,57 +1000,56 @@ canvas { display: block; }
 }
 
 /* ==========================================================================
-   STAŁY JOYSTICK W LEWYM DOLNYM ROGU (KREATOR ŚWIATÓW NA TELEFONIE)
+   STAŁY JOYSTICK W KREATORZE ŚWIATÓW (DUŻY I WIDOCZNY 1:1 Z BSP)
    ========================================================================== */
-#joystick-zone.build-mode-fixed {
+#build-joystick-zone {
     position: fixed !important;
-    top: auto !important;
-    bottom: 8px !important;
-    left: 10px !important;
-    width: 106px !important;
-    height: 106px !important;
+    bottom: 12px !important;
+    left: 15px !important;
+    width: 140px !important;
+    height: 140px !important;
     z-index: 2200 !important;
-    display: block !important;
+    display: none;
     pointer-events: auto !important;
     touch-action: none !important;
 }
 
-#joystick-zone.build-mode-fixed .custom-joystick-base {
+#build-joystick-zone .custom-joystick-base {
     position: absolute !important;
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
-    width: 98px !important;
-    height: 98px !important;
+    width: 136px !important;
+    height: 136px !important;
     border-radius: 50% !important;
-    background: rgba(142, 218, 255, 0.45) !important;
-    border: 2.5px solid rgba(255, 255, 255, 0.85) !important;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3) !important;
+    background: radial-gradient(circle, rgba(142, 218, 255, 0.45) 0%, rgba(100, 185, 245, 0.6) 100%) !important;
+    border: 3px solid rgba(255, 255, 255, 0.9) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35) !important;
     display: block !important;
-    backdrop-filter: blur(2px) !important;
+    backdrop-filter: blur(3px) !important;
     pointer-events: none !important;
 }
 
-#joystick-zone.build-mode-fixed .custom-joystick-thumb {
+#build-joystick-zone .custom-joystick-thumb {
     position: absolute !important;
     top: 50% !important;
     left: 50% !important;
-    width: 52px !important;
-    height: 52px !important;
+    width: 68px !important;
+    height: 68px !important;
     border-radius: 50% !important;
     background-image: url('icons/icon-joystick.png') !important;
     background-size: contain !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
     background-color: transparent !important;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4)) !important;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45)) !important;
     transform: translate(-50%, -50%) translate(0px, 0px);
     pointer-events: none !important;
 }
 
-/* Przesunięcie dolnego paska z przyciskiem plusa TYLKO na telefonie za joystick */
+/* Przesunięcie dolnego paska z przyciskiem plusa za joystick (15px + 140px + 20px = 175px) */
 .build-bottom-bar.mobile-shifted {
-    padding-left: 125px !important;
+    padding-left: 175px !important;
 }
 
 /* ==========================================================================
