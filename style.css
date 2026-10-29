@@ -1047,9 +1047,10 @@ canvas { display: block; }
     pointer-events: none !important;
 }
 
-/* Przesunięcie dolnego paska z przyciskiem plusa za joystick (15px + 140px + 20px = 175px) */
+/* Przesunięcie dolnego paska z uwzględnieniem dynamicznej skali --ui-scale */
 .build-bottom-bar.mobile-shifted {
-    padding-left: 175px !important;
+    padding-left: 290px !important; /* Fallback dla starszych silników WebView */
+    padding-left: calc(175px / var(--ui-scale)) !important;
 }
 
 /* ==========================================================================
