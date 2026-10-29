@@ -53,7 +53,8 @@ export class BuildCameraController {
   }
 
   setupJoystick() {
-      const zone = document.getElementById('joystick-zone');
+      // Pobieranie dedykowanej strefy w kreatorze światów
+      const zone = document.getElementById('build-joystick-zone') || document.getElementById('joystick-zone');
       if (!zone) return;
 
       if (this.joystick) {
@@ -61,9 +62,9 @@ export class BuildCameraController {
           this.joystick = null;
       }
 
-      // Stały joystick w lewym dolnym rogu ekranu
+      // Duży, wygodny joystick w lewym dolnym rogu
       this.joystick = new VirtualJoystick(zone, {
-          maxRadius: 40,
+          maxRadius: 48,
           fixed: true,
           onMove: (vector) => {
               this.joystickData.x = vector.x;
