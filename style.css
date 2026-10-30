@@ -755,7 +755,7 @@ canvas { display: block; }
     border: none; 
 }
 .game-btn:active { transform: scale(0.95); }
-.btn-zagraj { background-image: url('icons/icon-play.png'); background-size: 110%; } 
+.btn-zagraj { background-image: url('icons/icon-play.png'); } 
 .btn-buduj { background-image: url('icons/icon-build.png'); } 
 .btn-kup { background-image: url('icons/icon-shop.png'); } 
 .btn-odkryj { background-image: url('icons/icon-discover.png'); } 
