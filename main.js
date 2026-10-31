@@ -261,9 +261,12 @@ class BlockStarPlanetGame {
           const maxXp = totalXp > 0 ? progress.maxXp : (parseInt(user.maxXp) || 100);
           this.ui.updateLevelInfo(level, xp, maxXp || 100);
 
-          // Inicjalizacja salda diamentów pobranego z bazy (lub domyślnie 3)
+          // Saldo diamentów (3 na start)
           const diamonds = user.diamonds !== undefined && user.diamonds !== null ? user.diamonds : 3;
           this.ui.updateDiamondCounter(diamonds);
+
+          // Inicjalizacja rangi VIP i odliczania czasu
+          this.ui.updateVipStatus(user.vipTier || 'none', user.vipUntil || null);
       }
       if (user.pendingXp) this.ui.updatePendingRewards(user.pendingXp);
       if (user.ownedBlocks) this.blockManager.setOwnedBlocks(user.ownedBlocks);
@@ -336,7 +339,7 @@ class BlockStarPlanetGame {
           this.recreatePlayerController(targetCollidables, targetMap);
           this.stateManager.setManagers({ playerController: this.playerController });
 
-          // Reset kolizji kamery do Nexusa po opuszczeniu innych światów
+          // Reset kolizji kamery do Nexusa po wyjściu z innych światów
           if (this.cameraController && !collidables) {
               this.cameraController.collidableObjects = this.sceneManager.collidableObjects;
               this.cameraController.floorY = this.sceneManager.FLOOR_TOP_Y;
@@ -435,6 +438,11 @@ class BlockStarPlanetGame {
           if (msg.type === 'friendStatusChange') this.ui.loadFriendsData(); 
           if (msg.type === 'privateMessageSent' && this.ui.onMessageSent) this.ui.onMessageSent(msg); 
           if (msg.type === 'privateMessageReceived' && this.ui.onMessageReceived) this.ui.onMessageReceived(msg); 
+          
+          // Nasłuchiwanie aktualizacji VIP z serwera
+          if (msg.type === 'vipUpdated') {
+              this.ui.updateVipStatus(msg.vipTier, msg.vipUntil);
+          }
       }; 
   }
 
