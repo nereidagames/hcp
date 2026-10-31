@@ -12,6 +12,7 @@ import { ShopManager } from './ShopManager.js';
 import { SkinDetailsManager } from './SkinDetailsManager.js';
 import { DiscoverManager } from './DiscoverManager.js';
 import { ProfileManager } from './ProfileManager.js';
+import { VipManager } from './VipManager.js';
 
 const HUD_HTML = `
     <div class="top-bar ui-element">
@@ -198,7 +199,7 @@ export class UIManager {
     this.onOpenOtherProfile = null;
     this.onVictoryScreenOpen = null;
     this.onVipClick = null;
-    this.onWheelClick = null; // Callback dla przycisku Koła Fortuny
+    this.onWheelClick = null;
     
     this.onDiggingClick = null;
     this.onDiggingMove = null;
@@ -217,6 +218,7 @@ export class UIManager {
     this.skinDetailsManager = new SkinDetailsManager(this);
     this.discoverManager = new DiscoverManager(this);
     this.profileManager = new ProfileManager(this);
+    this.vipManager = new VipManager(this);
 
     this.pendingRewardData = null;
     this.pendingNewsCount = 0;
@@ -239,6 +241,7 @@ export class UIManager {
         if (this.skinDetailsManager.initialize) this.skinDetailsManager.initialize();
         if (this.discoverManager.initialize) this.discoverManager.initialize();
         if (this.profileManager.initialize) this.profileManager.initialize();
+        if (this.vipManager.initialize) this.vipManager.initialize();
 
         this.setupManagerCallbacks();
         this.setupButtonHandlers();
@@ -492,6 +495,12 @@ export class UIManager {
       const e = document.getElementById('diamond-value');
       if (e) e.textContent = val;
   }
+
+  updateVipStatus(tier, until) {
+      if (this.vipManager) {
+          this.vipManager.setVipStatus(tier, until);
+      }
+  }
   
   updateFPSToggleText(enabled) { 
       const btn = document.getElementById('btn-fps-toggle'); 
@@ -725,31 +734,44 @@ export class UIManager {
   setupButtonHandlers() {
       const vipBtn = document.getElementById('btn-vip-corner');
       if (vipBtn) {
+          // Efekt wciśnięcia przycisku VIP aktywny tylko wtedy, gdy gracz NIE posiada aktywnej rangi
           vipBtn.addEventListener('mousedown', () => {
-              vipBtn.style.backgroundImage = "url('icons/icon-vip2.png')";
+              if (!this.vipManager.isVipActive()) {
+                  vipBtn.style.backgroundImage = "url('icons/icon-vip2.png')";
+              }
           });
           vipBtn.addEventListener('mouseup', () => {
-              vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+              if (!this.vipManager.isVipActive()) {
+                  vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+              }
           });
           vipBtn.addEventListener('mouseleave', () => {
-              vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+              if (!this.vipManager.isVipActive()) {
+                  vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+              }
           });
 
           vipBtn.addEventListener('touchstart', () => {
-              vipBtn.style.backgroundImage = "url('icons/icon-vip2.png')";
+              if (!this.vipManager.isVipActive()) {
+                  vipBtn.style.backgroundImage = "url('icons/icon-vip2.png')";
+              }
           }, { passive: true });
           vipBtn.addEventListener('touchend', () => {
-              vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+              if (!this.vipManager.isVipActive()) {
+                  vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+              }
           }, { passive: true });
           vipBtn.addEventListener('touchcancel', () => {
-              vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+              if (!this.vipManager.isVipActive()) {
+                  vipBtn.style.backgroundImage = "url('icons/icon-vip1.png')";
+              }
           }, { passive: true });
 
           vipBtn.onclick = () => {
               if (this.onVipClick) {
                   this.onVipClick();
               } else {
-                  this.showMessage("Sekcja VIP pojawi się wkrótce!", "info");
+                  this.vipManager.open();
               }
           };
       }
@@ -908,6 +930,7 @@ export class UIManager {
       this.highScoresManager.close(); 
       this.wallManager.close(); 
       this.shopManager.close(); 
+      this.vipManager.close();
   }
   
   populateShop(blocks, isOwnedCallback, isSkyOwnedCallback = null) { 
