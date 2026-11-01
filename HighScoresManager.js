@@ -1,5 +1,17 @@
 /* PLIK: HighScoresManager.js */
+
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
+
+function getVipBadgeUrl(tier) {
+    switch (tier) {
+        case 'star_vip': return 'icons/star-vip-badge.png';
+        case 'elite_vip': return 'icons/elite-vip-badge.png';
+        case 'super_vip': return 'icons/super-vip-badge.png';
+        case 'vip':
+        default:
+            return 'icons/normal-vip-badge.png';
+    }
+}
 
 const TEMPLATE = `
     <style>
@@ -8,9 +20,9 @@ const TEMPLATE = `
             box-shadow: none !important;
             border: none !important;
             padding: 0 !important;
-            width: 95vw !important;
-            height: 90vh !important;
-            max-width: 900px !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
             display: flex;
             flex-direction: column;
             pointer-events: auto;
@@ -23,7 +35,8 @@ const TEMPLATE = `
             background-color: #3498db;
             border: none !important;
             border-radius: 0 !important;
-            display: flex; flex-direction: column;
+            display: flex; 
+            flex-direction: column;
             overflow: hidden;
             font-family: 'Titan One', cursive;
             position: relative;
@@ -33,124 +46,273 @@ const TEMPLATE = `
         /* PRZYCISK ZAMKNIĘCIA */
         .hs-btn-close-fixed {
             position: absolute;
-            top: 10px; left: 10px;
-            width: 45px; height: 45px;
-            background: #e74c3c url('icons/icon-back.png') center/60% no-repeat;
-            border: 3px solid white;
-            border-radius: 10px;
+            top: 6px; 
+            left: 10px;
+            width: 44px; 
+            height: 42px;
+            background: transparent url('icons/icon-back.png') center/contain no-repeat;
+            border: none;
             cursor: pointer;
             z-index: 100;
-            box-shadow: 0 4px 0 #c0392b;
             transition: transform 0.1s;
         }
-        .hs-btn-close-fixed:active { transform: scale(0.95); box-shadow: 0 2px 0 #c0392b; }
+        .hs-btn-close-fixed:active { transform: scale(0.92); }
 
         /* ZAKŁADKI */
         .hs-tabs {
-            height: 65px;
+            height: 56px;
             background: linear-gradient(to bottom, #2980b9, #3498db);
-            display: flex; justify-content: center; align-items: flex-end;
-            gap: 10px; padding-bottom: 5px;
-            border-bottom: 4px solid #fff;
-            padding-left: 60px;
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-end;
+            gap: 10px; 
+            padding-bottom: 2px;
+            border-bottom: 3px solid #fff;
+            padding-left: 50px;
+            flex-shrink: 0;
         }
 
         .hs-tab {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            width: 80px; height: 55px; opacity: 0.7; cursor: pointer;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center;
+            width: 75px; 
+            height: 48px; 
+            opacity: 0.7; 
+            cursor: pointer;
             transition: transform 0.1s;
             position: relative;
         }
-        .hs-tab.active { opacity: 1.0; transform: scale(1.1); z-index: 2; }
+        .hs-tab.active { 
+            opacity: 1.0; 
+            transform: scale(1.05); 
+            z-index: 2; 
+        }
         .hs-tab.active::after {
-            content: ''; position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%);
-            border-left: 8px solid transparent; border-right: 8px solid transparent;
-            border-top: 8px solid white;
+            content: ''; 
+            position: absolute; 
+            bottom: -5px; 
+            left: 50%; 
+            transform: translateX(-50%);
+            border-left: 7px solid transparent; 
+            border-right: 7px solid transparent;
+            border-top: 7px solid white;
         }
 
-        .hs-tab-icon { width: 30px; height: 30px; background-size: contain; background-repeat: no-repeat; background-position: center; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
-        .hs-tab-label { font-size: 10px; color: white; text-shadow: 1px 1px 0 #000; margin-top: 2px; }
+        .hs-tab-icon { 
+            width: 26px; 
+            height: 26px; 
+            background-size: contain; 
+            background-repeat: no-repeat; 
+            background-position: center; 
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); 
+        }
+        .hs-tab-label { 
+            font-size: 10px; 
+            color: white; 
+            text-shadow: 1px 1px 0 #000; 
+            margin-top: 2px; 
+        }
 
         /* NAGŁÓWEK TABELI */
         .hs-header-bar {
             background-color: #f1c40f;
-            color: white; text-align: center; font-size: 18px; padding: 8px;
+            color: white; 
+            text-align: center; 
+            font-size: 17px; 
+            padding: 8px;
             text-shadow: 1.5px 1.5px 0 #000;
             border-bottom: 2px solid white;
             position: relative;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             z-index: 1;
+            flex-shrink: 0;
         }
-        .hs-star-deco { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; background: url('icons/icon-level.png') center/contain no-repeat; }
+        .hs-star-deco { 
+            position: absolute; 
+            right: 15px; 
+            top: 50%; 
+            transform: translateY(-50%); 
+            width: 24px; 
+            height: 24px; 
+            background: url('icons/icon-level.png') center/contain no-repeat; 
+        }
 
         /* LISTA */
         .hs-list-area {
-            flex: 1; overflow-y: auto;
+            flex: 1; 
+            overflow-y: auto;
             background-color: #3498db;
             padding: 0;
-            display: flex; flex-direction: column;
+            display: flex; 
+            flex-direction: column;
         }
 
         /* WIERSZ */
         .hs-row {
-            display: flex; align-items: center; height: 55px;
+            display: flex; 
+            align-items: center; 
+            height: 55px;
             background-color: #2980b9; 
             border-bottom: 2px solid #5dade2;
-            color: white; font-size: 16px;
-            padding: 0 10px;
+            color: white; 
+            font-size: 16px;
+            padding: 0 15px;
             cursor: pointer;
             transition: background-color 0.1s;
         }
         .hs-row:hover { background-color: #4facfe; }
         .hs-row:nth-child(even) { background-color: #3498db; }
         .hs-row:nth-child(even):hover { background-color: #4facfe; }
-        .hs-row.me { background-color: #2ecc71 !important; border: 2px solid #fff; position: relative; z-index: 1; }
-
-        .hs-col-rank { width: 45px; font-size: 20px; font-weight: bold; text-shadow: 2px 2px 0 #000; text-align: center; color: #f1c40f; }
-        .hs-col-level { width: 45px; display: flex; align-items: center; justify-content: center; }
-        .hs-level-star { 
-            width: 32px; height: 32px; 
-            background: url('icons/icon-level.png') center/contain no-repeat; 
-            display: flex; justify-content: center; align-items: center;
-            font-size: 11px; font-weight: bold; text-shadow: 1px 1px 0 #000; padding-top: 2px;
+        .hs-row.me { 
+            background-color: #2ecc71 !important; 
+            border: 2px solid #fff; 
+            position: relative; 
+            z-index: 1; 
         }
-        .hs-col-avatar { width: 50px; display: flex; justify-content: center; align-items: center; }
-        .hs-avatar-img { width: 40px; height: 40px; background-color: #000; border: 2px solid white; border-radius: 6px; background-size: cover; background-position: center; }
-        .hs-col-name { flex: 1; padding-left: 10px; font-size: 16px; text-shadow: 1px 1px 0 #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
-        .hs-col-score { width: 110px; text-align: right; font-size: 16px; text-shadow: 1px 1px 0 #000; font-family: monospace; font-weight: bold; padding-right: 5px; }
+
+        .hs-col-rank { 
+            width: 45px; 
+            font-size: 20px; 
+            font-weight: bold; 
+            text-shadow: 2px 2px 0 #000; 
+            text-align: center; 
+            color: #f1c40f; 
+        }
+        .hs-col-level { 
+            width: 45px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        .hs-level-star { 
+            width: 32px; 
+            height: 32px; 
+            background: url('icons/icon-level.png') center/contain no-repeat; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            font-size: 11px; 
+            font-weight: bold; 
+            text-shadow: 1px 1px 0 #000; 
+            padding-top: 2px;
+        }
+        .hs-col-avatar { 
+            width: 50px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        .hs-avatar-img { 
+            width: 40px; 
+            height: 40px; 
+            background-color: #000; 
+            border: 2px solid white; 
+            border-radius: 6px; 
+            background-size: cover; 
+            background-position: center; 
+        }
+
+        /* KOLUMNA NICKU */
+        .hs-col-name { 
+            flex: 1; 
+            padding-left: 10px; 
+            font-size: 16px; 
+            text-shadow: 1px 1px 0 #000; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+        }
+
+        /* ODZNAKA VIP OBOK NICKU */
+        .hs-vip-badge {
+            width: 34px;
+            height: 22px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            flex-shrink: 0;
+            display: inline-block;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+            transition: transform 0.1s;
+        }
+        .hs-vip-badge:hover { transform: scale(1.1); }
+
+        .hs-col-score { 
+            width: 120px; 
+            text-align: right; 
+            font-size: 16px; 
+            text-shadow: 1px 1px 0 #000; 
+            font-family: monospace; 
+            font-weight: bold; 
+            padding-right: 5px; 
+        }
 
         /* BOCZNE PRZYCISKI */
         .hs-right-buttons {
             position: absolute; 
-            top: 50%; transform: translateY(-50%);
-            right: 10px; 
-            display: flex; flex-direction: column; gap: 10px;
+            top: 55%; 
+            transform: translateY(-50%);
+            right: 15px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px;
             z-index: 50;
         }
         
         .hs-btn-toggle {
-            width: 50px; height: 80px;
-            background-color: #fff; border: 3px solid #3498db; border-radius: 10px;
-            display: flex; justify-content: center; align-items: center; cursor: pointer;
+            width: 48px; 
+            height: 75px;
+            background-color: #fff; 
+            border: 3px solid #3498db; 
+            border-radius: 10px;
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            cursor: pointer;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
         }
         .hs-btn-toggle:active { transform: scale(0.95); }
-        .hs-arrow-icon { font-size: 30px; color: #3498db; font-weight: bold; }
+        .hs-arrow-icon { font-size: 26px; color: #3498db; font-weight: bold; }
 
         .hs-btn-info {
-            width: 50px; height: 50px;
-            background: #3498db; border: 3px solid white; border-radius: 10px;
-            display: flex; justify-content: center; align-items: center; cursor: pointer;
-            font-size: 30px; color: white; font-weight: bold;
+            width: 48px; 
+            height: 48px;
+            background: #3498db; 
+            border: 3px solid white; 
+            border-radius: 10px;
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            cursor: pointer;
+            font-size: 26px; 
+            color: white; 
+            font-weight: bold;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
         }
         .hs-btn-info:active { transform: scale(0.95); }
 
         /* INFO MODAL */
         #hs-info-modal {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 80%; background: rgba(0,0,0,0.95); border: 2px solid white; border-radius: 10px;
-            padding: 20px; display: none; z-index: 200; text-align: center;
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
+            width: 80%; 
+            max-width: 480px;
+            background: rgba(0,0,0,0.95); 
+            border: 2px solid white; 
+            border-radius: 12px;
+            padding: 20px; 
+            display: none; 
+            z-index: 200; 
+            text-align: center;
             box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
     </style>
@@ -212,7 +374,7 @@ const TEMPLATE = `
                 <p style="color: white; margin: 10px 0; font-size: 14px; line-height: 1.5;">
                     <img src="icons/icon-level.png" width="20" style="vertical-align: middle;"> <b>BlockStars:</b><br>
                     HyperCubes: Najlepsi gracze według punktów doświadczenia (XP)<br><br>
-                    Konstruktorzy: Suma polubień twoich dzieł
+                    Konstruktorzy: Suma polubień Twoich dzieł
                 </p>
                 <button id="btn-hs-info-close" style="padding: 10px 20px; background: #e74c3c; color: white; border: 2px solid white; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px;">Zamknij</button>
             </div>
@@ -259,8 +421,8 @@ export class HighScoresManager {
         const infoModal = document.getElementById('hs-info-modal');
         const infoClose = document.getElementById('btn-hs-info-close');
         
-        if (infoBtn) infoBtn.onclick = () => { if(infoModal) infoModal.style.display = 'block'; };
-        if (infoClose) infoClose.onclick = () => { if(infoModal) infoModal.style.display = 'none'; };
+        if (infoBtn) infoBtn.onclick = () => { if (infoModal) infoModal.style.display = 'block'; };
+        if (infoClose) infoClose.onclick = () => { if (infoModal) infoModal.style.display = 'none'; };
 
         const list = document.getElementById('hs-list');
         if (list) {
@@ -285,7 +447,7 @@ export class HighScoresManager {
         const panel = document.getElementById('highscores-panel');
         if (panel) panel.style.display = 'none';
         const info = document.getElementById('hs-info-modal');
-        if(info) info.style.display = 'none';
+        if (info) info.style.display = 'none';
     }
 
     toggleMode() {
@@ -383,6 +545,14 @@ export class HighScoresManager {
             const avatarUrl = user.current_skin_thumbnail ? `url('${user.current_skin_thumbnail}')` : "url('icons/avatar_placeholder.png')";
             const level = user.level || 1;
 
+            // Sprawdzenie czy gracz posiada aktywny status VIP
+            const isVip = Boolean(
+                user.vip_tier && 
+                user.vip_tier !== 'none' && 
+                (!user.vip_until || new Date(user.vip_until) > new Date())
+            );
+            const badgeUrl = isVip ? getVipBadgeUrl(user.vip_tier) : null;
+
             const row = document.createElement('div');
             row.className = `hs-row ${isMe ? 'me' : ''}`;
             
@@ -395,8 +565,9 @@ export class HighScoresManager {
                     <div class="hs-avatar-img" style="background-image: ${avatarUrl};"></div>
                 </div>
                 <div class="hs-col-name">
-                    ${user.username}
-                    ${isMe ? '<span style="font-size:10px; opacity:0.8; margin-left:5px;">(Ty)</span>' : ''}
+                    <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.username}</span>
+                    ${badgeUrl ? `<div class="hs-vip-badge" style="background-image: url('${badgeUrl}');" title="VIP"></div>` : ''}
+                    ${isMe ? '<span style="font-size:10px; opacity:0.8; margin-left:3px;">(Ty)</span>' : ''}
                 </div>
                 <div class="hs-col-score">${score}</div>
             `;
@@ -405,7 +576,7 @@ export class HighScoresManager {
                 if (isMe) {
                     this.ui.openPlayerProfile();
                 } else {
-                    if(this.ui.openOtherPlayerProfile) {
+                    if (this.ui.openOtherPlayerProfile) {
                         this.ui.openOtherPlayerProfile(user.username);
                     }
                 }
