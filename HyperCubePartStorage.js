@@ -1,10 +1,9 @@
-const API_BASE_URL = 'https://hypercubes-nexus-server.onrender.com';
-const JWT_TOKEN_KEY = 'bsp_clone_jwt_token';
+import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 
 export class HyperCubePartStorage {
 
   static async savePart(partName, blocksData, thumbnail = null) {
-    const token = localStorage.getItem(JWT_TOKEN_KEY);
+    const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
     if (!token) {
         alert("Musisz być zalogowany!");
         return false;
@@ -21,7 +20,6 @@ export class HyperCubePartStorage {
       });
       
       if (response.ok) {
-          console.log(`Część "${partName}" zapisana na serwerze!`);
           return true;
       } else {
           const err = await response.json();
@@ -29,46 +27,43 @@ export class HyperCubePartStorage {
           return false;
       }
     } catch (error) {
-      console.error('Network Error:', error);
       return false;
     }
   }
 
   static async loadPart(partId) {
-    const token = localStorage.getItem(JWT_TOKEN_KEY);
+    const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
     if (!token) return null;
     try {
         const r = await fetch(`${API_BASE_URL}/api/parts/${partId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if(r.ok) return await r.json();
-    } catch(e) { console.error(e); }
+    } catch(e) {}
     return null;
   }
 
-  // POBIERANIE MOICH
   static async getSavedPartsList() {
-    const token = localStorage.getItem(JWT_TOKEN_KEY);
+    const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
     if (!token) return [];
     try {
         const r = await fetch(`${API_BASE_URL}/api/parts/mine`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if(r.ok) return await r.json();
-    } catch(e) { console.error(e); }
+    } catch(e) {}
     return [];
   }
 
-  // --- FIX: POBIERANIE WSZYSTKICH (BRAKOWAŁO TEGO) ---
   static async getAllParts() {
-    const token = localStorage.getItem(JWT_TOKEN_KEY);
+    const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
     if (!token) return [];
     try {
         const r = await fetch(`${API_BASE_URL}/api/parts/all`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if(r.ok) return await r.json();
-    } catch(e) { console.error(e); }
+    } catch(e) {}
     return [];
   }
   
