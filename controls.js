@@ -1,23 +1,17 @@
-/* PLIK: controls.js */
-
 import * as THREE from 'three';
 
-// ============================================================================
-// DYNAMICZNY ORAZ STAŁY JOYSTICK MOBILNY (VirtualJoystick)
-// ============================================================================
 export class VirtualJoystick {
   constructor(zoneElement, options = {}) {
     this.zone = zoneElement;
     this.maxRadius = options.maxRadius || 76;
     this.onMove = options.onMove || null;
     this.onEnd = options.onEnd || null;
-    this.fixed = options.fixed || false; // Tryb stałego joysticka w rogu ekranu
+    this.fixed = options.fixed || false;
 
     this.activeTouchId = null;
     this.originX = 0;
     this.originY = 0;
 
-    // Usuń ewentualną poprzednią bazę
     const oldBase = this.zone.querySelector('.custom-joystick-base');
     if (oldBase) oldBase.remove();
 
@@ -51,7 +45,6 @@ export class VirtualJoystick {
     const touch = e.changedTouches[0];
     if (!touch) return;
 
-    // Zabezpieczenie: ignoruj dotyk w obrębie okna czatu i formularza pisania
     if (touch.target.closest('#chat-form') || touch.target.closest('.chat-container')) return;
 
     if (this.fixed) {
@@ -60,7 +53,6 @@ export class VirtualJoystick {
       const centerY = rect.top + rect.height / 2;
       const dist = Math.hypot(touch.clientX - centerX, touch.clientY - centerY);
 
-      // Aktywacja wyłącznie przy dotknięciu w obrębie stałego joysticka
       if (dist > (rect.width / 2 + 30)) return;
 
       this.activeTouchId = touch.identifier;
@@ -72,7 +64,6 @@ export class VirtualJoystick {
       return;
     }
 
-    // Tryb pływający (dla swobodnej eksploracji)
     this.activeTouchId = touch.identifier;
     this.originX = touch.clientX;
     this.originY = touch.clientY;
@@ -153,9 +144,6 @@ export class VirtualJoystick {
   }
 }
 
-// ============================================================================
-// KONTROLER POSTACI GRACZA (PlayerController)
-// ============================================================================
 export class PlayerController {
   constructor(player, collidableObjects, collisionMap, options = {}) {
     this.player = player;
@@ -168,7 +156,6 @@ export class PlayerController {
     this.groundRestingY = options.groundRestingY !== undefined ? options.groundRestingY : 0.1;
     this.defaultGroundRestingY = this.groundRestingY;
 
-    // Maksymalna wysokość schodka: dokładnie 1 blok (1.0) z marginesem 0.05
     this.maxStepHeight = options.maxStepHeight || 1.05; 
     this.playerDimensions = options.playerDimensions || new THREE.Vector3(0.5, 1.0, 0.5);
 
@@ -194,18 +181,15 @@ export class PlayerController {
     this.playerBox = new THREE.Box3();
     this.objectBox = new THREE.Box3();
     
-    // Zoptymalizowana pula obiektów Box3 (Zero-Allocation)
     this.candidateBoxes = [];
     this.boxPool = Array.from({ length: 64 }, () => new THREE.Box3());
     this.boxPoolIndex = 0;
     this.boxUnitSize = new THREE.Vector3(1, 1, 1);
 
-    // Zmienne pomocnicze do testowania schodków bez alokacji pamięci
     this.tempMatrix = new THREE.Matrix4();
     this.tempPosition = new THREE.Vector3();
     this.tempBox = new THREE.Box3();
 
-    // Offset wizualny do płynnej animacji wejścia na schodek (Smooth Step-Up)
     this.stepVisualOffset = 0;
     
     this.setupInput();
@@ -342,7 +326,6 @@ export class PlayerController {
 
     const timeStep = Math.min(deltaTime, 0.05);
 
-    // Grawitacja
     if (this.mode === 'explore' && !this.isOnGround) {
       this.velocity.y -= this.gravity * timeStep;
     }
@@ -385,7 +368,6 @@ export class PlayerController {
 
     this.applyMovementAndCollisions(timeStep);
 
-    // Płynna animacja podnoszenia postaci (Smooth Step-Up Decay)
     if (this.stepVisualOffset !== 0) {
         const decay = Math.exp(-18 * timeStep);
         this.stepVisualOffset *= decay;
@@ -417,7 +399,6 @@ export class PlayerController {
     this.candidateBoxes.length = 0;
     this.boxPoolIndex = 0;
     
-    // 1. Zwykłe bryły
     for (let i = 0; i < this.collidableObjects.length; i++) {
       const obj = this.collidableObjects[i];
       if (obj.isInstancedMesh) continue;
@@ -427,7 +408,6 @@ export class PlayerController {
       this.candidateBoxes.push(box);
     }
 
-    // 2. Klocki wokół gracza
     if (this.collisionMap && this.collisionMap.size > 0) {
         const playerX = Math.round(this.player.position.x);
         const playerY = Math.round(this.player.position.y);
@@ -440,8 +420,8 @@ export class PlayerController {
         for (let x = playerX - rangeH; x <= playerX + rangeH; x++) {
             for (let z = playerZ - rangeH; z <= playerZ + rangeH; z++) {
                 for (let y = playerY - rangeV_Down; y <= playerY + rangeV_Up; y++) {
-                    const key = `${x},${y},${z}`;
-                    const block = this.collisionMap.get(key);
+                    const block = this.collisionMap.get(((x + 512) << 20) | ((z + 512) << 10) | (y + 100)) || 
+                                  this.collisionMap.get(`${x},${y},${z}`);
                     if (block) {
                         if (typeof block === 'object' && block.boundingBox) {
                             this.candidateBoxes.push(block.boundingBox);
@@ -460,7 +440,6 @@ export class PlayerController {
     let landedOnBlock = false;
     const numCandidates = this.candidateBoxes.length;
 
-    // --- OŚ Y ---
     const verticalMovement = this.velocity.y * deltaTime;
     this.player.position.y += verticalMovement;
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
@@ -485,7 +464,6 @@ export class PlayerController {
     
     this.playerBox.setFromCenterAndSize(this.player.position, this.playerDimensions);
 
-    // --- OŚ X (Autostep 1x1) ---
     const horizontalMovementX = this.velocity.x * deltaTime;
     if (Math.abs(horizontalMovementX) > 0.00001) {
         this.player.position.x += horizontalMovementX;
@@ -554,7 +532,6 @@ export class PlayerController {
         }
     }
 
-    // --- OŚ Z (Autostep 1x1) ---
     const horizontalMovementZ = this.velocity.z * deltaTime;
     if (Math.abs(horizontalMovementZ) > 0.00001) {
         this.player.position.z += horizontalMovementZ;
@@ -623,7 +600,6 @@ export class PlayerController {
         }
     }
 
-    // Podłoga świata
     if (this.player.position.y <= this.groundRestingY + halfHeight) {
         if (!landedOnBlock) {
             this.player.position.y = this.groundRestingY + halfHeight;
@@ -707,9 +683,6 @@ export class PlayerController {
   }
 }
 
-// ============================================================================
-// KONTROLER KAMERY TRZECIOOSOBOWEJ (ThirdPersonCameraController)
-// ============================================================================
 export class ThirdPersonCameraController {
     constructor(camera, target, domElement, collidableObjects, options = {}) {
         this.camera = camera;
@@ -736,6 +709,7 @@ export class ThirdPersonCameraController {
         this.offset = new THREE.Vector3();
         this.direction = new THREE.Vector3();
         this.cameraPosition = new THREE.Vector3();
+        this.activeCollidables = [];
         this.setupControls();
     }
 
@@ -858,12 +832,23 @@ export class ThirdPersonCameraController {
         
         const idealCameraPosition = this.cameraPosition.copy(targetPosition).add(offset);
 
-        // Kolizja kamery ze światem
         const direction = this.direction.subVectors(idealCameraPosition, targetPosition).normalize();
         this.raycaster.set(targetPosition, direction);
         this.raycaster.far = currentDistance;
         
-        const intersects = this.raycaster.intersectObjects(this.collidableObjects, false);
+        this.activeCollidables.length = 0;
+        const cutoff = currentDistance + 2.0;
+        for (let i = 0; i < this.collidableObjects.length; i++) {
+            const obj = this.collidableObjects[i];
+            if (obj.position && obj.position.distanceTo(targetPosition) <= cutoff + 10.0) {
+                this.activeCollidables.push(obj);
+            } else if (!obj.position) {
+                this.activeCollidables.push(obj);
+            }
+        }
+        
+        const testList = this.activeCollidables.length > 0 ? this.activeCollidables : this.collidableObjects;
+        const intersects = this.raycaster.intersectObjects(testList, false);
         
         if (intersects.length > 0) {
             currentDistance = Math.max(0.5, intersects[0].distance - 0.2);
