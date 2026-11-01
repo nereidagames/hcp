@@ -12,11 +12,9 @@
 
   <title>HyperCubesPlanet</title>
 
-  <!-- Ikona -->
   <link rel="icon" type="image/png" href="icons/favicon.png" />
   <link rel="apple-touch-icon" href="icons/favicon.png" />
 
-  <!-- Manifest -->
   <link rel="manifest" href="./manifest.json" crossorigin="use-credentials" />
 
   <meta name="mobile-web-app-capable" content="yes" />
@@ -40,14 +38,12 @@
   </script>
 </head>
 <body>
-  <!--STUDIO SCREEN -->
   <div id="studio-screen">
-    <div id="game-version" class="version-black">0.8.1 beta</div>
+    <div id="game-version" class="version-black">0.9.1 beta</div>
     <img id="studio-logo" src="icons/nereidastudio.png" alt="Nereida Studio">
   </div>
 
   <div id="loading-screen" style="display: none;">
-    <!-- Tło gradientowe -->
     <div class="loading-bg"></div>
     
     <div class="clouds-bsp-container">
@@ -78,8 +74,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Reszta kontenerów -->
   <div id="auth-layer" style="display:block; position:relative; z-index:99998;"></div>
   <div id="gameContainer"></div>
   <div id="ui-layer"></div>
@@ -88,7 +82,6 @@
 
   <script type="module" src="main.js"></script>
 
-  <!-- Rejestracja SW -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
