@@ -1,17 +1,12 @@
-// BlockManager.js
-const API_BASE_URL = 'https://hypercubes-nexus-server.onrender.com';
+import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 
-// --- DANE ZDEFINIOWANE POZA KLASĄ (GLOBALNIE W MODULE) ---
-// Dzięki temu są dostępne natychmiast i nie mogą zostać nadpisane przez błąd w konstruktorze.
 const MASTER_BLOCK_LIST = [
-    // --- PODSTAWOWE (0-5) ---
     { id: 1, name: 'Ziemia', texturePath: 'textures/ziemia.png', cost: 0, category: 'block' },
     { id: 2, name: 'Trawa', texturePath: 'textures/trawa.png', cost: 0, category: 'block' },
     { id: 3, name: 'Drewno', texturePath: 'textures/drewno.png', cost: 0, category: 'block' },
     { id: 4, name: 'Piasek', texturePath: 'textures/piasek.png', cost: 0, category: 'block' },
     { id: 5, name: 'Beton', texturePath: 'textures/beton.png', cost: 0, category: 'block' },
     
-    // --- SKLEP (6-20) ---
     { id: 6, name: 'Gładki', texturePath: 'textures/gladki.png', cost: 150, category: 'block' },
     { id: 7, name: 'Karton', texturePath: 'textures/karton.png', cost: 200, category: 'block' },
     { id: 8, name: 'Dżins', texturePath: 'textures/dzins.png', cost: 300, category: 'block' },
@@ -24,31 +19,27 @@ const MASTER_BLOCK_LIST = [
     { id: 15, name: 'Metalowa płyta', texturePath: 'textures/metalowaplyta.png', cost: 800, category: 'block' },
     { id: 16, name: 'Granit', texturePath: 'textures/granit.png', cost: 900, category: 'block' },
     { id: 17, name: 'Cukierek', texturePath: 'textures/cukierek.png', cost: 1200, category: 'block' },
-    { id: 18, name: 'ptok', texturePath: 'textures/ptok.png', cost: 6767, category: 'block' }, // NOWY BLOK
+    { id: 18, name: 'ptok', texturePath: 'textures/ptok.png', cost: 6767, category: 'block' },
 
-    // --- DODATKI / PARKOUR (100+) ---
     { id: 100, name: 'Parkour Start', texturePath: 'textures/beton.png', cost: 1000, category: 'addon' }, 
     { id: 101, name: 'Parkour Meta', texturePath: 'textures/drewno.png', cost: 1000, category: 'addon' },
     
-    // --- PANORAMY NIEBA (200+) ---
-    { id: 200, name: 'Clouds', texturePath: 'textures/sky/clouds.png', cost: 0, category: 'sky', isSky: true } // NOWA PANORAMA
+    { id: 200, name: 'Clouds', texturePath: 'textures/sky/clouds.png', cost: 0, category: 'sky', isSky: true }
 ];
 
 export class BlockManager {
     constructor() {
         this.ownedBlocks = new Set();
-        this.ownedSkies = new Set(); // NOWE: zbiór posiadanych panoram
-        console.log("BlockManager: Dane załadowane. Ilość:", MASTER_BLOCK_LIST.length);
+        this.ownedSkies = new Set();
     }
 
-    // Ta metoda ładuje darmowe bloki na start sesji
     load() {
         MASTER_BLOCK_LIST.forEach(block => {
-            if (block.cost === 0 && block.category !== 'sky') { // panoramy obsługujemy osobno
+            if (block.cost === 0 && block.category !== 'sky') {
                 this.ownedBlocks.add(block.name);
             }
             if (block.isSky && block.cost === 0) {
-                this.ownedSkies.add(block.id); // domyślnie Clouds
+                this.ownedSkies.add(block.id);
             }
         });
     }
@@ -58,7 +49,6 @@ export class BlockManager {
             try { blocksArray = JSON.parse(blocksArray); } catch (e) { blocksArray = []; }
         }
         
-        // Zawsze dodaj darmowe bloki
         MASTER_BLOCK_LIST.forEach(block => {
             if (block.cost === 0 && block.category !== 'sky') this.ownedBlocks.add(block.name);
         });
@@ -68,37 +58,30 @@ export class BlockManager {
         }
     }
     
-    // NOWA METODA: ustawianie posiadanych panoram
     setOwnedSkies(skiesArray) {
         if (typeof skiesArray === 'string') {
             try { skiesArray = JSON.parse(skiesArray); } catch (e) { skiesArray = []; }
         }
         
-        // Zawsze dodaj darmową panoramę Clouds (ID 200)
         this.ownedSkies.add(200);
 
         if (Array.isArray(skiesArray)) {
             skiesArray.forEach(skyId => this.ownedSkies.add(parseInt(skyId)));
         }
-        
-        console.log("☁️ Posiadane panoramy:", Array.from(this.ownedSkies));
     }
 
     isOwned(blockName) {
         return this.ownedBlocks.has(blockName);
     }
     
-    // NOWA METODA: sprawdzanie czy panorama jest posiadana
     isSkyOwned(skyId) {
         return this.ownedSkies.has(parseInt(skyId));
     }
 
-    // --- METODY KONWERSJI ---
-
     getIdByTexture(texturePath, blockName) {
         if (blockName === 'Parkour Start') return 100;
         if (blockName === 'Parkour Meta') return 101;
-        if (blockName === 'Clouds') return 200; // NOWA panorama
+        if (blockName === 'Clouds') return 200;
         const block = MASTER_BLOCK_LIST.find(b => b.texturePath === texturePath && b.category !== 'addon' && !b.isSky);
         return block ? block.id : 1; 
     }
@@ -117,7 +100,6 @@ export class BlockManager {
         return MASTER_BLOCK_LIST.find(b => b.id === id);
     }
     
-    // NOWA METODA: pobieranie informacji o panoramie
     getSkyById(id) {
         return MASTER_BLOCK_LIST.find(b => b.id === id && b.isSky);
     }
@@ -125,7 +107,7 @@ export class BlockManager {
     async buyBlock(blockName, cost) {
         if (this.isOwned(blockName)) return { success: false, message: "Już posiadasz ten element." };
 
-        const token = localStorage.getItem('bsp_clone_jwt_token');
+        const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
         if (!token) return { success: false, message: "Błąd autoryzacji." };
 
         try {
@@ -151,11 +133,10 @@ export class BlockManager {
         }
     }
     
-    // NOWA METODA: zakup panoramy
     async buySky(skyId, name, cost) {
         if (this.isSkyOwned(skyId)) return { success: false, message: "Już posiadasz tę panoramę." };
 
-        const token = localStorage.getItem('bsp_clone_jwt_token');
+        const token = localStorage.getItem(STORAGE_KEYS.JWT_TOKEN);
         if (!token) return { success: false, message: "Błąd autoryzacji." };
 
         try {
@@ -189,14 +170,11 @@ export class BlockManager {
         return MASTER_BLOCK_LIST.filter(block => this.isOwned(block.name) && block.category === category);
     }
     
-    // NOWA METODA: pobieranie posiadanych panoram
     getOwnedSkies() {
         return MASTER_BLOCK_LIST.filter(block => block.isSky && this.isSkyOwned(block.id));
     }
 
-    // !!! KLUCZOWA METODA DLA SKLEPU !!!
     getAllBlockDefinitions() {
-        // Zwracamy stałą z góry pliku. Nie ma opcji, żeby była pusta.
         return MASTER_BLOCK_LIST;
     }
 }
