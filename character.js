@@ -1,38 +1,33 @@
-/* PLIK: character.js */
-
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-export function createBaseCharacter(parentContainer) {
-    // POPRAWKA: Ujednolicenie na MeshBasicMaterial (brak niespójnego cieniowania nóg względem reszty ciała)
-    const legMaterial = new THREE.MeshBasicMaterial({ color: 0x2c3e50 });
-    const bootMaterial = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
+const sharedLegGeometry = new THREE.BoxGeometry(0.25, 0.8, 0.25);
+const sharedBootGeometry = new THREE.BoxGeometry(0.25, 0.2, 0.3);
+const sharedLegMaterial = new THREE.MeshBasicMaterial({ color: 0x2c3e50 });
+const sharedBootMaterial = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
 
-    const legWidth = 0.25;
-    const legHeight = 0.8;
-    const legDepth = 0.25;
-    const bootHeight = 0.2;
-    const bootDepth = 0.3;
+export function createBaseCharacter(parentContainer) {
     const legSeparation = 0.15;
-    
     const verticalOffset = -0.5; 
+    const bootHeight = 0.2;
+    const legHeight = 0.8;
 
     const bootCenterY = (bootHeight / 2) + verticalOffset;
     const legCenterY = (bootHeight + legHeight / 2) + verticalOffset;
 
-    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(legWidth, legHeight, legDepth), legMaterial);
+    const leftLeg = new THREE.Mesh(sharedLegGeometry, sharedLegMaterial);
     leftLeg.position.set(-legSeparation, legCenterY, 0);
     parentContainer.add(leftLeg);
 
-    const leftBoot = new THREE.Mesh(new THREE.BoxGeometry(legWidth, bootHeight, bootDepth), bootMaterial);
+    const leftBoot = new THREE.Mesh(sharedBootGeometry, sharedBootMaterial);
     leftBoot.position.set(-legSeparation, bootCenterY, 0.025);
     parentContainer.add(leftBoot);
 
-    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(legWidth, legHeight, legDepth), legMaterial);
+    const rightLeg = new THREE.Mesh(sharedLegGeometry, sharedLegMaterial);
     rightLeg.position.set(legSeparation, legCenterY, 0);
     parentContainer.add(rightLeg);
 
-    const rightBoot = new THREE.Mesh(new THREE.BoxGeometry(legWidth, bootHeight, bootDepth), bootMaterial);
+    const rightBoot = new THREE.Mesh(sharedBootGeometry, sharedBootMaterial);
     rightBoot.position.set(legSeparation, bootCenterY, 0.025);
     parentContainer.add(rightBoot);
 }
@@ -48,14 +43,23 @@ export class CharacterManager {
     this.tempCenter = new THREE.Vector3();
     this.sharedBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
     this.skinMeshCache = {};
+    this.lastVisibilityState = true;
   }
   
   loadCharacter() {
     if (this.character) {
+        if (this.character.chatBubble) {
+            if (this.character.chatBubble.element && this.character.chatBubble.element.parentNode) {
+                this.character.chatBubble.element.parentNode.removeChild(this.character.chatBubble.element);
+            }
+            this.character.chatBubble = null;
+        }
+        this.clearSkinContainer();
         this.scene.remove(this.character);
+        this.character = null;
     }
+
     this.character = new THREE.Group();
-    
     createBaseCharacter(this.character);
     
     this.skinContainer.scale.setScalar(0.125);
@@ -67,11 +71,29 @@ export class CharacterManager {
     this.scene.add(this.character);
     this.setupShadow();
   }
+
+  clearSkinContainer() {
+    while (this.skinContainer.children.length > 0) {
+        const child = this.skinContainer.children[0];
+        if (child.geometry && child.geometry !== this.sharedBoxGeometry) {
+            child.geometry.dispose();
+        }
+        if (child.material) {
+            if (Array.isArray(child.material)) {
+                child.material.forEach(m => {
+                    if (m !== this.materialsCache[m.userData?.texturePath]) {
+                        m.dispose();
+                    }
+                });
+            }
+        }
+        this.skinContainer.remove(child);
+    }
+  }
   
   applySkin(skinData) {
-    while(this.skinContainer.children.length > 0){ 
-        this.skinContainer.remove(this.skinContainer.children[0]); 
-    }
+    this.clearSkinContainer();
+
     if (!skinData || !Array.isArray(skinData) || skinData.length === 0) {
         return;
     }
@@ -95,6 +117,7 @@ export class CharacterManager {
             texture.magFilter = THREE.NearestFilter;
             texture.minFilter = THREE.NearestFilter;
             material = new THREE.MeshBasicMaterial({ map: texture });
+            material.userData.texturePath = texturePath;
             this.materialsCache[texturePath] = material;
         }
         
@@ -119,30 +142,24 @@ export class CharacterManager {
       const charCenter = this.tempCenter.set(this.character.position.x, this.character.position.y + 1.0, this.character.position.z);
       const dist = camera.position.distanceTo(charCenter);
 
-      const fadeStartDist = 1.3; 
       const fadeEndDist = 0.6;   
+      const shouldBeVisible = dist >= fadeEndDist;
 
-      let shouldBeVisible = true;
-
-      if (dist < fadeEndDist) {
-          shouldBeVisible = false;
-      } else if (dist < fadeStartDist && dist >= fadeEndDist) {
-          shouldBeVisible = true;
-      }
-
-      this.character.traverse((child) => {
-          if (child.isInstancedMesh) {
-              child.visible = shouldBeVisible;
+      if (this.lastVisibilityState !== shouldBeVisible) {
+          this.skinContainer.visible = shouldBeVisible;
+          if (this.shadow) {
+              this.shadow.visible = shouldBeVisible;
           }
-      });
-      
-      if (this.shadow) {
-          this.shadow.visible = shouldBeVisible;
+          this.lastVisibilityState = shouldBeVisible;
       }
   }
 
   setupShadow() {
-      if (this.shadow) this.scene.remove(this.shadow);
+      if (this.shadow) {
+          if (this.shadow.geometry) this.shadow.geometry.dispose();
+          if (this.shadow.material) this.shadow.material.dispose();
+          this.scene.remove(this.shadow);
+      }
       const shadowGeometry = new THREE.CircleGeometry(0.4, 32);
       const shadowMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 });
       this.shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
@@ -183,7 +200,7 @@ export class CharacterManager {
     setTimeout(() => {
       if (this.character && this.character.chatBubble === chatBubble) {
         this.character.remove(chatBubble);
-        if (chatBubble.element.parentNode) {
+        if (chatBubble.element && chatBubble.element.parentNode) {
             chatBubble.element.parentNode.removeChild(chatBubble.element);
         }
         this.character.chatBubble = null;
