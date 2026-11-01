@@ -1,5 +1,3 @@
-/* PLIK: BuildManager.js */
-
 import * as THREE from 'three';
 import { BuildCameraController } from './BuildCameraController.js';
 import { WorldStorage } from './WorldStorage.js';
@@ -7,7 +5,6 @@ import { PrefabStorage } from './PrefabStorage.js';
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 
 const BUILD_UI_HTML = `
-    <!-- UI BUILDERA -->
     <div class="build-top-left">
         <div id="build-exit-btn-new" class="btn-bsp-back"></div>
         <div class="btn-bsp-green" style="display:none;" id="build-chat-dummy">...</div>
@@ -23,7 +20,6 @@ const BUILD_UI_HTML = `
         <div class="btn-undo-redo">↪️</div>
     </div>
 
-    <!-- DEDYKOWANY JOYSTICK W KREATORZE ŚWIATÓW -->
     <div id="build-joystick-zone"></div>
 
     <div id="build-rotate-zone"></div>
@@ -107,6 +103,7 @@ export class BuildManager {
     this.placedBlocks = [];
     this.collidableBuildObjects = [];
     this.platform = null;
+    this.platformEdges = null;
     this.platformSize = 64;
     this.cameraController = null;
     
@@ -129,6 +126,8 @@ export class BuildManager {
     this.touchStartPosition = { x: 0, y: 0 };
     this.longPressTimer = null;
     this.isLongPress = false;
+
+    this.cachedThumbnailRenderer = null;
 
     this.onMouseMove = this.onMouseMove.bind(this);
     this.onMouseDown = this.onMouseDown.bind(this);
@@ -194,11 +193,16 @@ export class BuildManager {
       if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
       if (this.skyMesh.material) {
         if (Array.isArray(this.skyMesh.material)) {
-          this.skyMesh.material.forEach(m => m.dispose());
+          this.skyMesh.material.forEach(m => {
+            if (m.map) m.map.dispose();
+            m.dispose();
+          });
         } else {
+          if (this.skyMesh.material.map) this.skyMesh.material.map.dispose();
           this.skyMesh.material.dispose();
         }
       }
+      this.skyMesh = null;
     }
 
     if (skyId === 200) {
@@ -283,7 +287,6 @@ export class BuildManager {
     }
     this.cameraController = new BuildCameraController(this.game.camera, this.game.renderer.domElement);
 
-    // Bezbłędne wykrywanie ekranu dotykowego (niezależne od WebView APK Buildera)
     const isTouchDevice = Boolean(
         this.game.isMobile || 
         ('ontouchstart' in window) || 
@@ -605,9 +608,9 @@ export class BuildManager {
       this.scene.add(this.platform); 
       this.collidableBuildObjects.push(this.platform); 
       const edges = new THREE.EdgesGeometry(geometry); 
-      const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x8A2BE2, linewidth: 4 })); 
-      line.position.y = -0.5; 
-      this.scene.add(line); 
+      this.platformEdges = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x8A2BE2, linewidth: 4 })); 
+      this.platformEdges.position.y = -0.5; 
+      this.scene.add(this.platformEdges); 
   }
 
   createPreviewBlock() { 
@@ -698,10 +701,6 @@ export class BuildManager {
   onMouseMove(e) { 
       this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1; 
       this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1; 
-      if(this.isDraggingLine){ 
-          this.updateRaycast(); 
-          if(this.previewBlock && this.previewBlock.visible) this.updateLinePreview(this.previewBlock.position); 
-      } 
   }
   
   isEventOnUI(event) { 
@@ -787,10 +786,6 @@ export class BuildManager {
       if(this.isDraggingLine){ 
           this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1; 
           this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1; 
-          this.updateRaycast(); 
-          if(this.previewBlock && this.previewBlock.visible){ 
-              this.updateLinePreview(this.previewBlock.position); 
-          } 
       } else { 
           const deltaX = touch.clientX - this.touchStartPosition.x; 
           const deltaY = touch.clientY - this.touchStartPosition.y; 
@@ -850,8 +845,9 @@ export class BuildManager {
       if (this.cameraController) {
           this.cameraController.update(deltaTime); 
       }
-      if(!this.isDraggingLine){ 
-          this.updateRaycast(); 
+      this.updateRaycast();
+      if(this.isDraggingLine && this.previewBlock && this.previewBlock.visible){ 
+          this.updateLinePreview(this.previewBlock.position); 
       } 
   }
 
@@ -921,12 +917,19 @@ export class BuildManager {
       } 
   }
 
+  getThumbnailRenderer(width, height) {
+      if (!this.cachedThumbnailRenderer) {
+          this.cachedThumbnailRenderer = new THREE.WebGLRenderer({ alpha: false, antialias: true });
+      }
+      this.cachedThumbnailRenderer.setSize(width, height);
+      this.cachedThumbnailRenderer.setClearColor(0x87CEEB);
+      return this.cachedThumbnailRenderer;
+  }
+
   generateThumbnail() { 
       const width = 200; 
       const height = 150; 
-      const thumbnailRenderer = new THREE.WebGLRenderer({ alpha: false, antialias: true }); 
-      thumbnailRenderer.setSize(width, height); 
-      thumbnailRenderer.setClearColor(0x87CEEB); 
+      const thumbnailRenderer = this.getThumbnailRenderer(width, height); 
       const thumbnailScene = new THREE.Scene(); 
       const ambLight = new THREE.AmbientLight(0xffffff, 0.8); 
       thumbnailScene.add(ambLight); 
@@ -950,8 +953,13 @@ export class BuildManager {
       thumbnailCamera.lookAt(0, 0, 0); 
       thumbnailRenderer.render(thumbnailScene, thumbnailCamera); 
       const dataURL = thumbnailRenderer.domElement.toDataURL('image/jpeg', 0.8); 
-      thumbnailRenderer.dispose(); 
-      thumbnailRenderer.forceContextLoss?.();
+      
+      floorGeo.dispose();
+      floorMat.dispose();
+      while(thumbnailScene.children.length > 0){
+          thumbnailScene.remove(thumbnailScene.children[0]);
+      }
+      
       return dataURL; 
   }
   
@@ -1074,13 +1082,29 @@ export class BuildManager {
     this.collidableBuildObjects = [];
     this.placedBlocks = [];
     
+    if (this.platform) {
+        if (this.platform.geometry) this.platform.geometry.dispose();
+        if (this.platform.material) this.platform.material.dispose();
+        this.platform = null;
+    }
+
+    if (this.platformEdges) {
+        if (this.platformEdges.geometry) this.platformEdges.geometry.dispose();
+        if (this.platformEdges.material) this.platformEdges.material.dispose();
+        this.platformEdges = null;
+    }
+
     if (this.skyMesh) {
       this.scene.remove(this.skyMesh);
       if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
       if (this.skyMesh.material) {
         if (Array.isArray(this.skyMesh.material)) {
-          this.skyMesh.material.forEach(m => m.dispose());
+          this.skyMesh.material.forEach(m => {
+            if (m.map) m.map.dispose();
+            m.dispose();
+          });
         } else {
+          if (this.skyMesh.material.map) this.skyMesh.material.map.dispose();
           this.skyMesh.material.dispose();
         }
       }
@@ -1110,7 +1134,15 @@ export class BuildManager {
     Object.values(this.blockPreviewMaterials).forEach(m => m.dispose());
     this.blockPreviewMaterials = {};
     
+    this.scene.traverse((obj) => {
+        if (obj.isMesh && obj.geometry !== this.sharedBoxGeometry) {
+            obj.geometry.dispose();
+        }
+    });
+
     while(this.scene.children.length > 0){ this.scene.remove(this.scene.children[0]); }
+    this.scene.add(this.previewLineGroup);
+
     document.getElementById('build-ui-container').style.display = 'none';
 
     const rightUi = document.querySelector('.right-ui');
@@ -1119,7 +1151,6 @@ export class BuildManager {
     const buildElements = ['.build-top-left', '.build-sidebar-right', '.build-bottom-bar', '#build-rotate-zone'];
     buildElements.forEach(selector => { const el = document.querySelector(selector); if(el) el.style.display='none'; });
 
-    // Ukrycie joysticka i przywrócenie paska dolnego
     const buildJoy = document.getElementById('build-joystick-zone');
     if (buildJoy) {
         buildJoy.style.display = 'none';
