@@ -1,5 +1,3 @@
-/* PLIK: AudioManager.js */
-
 import * as THREE from 'three';
 import { STORAGE_KEYS } from './Config.js';
 
@@ -14,13 +12,14 @@ export class AudioManager {
 
         this.isMusicPlaying = false;
         this.currentTrack = null;
+        this.nexusBuffer = null;
+        this.isNexusLoading = false;
 
-        // Wczytanie głośności z cache (domyślnie 70%)
         const savedVolume = localStorage.getItem(STORAGE_KEYS.MUSIC_VOLUME);
         this.volumePercent = savedVolume !== null ? parseInt(savedVolume, 10) : 70;
 
-        // Muzyka logowania (HTML5 Audio)
         this.loginMusic = null;
+        this._loginFadeInterval = null;
         this.initLoginMusic();
     }
 
@@ -42,7 +41,6 @@ export class AudioManager {
 
         const fraction = this.volumePercent / 100;
 
-        // Natychmiastowa zmiana głośności odtwarzanej muzyki
         if (this.loginMusic) {
             this.loginMusic.volume = 0.5 * fraction;
         }
@@ -56,13 +54,15 @@ export class AudioManager {
         return this.volumePercent;
     }
 
-    // --- LOGIKA EKRANU LOGOWANIA ---
     playLoginMusic() {
         if (!this.loginMusic) return;
+        if (this._loginFadeInterval) {
+            clearInterval(this._loginFadeInterval);
+            this._loginFadeInterval = null;
+        }
         this.updateLoginMusicVolume();
 
         this.loginMusic.play().catch(() => {
-            console.warn("Autoplay zablokowany. Muzyka ruszy po pierwszym kliknięciu.");
             const clickHandler = () => {
                 if (this.loginMusic) this.loginMusic.play();
                 document.removeEventListener('click', clickHandler);
@@ -72,22 +72,26 @@ export class AudioManager {
     }
 
     stopLoginMusic() {
-        if (this.loginMusic) {
-            const baseTarget = 0.5 * (this.volumePercent / 100);
-            const fadeOut = setInterval(() => {
-                if (this.loginMusic.volume > 0.05) {
-                    this.loginMusic.volume -= 0.05;
-                } else {
-                    this.loginMusic.pause();
-                    this.loginMusic.currentTime = 0;
-                    this.loginMusic.volume = baseTarget;
-                    clearInterval(fadeOut);
-                }
-            }, 50);
+        if (!this.loginMusic) return;
+        if (this._loginFadeInterval) {
+            clearInterval(this._loginFadeInterval);
+            this._loginFadeInterval = null;
         }
+
+        const baseTarget = 0.5 * (this.volumePercent / 100);
+        this._loginFadeInterval = setInterval(() => {
+            if (this.loginMusic.volume > 0.05) {
+                this.loginMusic.volume = Math.max(0, this.loginMusic.volume - 0.05);
+            } else {
+                this.loginMusic.pause();
+                this.loginMusic.currentTime = 0;
+                this.loginMusic.volume = baseTarget;
+                clearInterval(this._loginFadeInterval);
+                this._loginFadeInterval = null;
+            }
+        }, 50);
     }
 
-    // --- LOGIKA MUZYKI W TLE (NEXUS) ---
     playNexusMusic() {
         if (this.isMusicPlaying && this.currentTrack === 'nexus') return;
 
@@ -95,8 +99,24 @@ export class AudioManager {
             this.stopMusic();
         }
 
-        console.log("Audio: Start Nexus OST");
+        this.currentTrack = 'nexus';
+
+        if (this.nexusBuffer) {
+            this.backgroundMusic.setBuffer(this.nexusBuffer);
+            this.backgroundMusic.setLoop(true);
+            this.backgroundMusic.setVolume(0.6 * (this.volumePercent / 100));
+            this.backgroundMusic.play();
+            this.isMusicPlaying = true;
+            return;
+        }
+
+        if (this.isNexusLoading) return;
+        this.isNexusLoading = true;
+
         this.audioLoader.load('sounds/nexus.mp3', (buffer) => {
+            this.nexusBuffer = buffer;
+            this.isNexusLoading = false;
+
             if (this.currentTrack !== 'nexus') return;
 
             this.backgroundMusic.setBuffer(buffer);
@@ -104,11 +124,9 @@ export class AudioManager {
             this.backgroundMusic.setVolume(0.6 * (this.volumePercent / 100));
             this.backgroundMusic.play();
             this.isMusicPlaying = true;
-        }, undefined, (err) => {
-            console.error("Audio Error:", err);
+        }, undefined, () => {
+            this.isNexusLoading = false;
         });
-
-        this.currentTrack = 'nexus';
     }
 
     stopMusic() {
