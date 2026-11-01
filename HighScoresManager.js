@@ -113,7 +113,7 @@ const TEMPLATE = `
             margin-top: 2px; 
         }
 
-        /* NAGŁÓWEK TABELI */
+        /* NAGŁOWEK TABELI */
         .hs-header-bar {
             background-color: #f1c40f;
             color: white; 
