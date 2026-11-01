@@ -1,5 +1,3 @@
-/* PLIK: HighScoresManager.js */
-
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 
 function getVipBadgeUrl(tier) {
