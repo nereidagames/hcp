@@ -1,5 +1,3 @@
-/* PLIK: GameStateManager.js */
-
 import * as THREE from 'three';
 
 export class GameStateManager {
@@ -35,7 +33,6 @@ export class GameStateManager {
     update(deltaTime) {
         if (this.currentState === 'Loading') return;
 
-        // WSPÓLNA OBSŁUGA DLA STANÓW Z RUCHEM
         const hasMovement = ['MainMenu', 'ExploreMode', 'DiggingMode'].includes(this.currentState);
         
         if (hasMovement) {
@@ -49,7 +46,6 @@ export class GameStateManager {
                 digging 
             } = this.managers;
 
-            // 1. Aktualizacja kamery i fizyki ruchu gracza
             if (playerController && cameraController && cameraController.update) {
                 const rot = cameraController.update(deltaTime);
                 if (playerController.update) {
@@ -57,12 +53,9 @@ export class GameStateManager {
                 }
             }
             
-            // 2. Aktualizacja wizualna postaci
             if (character && character.update) character.update(deltaTime);
 
-            // 3. Aktualizacje modułów zależne od stanu
             if (this.currentState === 'DiggingMode') {
-                // Logika kopania (oświetlenie, chunki, remote players kopalni)
                 if (digging && digging.update) {
                     digging.update(deltaTime);
                 }
@@ -74,8 +67,7 @@ export class GameStateManager {
                 if (coin && coin.update) coin.update(deltaTime);
             }
 
-            // 4. JEDNOKROTNY RENDER WŁAŚCIWEJ SCENY
-            let targetScene = this.core.scene; // domyślnie główna scena (Nexus)
+            let targetScene = this.core.scene;
             
             if (this.currentState === 'ExploreMode' && this.exploreScene) {
                 targetScene = this.exploreScene;
@@ -83,7 +75,6 @@ export class GameStateManager {
                 targetScene = digging.scene;
             }
             
-            // Jedyne wywołanie renderera w klatce dla stanów z ruchem
             this.core.render(targetScene);
         }
         else if (this.currentState === 'BuildMode' && this.managers.build) {
@@ -118,7 +109,6 @@ export class GameStateManager {
         const buttons = document.querySelector('.game-buttons');
         if (buttons) buttons.style.display = 'none';
         
-        // Kontrolery kamery i gracza pozostają aktywne
         if (this.managers.cameraController) {
             this.managers.cameraController.enabled = true;
         }
@@ -130,8 +120,6 @@ export class GameStateManager {
         if (this.managers.digging) {
             this.managers.digging.startDiggingMode();
         }
-        
-        console.log("Switched to DiggingMode");
     }
 
     exitDiggingMode() {
@@ -147,8 +135,6 @@ export class GameStateManager {
         this.toggleGameControls(true);
         
         if (this.audioManager) this.audioManager.playNexusMusic();
-        
-        console.log("Exited DiggingMode");
     }
 
     switchToExploreMode(scene) {
@@ -169,8 +155,31 @@ export class GameStateManager {
         if (this.managers.multiplayer) {
             this.managers.multiplayer.removeAllRemotePlayers();
         }
-        const bubbles = document.querySelectorAll('.chat-bubble');
+        const bubbles = document.querySelectorAll('.chat-bubble-styled');
         bubbles.forEach(b => b.remove());
+    }
+
+    disposeScene(scene) {
+        if (!scene) return;
+        scene.traverse((obj) => {
+            if (obj.geometry) {
+                obj.geometry.dispose();
+            }
+            if (obj.material) {
+                if (Array.isArray(obj.material)) {
+                    obj.material.forEach(m => {
+                        if (m.map) m.map.dispose();
+                        m.dispose();
+                    });
+                } else {
+                    if (obj.material.map) obj.material.map.dispose();
+                    obj.material.dispose();
+                }
+            }
+        });
+        while (scene.children.length > 0) {
+            scene.remove(scene.children[0]);
+        }
     }
 
     switchToBuildMode(size, isNexusMode = false, isLoginMapMode = false) {
@@ -233,10 +242,21 @@ export class GameStateManager {
             }
 
             if (this.managers.character && this.managers.character.character) {
+                if (this.exploreScene) {
+                    this.exploreScene.remove(this.managers.character.character);
+                    if (this.managers.character.shadow) {
+                        this.exploreScene.remove(this.managers.character.shadow);
+                    }
+                }
                 this.core.scene.add(this.managers.character.character);
                 if (this.managers.character.shadow) {
                     this.core.scene.add(this.managers.character.shadow);
                 }
+            }
+
+            if (this.exploreScene) {
+                this.disposeScene(this.exploreScene);
+                this.exploreScene = null;
             }
 
             const exitBtn = document.getElementById('explore-exit-button');
@@ -244,7 +264,6 @@ export class GameStateManager {
             
             this.currentState = 'MainMenu';
             this.toggleGameControls(true);
-            this.exploreScene = null; 
 
             if (this.onRecreateController) {
                 this.onRecreateController(null);
