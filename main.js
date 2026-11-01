@@ -1,5 +1,3 @@
-/* PLIK: main.js */
-
 import * as THREE from 'three';
 import Stats from 'three/addons/libs/stats.module.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'; 
@@ -116,7 +114,6 @@ class OptimizedGameCore {
 
 class BlockStarPlanetGame {
   constructor() {
-    console.log("Uruchamianie silnika gry (Performance Mode)...");
     this.isGameRunning = false; 
     this.emergencyTimeout = null;
     this.levelXpRequirements = [
@@ -151,7 +148,6 @@ class BlockStarPlanetGame {
     this.setupStats();
 
     this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    this.clock = new THREE.Clock();
 
     this.previewScene = null;
     this.previewCamera = null;
@@ -167,7 +163,6 @@ class BlockStarPlanetGame {
   handleInitialLoadingSequence() {
       this.emergencyTimeout = setTimeout(() => {
           if (!this.isGameRunning) {
-              console.warn("Awaryjny start po przekroczeniu limitu czasu ładowania.");
               this.onAssetsLoaded();
           }
       }, 7000);
@@ -193,8 +188,6 @@ class BlockStarPlanetGame {
       if (this.isGameRunning) return;
       this.isGameRunning = true;
       if (this.emergencyTimeout) clearTimeout(this.emergencyTimeout);
-
-      console.log("Zasoby załadowane. Inicjalizacja UI...");
       
       try {
         this.ui.initialize(this.isMobile);
@@ -210,7 +203,6 @@ class BlockStarPlanetGame {
             this.intro.start();
         }
       } catch (e) {
-          console.error("Błąd init:", e);
           this.intro.start();
       }
   }
@@ -231,8 +223,6 @@ class BlockStarPlanetGame {
   }
 
   async startGame(user, token, thumbnail) {
-      console.log("Start gry dla:", user.username);
-      
       this.audioManager.stopLoginMusic();
       this.audioManager.playNexusMusic();
 
@@ -249,7 +239,10 @@ class BlockStarPlanetGame {
       localStorage.setItem(STORAGE_KEYS.USER_ID, user.id);
 
       this.ui.updatePlayerName(user.username);
-      if (thumbnail) this.ui.updatePlayerAvatar(thumbnail);
+      if (thumbnail) {
+          localStorage.setItem('bsp_clone_player_avatar', thumbnail);
+          this.ui.updatePlayerAvatar(thumbnail);
+      }
       this.ui.checkAdminPermissions(user.username);
       this.ui.loadFriendsData();
 
@@ -261,11 +254,9 @@ class BlockStarPlanetGame {
           const maxXp = totalXp > 0 ? progress.maxXp : (parseInt(user.maxXp) || 100);
           this.ui.updateLevelInfo(level, xp, maxXp || 100);
 
-          // Saldo diamentów (3 na start)
           const diamonds = user.diamonds !== undefined && user.diamonds !== null ? user.diamonds : 3;
           this.ui.updateDiamondCounter(diamonds);
 
-          // Inicjalizacja rangi VIP i odliczania czasu
           this.ui.updateVipStatus(user.vipTier || 'none', user.vipUntil || null);
       }
       if (user.pendingXp) this.ui.updatePendingRewards(user.pendingXp);
@@ -339,7 +330,6 @@ class BlockStarPlanetGame {
           this.recreatePlayerController(targetCollidables, targetMap);
           this.stateManager.setManagers({ playerController: this.playerController });
 
-          // Reset kolizji kamery do Nexusa po wyjściu z innych światów
           if (this.cameraController && !collidables) {
               this.cameraController.collidableObjects = this.sceneManager.collidableObjects;
               this.cameraController.floorY = this.sceneManager.FLOOR_TOP_Y;
@@ -357,8 +347,31 @@ class BlockStarPlanetGame {
       const container = document.getElementById('player-preview-renderer-container'); 
       if (!container) return; 
       
+      if (this.previewScene) {
+          this.previewScene.traverse((obj) => {
+              if (obj.geometry) obj.geometry.dispose();
+              if (obj.material) {
+                  if (Array.isArray(obj.material)) {
+                      obj.material.forEach(m => {
+                          if (m.map) m.map.dispose();
+                          m.dispose();
+                      });
+                  } else {
+                      if (obj.material.map) obj.material.map.dispose();
+                      obj.material.dispose();
+                  }
+              }
+          });
+          while (this.previewScene.children.length > 0) {
+              this.previewScene.remove(this.previewScene.children[0]);
+          }
+      }
+
       if (this.previewRenderer) {
           this.previewRenderer.dispose();
+          if (this.previewRenderer.domElement && this.previewRenderer.domElement.parentNode) {
+              this.previewRenderer.domElement.parentNode.removeChild(this.previewRenderer.domElement);
+          }
           this.previewRenderer = null;
       }
 
@@ -439,7 +452,6 @@ class BlockStarPlanetGame {
           if (msg.type === 'privateMessageSent' && this.ui.onMessageSent) this.ui.onMessageSent(msg); 
           if (msg.type === 'privateMessageReceived' && this.ui.onMessageReceived) this.ui.onMessageReceived(msg); 
           
-          // Nasłuchiwanie aktualizacji VIP z serwera
           if (msg.type === 'vipUpdated') {
               this.ui.updateVipStatus(msg.vipTier, msg.vipUntil);
           }
@@ -558,7 +570,10 @@ class BlockStarPlanetGame {
           const data = await SkinStorage.loadSkinData(skinId); 
           if (data) { 
               this.characterManager.applySkin(data); 
-              this.ui.updatePlayerAvatar(thumbnail); 
+              if (thumbnail) {
+                  localStorage.setItem('bsp_clone_player_avatar', thumbnail);
+                  this.ui.updatePlayerAvatar(thumbnail);
+              }
               this.multiplayer.sendMessage({ type: 'mySkin', skinData: data }); 
               this.ui.showMessage(`Założono: ${skinName}`, 'success'); 
 
@@ -572,9 +587,7 @@ class BlockStarPlanetGame {
                       },
                       body: JSON.stringify({ skinId, thumbnail })
                   });
-              } catch (e) {
-                  console.error("Błąd zapisu skina na serwerze", e);
-              }
+              } catch (e) {}
           } 
       };
       
@@ -778,7 +791,7 @@ class BlockStarPlanetGame {
   animate() {
     requestAnimationFrame(() => this.animate());
     if (this.isFPSEnabled) this.stats.update();
-    const delta = Math.min(this.clock.getDelta(), 0.1);
+    const delta = Math.min(this.core.clock.getDelta(), 0.1);
     this.stateManager.update(delta);
 
     const previewPanel = document.getElementById('player-preview-panel');
