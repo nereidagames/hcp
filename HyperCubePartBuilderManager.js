@@ -1,5 +1,3 @@
-/* PLIK: HyperCubePartBuilderManager.js */
-
 import * as THREE from 'three';
 import { BuildCameraController } from './BuildCameraController.js';
 import { HyperCubePartStorage } from './HyperCubePartStorage.js';
@@ -16,6 +14,8 @@ export class HyperCubePartBuilderManager {
     this.placedBlocks = [];
     this.collidableBuildObjects = [];
     this.platform = null;
+    this.platformGrid = null;
+    this.platformEdges = null;
     this.platformSize = 16;
     this.cameraController = null;
     this.blockTypes = [];
@@ -29,6 +29,8 @@ export class HyperCubePartBuilderManager {
     this.touchStartPosition = { x: 0, y: 0 };
     this.longPressTimer = null;
     this.isLongPress = false;
+
+    this.cachedThumbnailRenderer = null;
 
     this.onMouseMove = this.onMouseMove.bind(this);
     this.onMouseDown = this.onMouseDown.bind(this);
@@ -60,7 +62,6 @@ export class HyperCubePartBuilderManager {
 
     this.preloadTextures();
     
-    // UI SETUP
     document.getElementById('build-ui-container').style.display = 'block';
     
     const buildElements = ['.build-top-left', '.build-sidebar-right', '.build-bottom-bar', '#build-rotate-zone'];
@@ -78,7 +79,6 @@ export class HyperCubePartBuilderManager {
     if (this.selectedBlockType) this.selectBlockType(this.selectedBlockType);
     this.updateHotbarUI();
     
-    // SCENA
     this.scene.background = new THREE.Color(0x5e3434); 
     this.scene.fog = new THREE.Fog(0x5e3434, 20, 100);
     
@@ -97,7 +97,6 @@ export class HyperCubePartBuilderManager {
     }
     this.cameraController = new BuildCameraController(this.game.camera, this.game.renderer.domElement);
     
-    // Na telefonie: brak joysticka i menu pozostaje w lewym rogu
     if (this.game.isMobile) {
         const mobileControls = document.getElementById('mobile-game-controls');
         const jumpBtn = document.getElementById('jump-button');
@@ -118,7 +117,6 @@ export class HyperCubePartBuilderManager {
         }
     }
     
-    // Wyłączenie joysticka w kontrolerze kamery
     this.cameraController.setIsMobile(this.game.isMobile, false);
     this.cameraController.distance = 25;
 
@@ -131,7 +129,10 @@ export class HyperCubePartBuilderManager {
     
     const blocks = Array.isArray(partData) ? partData : (partData.blocks || []);
     
-    this.placedBlocks.forEach(b => this.scene.remove(b));
+    this.placedBlocks.forEach(b => {
+        this.scene.remove(b);
+        if (b.geometry && b.geometry !== this.sharedBoxGeometry) b.geometry.dispose();
+    });
     this.placedBlocks = [];
     this.collidableBuildObjects = this.platform ? [this.platform] : [];
     
@@ -207,13 +208,13 @@ export class HyperCubePartBuilderManager {
     this.platform.position.y = -0.5;
     this.scene.add(this.platform);
     this.collidableBuildObjects.push(this.platform);
-    const gridHelper = new THREE.GridHelper(this.platformSize, this.platformSize);
-    gridHelper.position.y = 0.01;
-    this.scene.add(gridHelper);
+    this.platformGrid = new THREE.GridHelper(this.platformSize, this.platformSize);
+    this.platformGrid.position.y = 0.01;
+    this.scene.add(this.platformGrid);
     const edges = new THREE.EdgesGeometry(geometry);
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xecf0f1, linewidth: 2 }));
-    line.position.y = -0.5;
-    this.scene.add(line);
+    this.platformEdges = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xecf0f1, linewidth: 2 }));
+    this.platformEdges.position.y = -0.5;
+    this.scene.add(this.platformEdges);
   }
 
   createPreviewBlock() {
@@ -263,9 +264,11 @@ export class HyperCubePartBuilderManager {
   selectBlockType(blockType) {
       this.selectedBlockType = blockType;
       if (this.previewBlock) {
-        this.previewBlock.material = this.materials[blockType.texturePath].clone();
-        this.previewBlock.material.transparent = true;
-        this.previewBlock.material.opacity = 0.6;
+        if (this.previewBlock.material) this.previewBlock.material.dispose();
+        const nextMat = this.materials[blockType.texturePath].clone();
+        nextMat.transparent = true;
+        nextMat.opacity = 0.6;
+        this.previewBlock.material = nextMat;
       }
       this.updateHotbarUI();
   }
@@ -360,11 +363,18 @@ export class HyperCubePartBuilderManager {
     }
   }
 
+  getThumbnailRenderer(width, height) {
+      if (!this.cachedThumbnailRenderer) {
+          this.cachedThumbnailRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      }
+      this.cachedThumbnailRenderer.setSize(width, height);
+      return this.cachedThumbnailRenderer;
+  }
+
   generateThumbnail() {
     const width = 150;
     const height = 150;
-    const thumbnailRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    thumbnailRenderer.setSize(width, height);
+    const thumbnailRenderer = this.getThumbnailRenderer(width, height);
     const thumbnailScene = new THREE.Scene();
     const ambLight = new THREE.AmbientLight(0xffffff, 1.0);
     thumbnailScene.add(ambLight);
@@ -388,8 +398,11 @@ export class HyperCubePartBuilderManager {
     thumbnailCamera.lookAt(center);
     thumbnailRenderer.render(thumbnailScene, thumbnailCamera);
     const dataURL = thumbnailRenderer.domElement.toDataURL('image/png');
-    thumbnailRenderer.dispose();
-    thumbnailRenderer.forceContextLoss?.();
+    
+    while(thumbnailScene.children.length > 0){
+        thumbnailScene.remove(thumbnailScene.children[0]);
+    }
+    
     return dataURL;
   }
 
@@ -419,12 +432,35 @@ export class HyperCubePartBuilderManager {
     this.removeBuildEventListeners();
     this.collidableBuildObjects = [];
     this.placedBlocks = [];
-    while(this.scene.children.length > 0){ this.scene.remove(this.scene.children[0]); }
-    
+
+    if (this.platform) {
+        if (this.platform.geometry) this.platform.geometry.dispose();
+        if (this.platform.material) this.platform.material.dispose();
+        this.platform = null;
+    }
+
+    if (this.platformGrid) {
+        if (this.platformGrid.geometry) this.platformGrid.geometry.dispose();
+        if (this.platformGrid.material) this.platformGrid.material.dispose();
+        this.platformGrid = null;
+    }
+
+    if (this.platformEdges) {
+        if (this.platformEdges.geometry) this.platformEdges.geometry.dispose();
+        if (this.platformEdges.material) this.platformEdges.material.dispose();
+        this.platformEdges = null;
+    }
+
     if (this.previewBlock) {
-        if (this.previewBlock.geometry) this.previewBlock.geometry.dispose();
+        if (this.previewBlock.geometry && this.previewBlock.geometry !== this.sharedBoxGeometry) {
+            this.previewBlock.geometry.dispose();
+        }
+        if (this.previewBlock.material) this.previewBlock.material.dispose();
+        this.scene.remove(this.previewBlock);
         this.previewBlock = null;
     }
+
+    while(this.scene.children.length > 0){ this.scene.remove(this.scene.children[0]); }
 
     document.getElementById('build-ui-container').style.display = 'none';
     
