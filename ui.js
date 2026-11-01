@@ -1,5 +1,3 @@
-/* PLIK: ui.js */
-
 import { STORAGE_KEYS } from './Config.js';
 import { modalPreview } from './ModalPreview.js';
 import { FriendsManager } from './FriendsManager.js';
@@ -23,7 +21,7 @@ const HUD_HTML = `
             <div class="player-name text-outline" id="player-name-display">player</div>
         </div>
         
-        <div class="top-bar-item">
+        <div id="btn-mail-open" class="top-bar-item">
             <div class="player-avatar" style="background-image: url('icons/logo-poczta.png'); background-size: 90%; background-position: center; background-repeat: no-repeat; background-color: transparent;"></div>
             <div class="player-name text-outline">Poczta</div>
         </div>
@@ -63,7 +61,6 @@ const HUD_HTML = `
             <button class="game-btn btn-wiecej"></button>
         </div>
 
-        <!-- 1. Pasek Poziomu (Level) -->
         <div id="level-container" class="hud-stat-bar">
             <div class="level-star"><div id="level-value" class="text-outline">1</div></div>
             <div class="hud-bar-pill">
@@ -73,7 +70,6 @@ const HUD_HTML = `
             <div id="level-plus-btn" class="hud-plus-btn">+</div>
         </div>
 
-        <!-- 2. Pasek Monet (Coins) -->
         <div id="coin-counter" class="hud-stat-bar">
             <div class="hud-stat-icon coin-icon"></div>
             <div class="hud-bar-pill">
@@ -82,7 +78,6 @@ const HUD_HTML = `
             <div id="coin-add-btn" class="hud-plus-btn">+</div>
         </div>
 
-        <!-- 3. Pasek Diamentów (Diamonds) -->
         <div id="diamond-counter" class="hud-stat-bar">
             <div class="hud-stat-icon diamond-icon"></div>
             <div class="hud-bar-pill">
@@ -91,7 +86,6 @@ const HUD_HTML = `
             <div id="diamond-add-btn" class="hud-plus-btn">+</div>
         </div>
 
-        <!-- 4. Przycisk Koła Fortuny -->
         <div id="wheel-fortune-btn" class="ui-element" title="Koło Fortuny"></div>
     </div>
 
@@ -134,7 +128,6 @@ const GLOBAL_MODALS_HTML = `
         </div>
     </div>
 
-    <!-- OKNO MODALNE: OPCJE -->
     <div id="options-panel" class="panel-modal" style="display:none;">
         <div class="panel-content" style="background: transparent; border: none; box-shadow: none; padding: 0;">
             <div class="options-card">
@@ -247,11 +240,7 @@ export class UIManager {
         this.setupButtonHandlers();
         this.setupChatSystem(); 
         this.loadFriendsData(); 
-        
-        console.log("UI Inicjalizacja zakończona sukcesem.");
-    } catch (error) {
-        console.error("Błąd UI:", error);
-    }
+    } catch (error) {}
   }
   
   setupManagerCallbacks() {
@@ -734,7 +723,6 @@ export class UIManager {
   setupButtonHandlers() {
       const vipBtn = document.getElementById('btn-vip-corner');
       if (vipBtn) {
-          // Efekt wciśnięcia przycisku VIP aktywny tylko wtedy, gdy gracz NIE posiada aktywnej rangi
           vipBtn.addEventListener('mousedown', () => {
               if (!this.vipManager.isVipActive()) {
                   vipBtn.style.backgroundImage = "url('icons/icon-vip2.png')";
@@ -837,12 +825,8 @@ export class UIManager {
       const friendsBtn = document.getElementById('btn-friends-open'); 
       if (friendsBtn) friendsBtn.onclick = () => { this.friendsManager.open(); }; 
       
-      const topBarItems = document.querySelectorAll('.top-bar-item'); 
-      topBarItems.forEach(item => { 
-          if (item.textContent.includes('Poczta')) { 
-              item.onclick = () => { this.mailManager.open(); }; 
-          } 
-      });
+      const mailBtn = document.getElementById('btn-mail-open');
+      if (mailBtn) mailBtn.onclick = () => { this.mailManager.open(); };
       
       const chatToggle = document.getElementById('chat-toggle-button'); 
       if (chatToggle) chatToggle.addEventListener('click', () => this.handleChatClick());
@@ -858,12 +842,10 @@ export class UIManager {
       setClick('logout-btn', () => { localStorage.removeItem(STORAGE_KEYS.JWT_TOKEN); window.location.reload(); });
       setClick('btn-news-claim-all', () => { this.newsManager.claimReward(null); });
 
-      // Obsługa przycisków dodawania zasobów
       setClick('level-plus-btn', () => this.showMessage("Graj w Parkour i Kopanie, aby zdobywać XP!", "info"));
       setClick('coin-add-btn', () => this.showMessage("Sklep z monetami pojawi się wkrótce!", "info"));
       setClick('diamond-add-btn', () => this.showMessage("Sklep z diamentami pojawi się wkrótce!", "info"));
       
-      // Obsługa przycisku Koła Fortuny
       setClick('wheel-fortune-btn', () => {
           if (this.onWheelClick) {
               this.onWheelClick();
@@ -941,7 +923,5 @@ export class UIManager {
       return this.profileManager.formatMemberSince(dateString);
   }
   
-  showRewardPanel(data = null) { 
-      console.log("showRewardPanel - należy przekierować do ParkourManager");
-  }
+  showRewardPanel(data = null) {}
 }
