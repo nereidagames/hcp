@@ -1,5 +1,3 @@
-/* PLIK: BuildCameraController.js */
-
 import * as THREE from 'three';
 import { VirtualJoystick } from './controls.js';
 
@@ -8,10 +6,9 @@ export class BuildCameraController {
     this.camera = camera;
     this.domElement = domElement;
     
-    this.mode = 'orbital'; // 'orbital' lub 'free'
+    this.mode = 'orbital';
     this.target = new THREE.Vector3(0, 0, 0);
 
-    // Ustawienia kamery
     this.distance = 40;
     this.rotation = new THREE.Euler(0, 0, 0, 'YXZ');
     this.rotation.x = -Math.PI / 4; 
@@ -19,21 +16,22 @@ export class BuildCameraController {
     this.moveSpeed = 25; 
     this.keys = {};
 
-    // Stan myszy/dotyku
     this.isDragging = false;
     this.previousMousePosition = { x: 0, y: 0 };
     
-    // Obsługa urządzeń mobilnych
     this.isMobile = false;
     this.enableJoystick = true;
     this.cameraTouchId = null;
     this.joystick = null;
     this.joystickData = { x: 0, y: 0 };
 
+    this._tempMoveDir = new THREE.Vector3();
+    this._tempOffset = new THREE.Vector3();
+    this._upVector = new THREE.Vector3(0, 1, 0);
+
     this.boundOnKeyDown = this.onKeyDown.bind(this);
     this.boundOnKeyUp = this.onKeyUp.bind(this);
 
-    // Zabezpieczony uchwyt timeoutu
     this.bindTimeout = setTimeout(() => this.bindEvents(), 100);
     this.updateCameraPosition();
   }
@@ -53,7 +51,6 @@ export class BuildCameraController {
   }
 
   setupJoystick() {
-      // Pobieranie dedykowanej strefy w kreatorze światów
       const zone = document.getElementById('build-joystick-zone') || document.getElementById('joystick-zone');
       if (!zone) return;
 
@@ -62,7 +59,6 @@ export class BuildCameraController {
           this.joystick = null;
       }
 
-      // Duży, wygodny joystick w lewym dolnym rogu
       this.joystick = new VirtualJoystick(zone, {
           maxRadius: 48,
           fixed: true,
@@ -204,9 +200,9 @@ export class BuildCameraController {
 
   updateCameraPosition() {
     if (this.mode === 'orbital') {
-      const offset = new THREE.Vector3(0, 0, this.distance);
-      offset.applyEuler(this.rotation);
-      this.camera.position.copy(this.target).add(offset);
+      this._tempOffset.set(0, 0, this.distance);
+      this._tempOffset.applyEuler(this.rotation);
+      this.camera.position.copy(this.target).add(this._tempOffset);
       this.camera.lookAt(this.target);
     } else if (this.mode === 'free') {
       this.camera.quaternion.setFromEuler(this.rotation);
@@ -214,22 +210,20 @@ export class BuildCameraController {
   }
 
   update(deltaTime) {
-    const moveDir = new THREE.Vector3(0, 0, 0);
+    this._tempMoveDir.set(0, 0, 0);
     let hasInput = false;
 
-    // Joystick mobilny (sterowanie pozycją kamery/celu w przestrzeni)
     if (this.isMobile && (Math.abs(this.joystickData.x) > 0.01 || Math.abs(this.joystickData.y) > 0.01)) {
-        moveDir.z = -this.joystickData.y; 
-        moveDir.x = this.joystickData.x;
+        this._tempMoveDir.z = -this.joystickData.y; 
+        this._tempMoveDir.x = this.joystickData.x;
         hasInput = true;
     }
 
-    // Klawiatura (PC)
     if (!this.isMobile) {
-        if (this.keys['KeyW']) { moveDir.z = -1; hasInput = true; }
-        if (this.keys['KeyS']) { moveDir.z = 1; hasInput = true; }
-        if (this.keys['KeyA']) { moveDir.x = -1; hasInput = true; }
-        if (this.keys['KeyD']) { moveDir.x = 1; hasInput = true; }
+        if (this.keys['KeyW']) { this._tempMoveDir.z = -1; hasInput = true; }
+        if (this.keys['KeyS']) { this._tempMoveDir.z = 1; hasInput = true; }
+        if (this.keys['KeyA']) { this._tempMoveDir.x = -1; hasInput = true; }
+        if (this.keys['KeyD']) { this._tempMoveDir.x = 1; hasInput = true; }
         if (this.mode === 'free') {
             if (this.keys['Space']) this.camera.position.y += this.moveSpeed * deltaTime;
             if (this.keys['ShiftLeft']) this.camera.position.y -= this.moveSpeed * deltaTime;
@@ -237,17 +231,17 @@ export class BuildCameraController {
     }
 
     if (hasInput) {
-        if (moveDir.lengthSq() > 1) moveDir.normalize();
+        if (this._tempMoveDir.lengthSq() > 1) this._tempMoveDir.normalize();
 
         const yRotation = this.rotation.y;
-        moveDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), yRotation);
+        this._tempMoveDir.applyAxisAngle(this._upVector, yRotation);
 
-        const moveAmount = moveDir.multiplyScalar(this.moveSpeed * deltaTime);
+        this._tempMoveDir.multiplyScalar(this.moveSpeed * deltaTime);
 
         if (this.mode === 'free') {
-            this.camera.position.add(moveAmount);
+            this.camera.position.add(this._tempMoveDir);
         } else {
-            this.target.add(moveAmount);
+            this.target.add(this._tempMoveDir);
         }
     }
     
