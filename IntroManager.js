@@ -1,14 +1,10 @@
-/* PLIK: IntroManager.js */
-
 import * as THREE from 'three';
 import { STARTER_SKINS } from './StarterSkins.js';
 import { createBaseCharacter } from './character.js';
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 
-// Szablon HTML dla ekranu logowania
 const AUTH_HTML = `
 <style>
-    /* --- BSP LOGIN STYLE --- */
     #auth-screen {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: transparent;
@@ -307,6 +303,8 @@ export class IntroManager {
         this.targetLookAt = this.defaultLookAt.clone();
         
         this.skyMesh = null;
+        this.serverStarterSkins = null;
+        this._loginFadeInterval = null;
         
         this.injectAuthHTML();
     }
@@ -362,11 +360,16 @@ export class IntroManager {
             if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
             if (this.skyMesh.material) {
                 if (Array.isArray(this.skyMesh.material)) {
-                    this.skyMesh.material.forEach(m => m.dispose());
+                    this.skyMesh.material.forEach(m => {
+                        if (m.map) m.map.dispose();
+                        m.dispose();
+                    });
                 } else {
+                    if (this.skyMesh.material.map) this.skyMesh.material.map.dispose();
                     this.skyMesh.material.dispose();
                 }
             }
+            this.skyMesh = null;
         }
 
         const geometry = new THREE.SphereGeometry(500, 60, 40);
@@ -377,6 +380,16 @@ export class IntroManager {
         });
         this.skyMesh = new THREE.Mesh(geometry, material);
         this.scene.add(this.skyMesh);
+    }
+
+    getMaterial(texturePath) {
+        if (!this.materials[texturePath]) {
+            const tex = this.textureLoader.load(texturePath);
+            tex.magFilter = THREE.NearestFilter;
+            tex.minFilter = THREE.NearestFilter;
+            this.materials[texturePath] = new THREE.MeshBasicMaterial({ map: tex });
+        }
+        return this.materials[texturePath];
     }
 
     setupScene() {
@@ -432,6 +445,7 @@ export class IntroManager {
     async loadLoginMap() {
         while(this.mapGroup.children.length > 0) {
             const child = this.mapGroup.children[0];
+            if (child.geometry && child.geometry !== this.sharedGeometry) child.geometry.dispose();
             this.mapGroup.remove(child);
         }
 
@@ -484,16 +498,7 @@ export class IntroManager {
             const dummy = new THREE.Object3D();
 
             for (const [texturePath, blocks] of Object.entries(blocksByTexture)) {
-                let material = this.materials[texturePath];
-                if (!material) {
-                    const tex = this.textureLoader.load(texturePath);
-                    tex.magFilter = THREE.NearestFilter;
-                    tex.minFilter = THREE.NearestFilter; 
-                    // Spójny MeshBasicMaterial
-                    material = new THREE.MeshBasicMaterial({ map: tex });
-                    this.materials[texturePath] = material;
-                }
-
+                const material = this.getMaterial(texturePath);
                 const instancedMesh = new THREE.InstancedMesh(this.sharedGeometry, material, blocks.length);
                 instancedMesh.castShadow = false;
                 instancedMesh.receiveShadow = false;
@@ -509,17 +514,12 @@ export class IntroManager {
             }
 
         } catch (e) {
-            console.warn("Błąd mapy logowania:", e);
             this.createDefaultFloor();
         }
     }
 
     createDefaultFloor() {
-        const tex = this.textureLoader.load('textures/trawa.png');
-        tex.magFilter = THREE.NearestFilter;
-        // POPRAWKA: MeshBasicMaterial zamiast MeshLambertMaterial dla zachowania spójności oświetlenia
-        const mat = new THREE.MeshBasicMaterial({ map: tex });
-        
+        const mat = this.getMaterial('textures/trawa.png');
         const size = 10;
         const instancedMesh = new THREE.InstancedMesh(this.sharedGeometry, mat, size * size);
         const dummy = new THREE.Object3D();
@@ -618,19 +618,14 @@ export class IntroManager {
     updateSkinPreview() {
         if (!this.previewCharacter) return;
 
-        // Czyszczenie poprzednich części ze zwolnieniem geometrii i materiałów
         for (let i = this.previewCharacter.children.length - 1; i >= 0; i--) {
             const child = this.previewCharacter.children[i];
             if (child.type === 'Group') {
-                child.traverse(c => {
-                    if (c.isMesh) {
-                        if (c.geometry) c.geometry.dispose();
-                        if (c.material) {
-                            if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
-                            else c.material.dispose();
-                        }
-                    }
-                });
+                while (child.children.length > 0) {
+                    const c = child.children[0];
+                    if (c.geometry && c.geometry !== this.sharedGeometry) c.geometry.dispose();
+                    child.remove(c);
+                }
                 this.previewCharacter.remove(child);
             }
         }
@@ -644,12 +639,8 @@ export class IntroManager {
         skinGroup.position.y = 0.5;
 
         skinData.blocks.forEach(b => {
-            const geo = new THREE.BoxGeometry(1, 1, 1);
-            const tex = this.textureLoader.load(b.texturePath);
-            tex.magFilter = THREE.NearestFilter;
-            // POPRAWKA: MeshBasicMaterial zamiast MeshLambertMaterial
-            const mat = new THREE.MeshBasicMaterial({ map: tex });
-            const mesh = new THREE.Mesh(geo, mat);
+            const mat = this.getMaterial(b.texturePath);
+            const mesh = new THREE.Mesh(this.sharedGeometry, mat);
             mesh.position.set(b.x, b.y, b.z);
             skinGroup.add(mesh);
         });
@@ -699,7 +690,6 @@ export class IntroManager {
                 if (msg) msg.textContent = data.message || "Błąd logowania";
             }
         } catch (e) {
-            console.error(e);
             if (msg) msg.textContent = "Błąd połączenia";
         }
     }
@@ -753,11 +743,7 @@ export class IntroManager {
         if (this.previewCharacter) {
             this.previewCharacter.traverse(c => {
                 if (c.isMesh) {
-                    if (c.geometry) c.geometry.dispose();
-                    if (c.material) {
-                        if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
-                        else c.material.dispose();
-                    }
+                    if (c.geometry && c.geometry !== this.sharedGeometry) c.geometry.dispose();
                 }
             });
             this.scene.remove(this.previewCharacter);
@@ -769,8 +755,12 @@ export class IntroManager {
             if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
             if (this.skyMesh.material) {
                 if (Array.isArray(this.skyMesh.material)) {
-                    this.skyMesh.material.forEach(m => m.dispose());
+                    this.skyMesh.material.forEach(m => {
+                        if (m.map) m.map.dispose();
+                        m.dispose();
+                    });
                 } else {
+                    if (this.skyMesh.material.map) this.skyMesh.material.map.dispose();
                     this.skyMesh.material.dispose();
                 }
             }
@@ -781,10 +771,16 @@ export class IntroManager {
             this.scene.remove(this.mapGroup);
             while(this.mapGroup.children.length > 0) {
                 const child = this.mapGroup.children[0];
-                if(child.geometry) child.geometry.dispose();
+                if(child.geometry && child.geometry !== this.sharedGeometry) child.geometry.dispose();
                 this.mapGroup.remove(child);
             }
         }
+
+        Object.values(this.materials).forEach(m => {
+            if (m.map) m.map.dispose();
+            m.dispose();
+        });
+        this.materials = {};
         
         const ids = ['btn-show-login', 'btn-show-register', 'btn-login-cancel', 'btn-register-cancel', 'skin-prev', 'skin-next'];
         ids.forEach(id => {
