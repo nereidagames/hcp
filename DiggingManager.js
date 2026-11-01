@@ -1,5 +1,3 @@
-/* PLIK: DiggingManager.js - ZOPTYMALIZOWANY RAYCASTING I OBSŁUGA PAMIĘCI */
-
 import * as THREE from 'three';
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
 
@@ -417,7 +415,6 @@ const DIGGING_UI_HTML = `
     </div>
 `;
 
-// Paleta kolorów (bez tekstur)
 const COLORS = {
     stone: 0x808080,
     bedrock: 0x1E90FF,
@@ -435,7 +432,6 @@ const COLORS = {
     inferno: 0xFF0000
 };
 
-// Definicje rud
 const ORE_VALUES = {
     clay: 1, bone: 2, core: 3, radiation: 5,
     dream: 8, nightmare: 12, nether: 17, inferno: 25
@@ -448,7 +444,6 @@ const ORE_NAMES = {
     border_gold: 'Złota Ramka', border_black: 'Czarna Ramka'
 };
 
-// Ulepszenia
 const LASER_UPGRADES = [
     { name: 'Base Laser', power: 1.0, cost: 0 },
     { name: 'Super Laser', power: 3.0, cost: 25 },
@@ -467,16 +462,12 @@ const STORAGE_UPGRADES = [
     { name: 'Pocket Dimension', capacity: 75, cost: 400 }
 ];
 
-const LAVA_SURGE_DEPTHS = [16, 48, 80];
-
-// ROZMIAR CHUNKA - 16x16x16 bloków
 const CHUNK_SIZE = 16;
 
-// Dystans renderowania
 const RENDER_DISTANCE = {
-    x: 2,  // szerokość
-    z: 2,  // głębokość
-    y: 1   // wysokość
+    x: 2,
+    z: 2,
+    y: 1
 };
 
 export class DiggingManager {
@@ -484,54 +475,45 @@ export class DiggingManager {
         this.game = game;
         this.ui = uiManager;
         
-        // Scena
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x111122);
         
-        // Panorama nieba
         this.skyMesh = null;
-        this.currentSkyId = 200; // Domyślnie Clouds
+        this.currentSkyId = 200;
         
-        // Stan gry
         this.isActive = false;
         this.roomId = null;
         this.ws = null;
         this.roomPlayers = [];
         this.maxPlayers = 6;
         
-        // Remote players
         this.remotePlayers = new Map();
         
-        // Wymiary świata
         this.worldSize = 50;
         this.worldHeight = 120;
         this.halfSize = 25;
         
-        // SYSTEM CHUNKÓW
-        this.chunks = new Map(); // klucz "cx,cy,cz" -> { meshes, blockCount, visible }
-        this.chunkData = new Map(); // klucz bloku "x,y,z" -> { chunkKey, type, instanceIndex, mesh }
-        this.activeChunks = new Set(); // aktualnie widoczne chunki
-        this.lastPlayerChunk = null; // ostatni chunk w którym był gracz
+        this.chunks = new Map();
+        this.chunkData = new Map();
+        this.activeChunks = new Set();
+        this.lastPlayerChunk = null;
         
-        // ZOPTYMALIZOWANA PAMIĘĆ RAYCASTINGU I GEOMETRII
         this.cachedVisibleMeshes = [];
         this.lastRaycastMoveTime = 0;
         this.tempRaycastMatrix = new THREE.Matrix4();
         this.tempRaycastPosition = new THREE.Vector3();
         
         this.sharedGeometry = new THREE.BoxGeometry(1, 1, 1);
+        this.sharedMaterials = new Map();
         this.dummy = new THREE.Object3D();
         
-        // Kolizje
         this.collisionMap = new Map();
         
-        // Pozycja gracza
         this.playerPos = new THREE.Vector3(0, this.worldHeight - 1, 0);
         this.originalPlayerPos = null;
         this.originalCollidables = [];
         this.originalCollisionMap = null;
         
-        // Ekwipunek
         this.crystals = [];
         this.zoins = 0;
         this.score = 0;
@@ -539,11 +521,9 @@ export class DiggingManager {
         this.health = 100;
         this.maxHealth = 100;
         
-        // Ulepszenia
         this.laserLevel = 0;
         this.storageLevel = 0;
         
-        // Kopanie
         this.isMining = false;
         this.isMiningPressed = false;
         this.miningProgress = 0;
@@ -553,32 +533,41 @@ export class DiggingManager {
         this.miningTotalTime = 0;
         this.miningInterval = null;
         
-        // Raycaster z ograniczonym zasięgiem (zamiast Infinity)
         this.raycaster = new THREE.Raycaster();
         this.raycaster.far = 60;
         this.mouse = new THREE.Vector2();
         
-        // Inne
         this.playerLight = null;
         this.lavaWarningActive = false;
         this.lavaWarningTimer = null;
         this.lavaSurgeActive = false;
         
-        // Timer
         this.timerInterval = null;
         this.timeRemaining = 1800;
         
-        // Bindowanie zdarzeń
+        this.touchIdentifier = null;
+
         this.onMouseDown = this.onMouseDown.bind(this);
         this.onMouseUp = this.onMouseUp.bind(this);
         this.onMouseMove = this.onMouseMove.bind(this);
+        this.onTouchStart = this.onTouchStart.bind(this);
+        this.onTouchMove = this.onTouchMove.bind(this);
+        this.onTouchEnd = this.onTouchEnd.bind(this);
         this.onContextMenu = this.onContextMenu.bind(this);
         
-        // Oświetlenie i środowisko
         this.setupLighting();
         this.setSky(200);
         this.renderDiggingUI();
         this.setupDiggingUI();
+    }
+
+    getMaterialForType(type) {
+        if (!this.sharedMaterials.has(type)) {
+            const color = COLORS[type] || 0x808080;
+            const material = new THREE.MeshBasicMaterial({ color });
+            this.sharedMaterials.set(type, material);
+        }
+        return this.sharedMaterials.get(type);
     }
     
     setupLighting() {
@@ -603,11 +592,16 @@ export class DiggingManager {
             if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
             if (this.skyMesh.material) {
                 if (Array.isArray(this.skyMesh.material)) {
-                    this.skyMesh.material.forEach(m => m.dispose());
+                    this.skyMesh.material.forEach(m => {
+                        if (m.map) m.map.dispose();
+                        m.dispose();
+                    });
                 } else {
+                    if (this.skyMesh.material.map) this.skyMesh.material.map.dispose();
                     this.skyMesh.material.dispose();
                 }
             }
+            this.skyMesh = null;
         }
 
         if (skyId === 200) {
@@ -693,7 +687,6 @@ export class DiggingManager {
         return { cx, cy, cz, key: `${cx},${cy},${cz}` };
     }
     
-    // Aktualizuje listę widocznych meshy jednorazowo przy zmianie chunka
     updateCachedVisibleMeshes() {
         this.cachedVisibleMeshes.length = 0;
         this.activeChunks.forEach(chunkKey => {
@@ -754,8 +747,6 @@ export class DiggingManager {
         });
         
         this.activeChunks = shouldBeVisible;
-        
-        // ZOPTYMALIZOWANA AKTUALIZACJA: Przelicz listę meshy raz na zmianę chunka
         this.updateCachedVisibleMeshes();
     }
     
@@ -794,6 +785,10 @@ export class DiggingManager {
         window.addEventListener('mousedown', this.onMouseDown);
         window.addEventListener('mouseup', this.onMouseUp);
         window.addEventListener('mousemove', this.onMouseMove);
+        window.addEventListener('touchstart', this.onTouchStart, { passive: false });
+        window.addEventListener('touchmove', this.onTouchMove, { passive: false });
+        window.addEventListener('touchend', this.onTouchEnd);
+        window.addEventListener('touchcancel', this.onTouchEnd);
         window.addEventListener('contextmenu', this.onContextMenu);
         
         this.startTimer();
@@ -834,13 +829,11 @@ export class DiggingManager {
                 };
                 
                 this.ws.onerror = (error) => {
-                    console.error("WebSocket error:", error);
                     reject(error);
                 };
                 
                 this.ws.onclose = () => {};
             } catch (error) {
-                console.error("Failed to connect WebSocket:", error);
                 reject(error);
             }
         });
@@ -905,7 +898,6 @@ export class DiggingManager {
                 throw new Error("Failed to create or join room");
             }
         } catch (error) {
-            console.error("Room error:", error);
             this.ui.showMessage("Błąd łączenia z pokojem", "error");
         }
     }
@@ -1020,9 +1012,7 @@ export class DiggingManager {
         
         blocksByType.forEach((positions, type) => {
             const count = positions.length;
-            const color = COLORS[type] || 0x808080;
-            
-            const material = new THREE.MeshBasicMaterial({ color });
+            const material = this.getMaterialForType(type);
             const mesh = new THREE.InstancedMesh(this.sharedGeometry, material, count);
             
             mesh.castShadow = true;
@@ -1069,13 +1059,6 @@ export class DiggingManager {
             if (chunk.meshes) {
                 chunk.meshes.forEach(mesh => {
                     this.scene.remove(mesh);
-                    if (mesh.material) {
-                        if (Array.isArray(mesh.material)) {
-                            mesh.material.forEach(m => m.dispose());
-                        } else {
-                            mesh.material.dispose();
-                        }
-                    }
                 });
             }
         });
@@ -1184,14 +1167,6 @@ export class DiggingManager {
                     if (cacheIdx !== -1) {
                         this.cachedVisibleMeshes.splice(cacheIdx, 1);
                     }
-                    
-                    if (mesh.material) {
-                        if (Array.isArray(mesh.material)) {
-                            mesh.material.forEach(m => m.dispose());
-                        } else {
-                            mesh.material.dispose();
-                        }
-                    }
                 }
                 
                 if (chunk.meshes.length === 0) {
@@ -1203,7 +1178,6 @@ export class DiggingManager {
         return true;
     }
     
-    // ZOPTYMALIZOWANY RAYCASTING: Zero alokacji pamięci, brak pętli zbierającej meshe, recursive=false
     getBlockUnderCursor() {
         if (this.cachedVisibleMeshes.length === 0) return null;
 
@@ -1218,7 +1192,6 @@ export class DiggingManager {
             const instanceIndex = hit.instanceId;
             if (instanceIndex === undefined || instanceIndex < 0) continue;
             
-            // Użycie współdzielonej macierzy i wektora (zero śmieci dla GC)
             mesh.getMatrixAt(instanceIndex, this.tempRaycastMatrix);
             this.tempRaycastPosition.setFromMatrixPosition(this.tempRaycastMatrix);
             
@@ -1241,13 +1214,25 @@ export class DiggingManager {
         
         return null;
     }
+
+    isEventOnUI(event) {
+        const target = event.target;
+        return Boolean(
+            target.closest('.dig-top-bar') ||
+            target.closest('.dig-stats-panel') ||
+            target.closest('.dig-resources-panel') ||
+            target.closest('.dig-upgrades-panel') ||
+            target.closest('.dig-actions-panel') ||
+            target.closest('#mobile-game-controls') ||
+            target.closest('.panel-modal')
+        );
+    }
     
     onMouseMove(event) {
         if (!this.isActive) return;
         this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         
-        // ZOPTYMALIZOWANY THROTTLING: max 1 test na 50ms (20 FPS) zamiast setek na sekundę
         if (this.isMining && this.isMiningPressed) {
             const now = performance.now();
             if (now - this.lastRaycastMoveTime < 50) return;
@@ -1264,7 +1249,7 @@ export class DiggingManager {
     }
     
     onMouseDown(event) {
-        if (!this.isActive) return;
+        if (!this.isActive || this.isEventOnUI(event)) return;
         
         if (event.button === 0) {
             event.preventDefault();
@@ -1283,6 +1268,60 @@ export class DiggingManager {
             event.preventDefault();
             this.isMiningPressed = false;
             this.stopMining();
+        }
+    }
+
+    onTouchStart(event) {
+        if (!this.isActive || this.isEventOnUI(event)) return;
+        if (this.touchIdentifier !== null) return;
+
+        const touch = event.changedTouches[0];
+        if (!touch) return;
+
+        this.touchIdentifier = touch.identifier;
+        this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+
+        if (event.cancelable) event.preventDefault();
+        this.isMiningPressed = true;
+        this.startMining();
+    }
+
+    onTouchMove(event) {
+        if (!this.isActive) return;
+        for (let i = 0; i < event.changedTouches.length; i++) {
+            const touch = event.changedTouches[i];
+            if (touch.identifier === this.touchIdentifier) {
+                this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+                this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+
+                if (this.isMining && this.isMiningPressed) {
+                    const now = performance.now();
+                    if (now - this.lastRaycastMoveTime < 50) return;
+                    this.lastRaycastMoveTime = now;
+
+                    const currentTarget = this.getBlockUnderCursor();
+                    if (!currentTarget || currentTarget.key !== this.miningTargetKey) {
+                        this.stopMining();
+                        if (currentTarget) {
+                            this.startMining(currentTarget);
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    onTouchEnd(event) {
+        if (!this.isActive) return;
+        for (let i = 0; i < event.changedTouches.length; i++) {
+            if (event.changedTouches[i].identifier === this.touchIdentifier) {
+                this.touchIdentifier = null;
+                this.isMiningPressed = false;
+                this.stopMining();
+                break;
+            }
         }
     }
     
@@ -1611,9 +1650,7 @@ export class DiggingManager {
                     this.ui.updateCoinCounter(data.newCoins);
                 }
             }
-        } catch (error) {
-            console.error("Error submitting digging results:", error);
-        }
+        } catch (error) {}
     }
     
     endRound() {
@@ -1635,6 +1672,7 @@ export class DiggingManager {
     exitDiggingMode() {
         this.isActive = false;
         this.isMiningPressed = false;
+        this.touchIdentifier = null;
         this.stopMining();
         
         clearInterval(this.timerInterval);
@@ -1649,6 +1687,10 @@ export class DiggingManager {
         window.removeEventListener('mousedown', this.onMouseDown);
         window.removeEventListener('mouseup', this.onMouseUp);
         window.removeEventListener('mousemove', this.onMouseMove);
+        window.removeEventListener('touchstart', this.onTouchStart);
+        window.removeEventListener('touchmove', this.onTouchMove);
+        window.removeEventListener('touchend', this.onTouchEnd);
+        window.removeEventListener('touchcancel', this.onTouchEnd);
         window.removeEventListener('contextmenu', this.onContextMenu);
         
         if (this.game.characterManager?.character) {
@@ -1673,13 +1715,20 @@ export class DiggingManager {
             if (this.skyMesh.geometry) this.skyMesh.geometry.dispose();
             if (this.skyMesh.material) {
                 if (Array.isArray(this.skyMesh.material)) {
-                    this.skyMesh.material.forEach(m => m.dispose());
+                    this.skyMesh.material.forEach(m => {
+                        if (m.map) m.map.dispose();
+                        m.dispose();
+                    });
                 } else {
+                    if (this.skyMesh.material.map) this.skyMesh.material.map.dispose();
                     this.skyMesh.material.dispose();
                 }
             }
             this.skyMesh = null;
         }
+
+        this.sharedMaterials.forEach(material => material.dispose());
+        this.sharedMaterials.clear();
         
         this.remotePlayers.forEach(player => {
             this.scene.remove(player.mesh);
