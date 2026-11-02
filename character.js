@@ -6,8 +6,9 @@ export function createBaseCharacter(parentContainer, bootColor = 0x2c3e50) {
     LegsManager.preloadDefaultModel().then((modelScene) => {
         LegsManager.attachLegs(parentContainer, modelScene, {
             bootColor: bootColor,
-            scale: 1.0,
-            posY: -0.5
+            targetHeight: 0.8,
+            rotX: 0,
+            rotY: 0
         });
     }).catch(() => {});
 }
