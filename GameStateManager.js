@@ -99,15 +99,22 @@ export class GameStateManager {
         if (this.currentState !== 'MainMenu') return;
         
         if (this.audioManager) this.audioManager.stopMusic();
-        
         this.cleanUpMultiplayerEntities();
         
         this.currentState = 'DiggingMode';
         
-        document.querySelector('.ui-overlay').style.display = 'none';
+        const overlay = document.querySelector('.ui-overlay');
+        if (overlay) overlay.style.display = 'none';
         
         const buttons = document.querySelector('.game-buttons');
         if (buttons) buttons.style.display = 'none';
+
+        if (this.managers.character && this.managers.character.character) {
+            this.core.scene.remove(this.managers.character.character);
+            if (this.managers.character.shadow) {
+                this.core.scene.remove(this.managers.character.shadow);
+            }
+        }
         
         if (this.managers.cameraController) {
             this.managers.cameraController.enabled = true;
@@ -115,6 +122,7 @@ export class GameStateManager {
         
         if (this.managers.playerController) {
             this.managers.playerController.enabled = true;
+            this.managers.playerController.reset();
         }
         
         if (this.managers.digging) {
@@ -130,11 +138,7 @@ export class GameStateManager {
         }
         
         document.getElementById('digging-ui-container').style.display = 'none';
-        
-        this.currentState = 'MainMenu';
-        this.toggleGameControls(true);
-        
-        if (this.audioManager) this.audioManager.playNexusMusic();
+        this.returnToNexus();
     }
 
     switchToExploreMode(scene) {
@@ -143,7 +147,9 @@ export class GameStateManager {
         if (this.ui) this.ui.clearChat();
         this.exploreScene = scene;
         this.currentState = 'ExploreMode';
-        document.querySelector('.ui-overlay').style.display = 'block';
+        
+        const overlay = document.querySelector('.ui-overlay');
+        if (overlay) overlay.style.display = 'block';
         const buttons = document.querySelector('.game-buttons');
         if (buttons) buttons.style.display = 'none';
         this.ui.toggleMobileControls(true);
@@ -182,11 +188,66 @@ export class GameStateManager {
         }
     }
 
+    returnToNexus() {
+        if (this.ui) this.ui.clearChat();
+        
+        if (this.managers.character && this.managers.character.character) {
+            if (this.exploreScene) {
+                this.exploreScene.remove(this.managers.character.character);
+                if (this.managers.character.shadow) {
+                    this.exploreScene.remove(this.managers.character.shadow);
+                }
+            }
+            if (this.managers.digging && this.managers.digging.scene) {
+                this.managers.digging.scene.remove(this.managers.character.character);
+                if (this.managers.character.shadow) {
+                    this.managers.digging.scene.remove(this.managers.character.shadow);
+                }
+            }
+
+            this.core.scene.add(this.managers.character.character);
+            if (this.managers.character.shadow) {
+                this.core.scene.add(this.managers.character.shadow);
+            }
+
+            this.managers.character.character.position.set(0, 3, 0);
+        }
+
+        if (this.exploreScene) {
+            this.disposeScene(this.exploreScene);
+            this.exploreScene = null;
+        }
+
+        const exitBtn = document.getElementById('explore-exit-button');
+        if (exitBtn) exitBtn.style.display = 'none';
+
+        this.currentState = 'MainMenu';
+        this.toggleGameControls(true);
+
+        if (this.onRecreateController) {
+            this.onRecreateController(null);
+        }
+
+        if (this.managers.playerController) {
+            this.managers.playerController.reset();
+        }
+
+        if (this.managers.cameraController) {
+            this.managers.cameraController.reset();
+        }
+
+        if (this.managers.multiplayer) {
+            this.managers.multiplayer.setScene(this.core.scene);
+            this.managers.multiplayer.joinWorld('nexus');
+        }
+
+        if (this.audioManager) this.audioManager.playNexusMusic();
+    }
+
     switchToBuildMode(size, isNexusMode = false, isLoginMapMode = false) {
         if (this.currentState !== 'MainMenu') return;
         
         if (this.audioManager) this.audioManager.stopMusic();
-        
         this.cleanUpMultiplayerEntities();
         
         this.currentState = 'BuildMode';
@@ -232,44 +293,10 @@ export class GameStateManager {
         if (this.currentState === 'MainMenu') return;
 
         if (this.currentState === 'ExploreMode') {
-            if (this.ui) this.ui.clearChat();
-            if (this.managers.multiplayer) {
-                this.managers.multiplayer.joinWorld('nexus');
-                this.managers.multiplayer.setScene(this.core.scene);
-            }
             if (this.managers.parkour) {
                 this.managers.parkour.cleanup();
             }
-
-            if (this.managers.character && this.managers.character.character) {
-                if (this.exploreScene) {
-                    this.exploreScene.remove(this.managers.character.character);
-                    if (this.managers.character.shadow) {
-                        this.exploreScene.remove(this.managers.character.shadow);
-                    }
-                }
-                this.core.scene.add(this.managers.character.character);
-                if (this.managers.character.shadow) {
-                    this.core.scene.add(this.managers.character.shadow);
-                }
-            }
-
-            if (this.exploreScene) {
-                this.disposeScene(this.exploreScene);
-                this.exploreScene = null;
-            }
-
-            const exitBtn = document.getElementById('explore-exit-button');
-            if (exitBtn) exitBtn.style.display = 'none';
-            
-            this.currentState = 'MainMenu';
-            this.toggleGameControls(true);
-
-            if (this.onRecreateController) {
-                this.onRecreateController(null);
-            }
-
-            if (this.audioManager) this.audioManager.playNexusMusic();
+            this.returnToNexus();
         } 
         else {
             if (this.currentState === 'BuildMode') this.managers.build.exitBuildMode();
@@ -277,18 +304,7 @@ export class GameStateManager {
             else if (this.currentState === 'PrefabBuilderMode') this.managers.prefabBuild.exitBuildMode();
             else if (this.currentState === 'PartBuilderMode') this.managers.partBuild.exitBuildMode();
 
-            this.currentState = 'MainMenu';
-            this.toggleGameControls(true);
-            
-            if (this.managers.multiplayer) {
-                 this.managers.multiplayer.joinWorld('nexus');
-            }
-
-            if (this.onRecreateController) {
-                this.onRecreateController(null);
-            }
-
-            if (this.audioManager) this.audioManager.playNexusMusic();
+            this.returnToNexus();
         }
     }
 
