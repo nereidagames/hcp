@@ -336,8 +336,8 @@ const DIGGING_UI_HTML = `
         @media (max-width: 768px) {
             .dig-stats-panel { width: 220px; font-size: 14px; }
             .dig-resources-panel { width: 180px; }
-            .dig-upgrades-panel { width: 250px; }
-            .dig-actions-panel { width: 180px; }
+            .dig-upgrades-panel { width: 250px; bottom: 140px; }
+            .dig-actions-panel { width: 180px; bottom: 140px; }
             .dig-mining-progress { width: 300px; }
             .dig-timer, .dig-depth { font-size: 22px; }
         }
@@ -626,33 +626,6 @@ export class DiggingManager {
     }
 
     setupDiggingUI() {
-        const moveUp = document.getElementById('dig-move-up');
-        const moveDown = document.getElementById('dig-move-down');
-        const moveLeft = document.getElementById('dig-move-left');
-        const moveRight = document.getElementById('dig-move-right');
-        const moveForward = document.getElementById('dig-move-forward');
-        const moveBack = document.getElementById('dig-move-back');
-
-        if (moveUp) moveUp.onclick = () => { if (this.ui.onDiggingMove) this.ui.onDiggingMove('up'); };
-        if (moveDown) moveDown.onclick = () => { if (this.ui.onDiggingMove) this.ui.onDiggingMove('down'); };
-        if (moveLeft) moveLeft.onclick = () => { if (this.ui.onDiggingMove) this.ui.onDiggingMove('left'); };
-        if (moveRight) moveRight.onclick = () => { if (this.ui.onDiggingMove) this.ui.onDiggingMove('right'); };
-        if (moveForward) moveForward.onclick = () => { if (this.ui.onDiggingMove) this.ui.onDiggingMove('forward'); };
-        if (moveBack) moveBack.onclick = () => { if (this.ui.onDiggingMove) this.ui.onDiggingMove('back'); };
-
-        const mineBtn = document.getElementById('dig-mine-btn');
-        if (mineBtn) {
-            mineBtn.onclick = () => { if (this.ui.onDiggingMine) this.ui.onDiggingMine(); };
-            let pressTimer;
-            mineBtn.addEventListener('mousedown', () => {
-                pressTimer = setTimeout(() => {
-                    if (this.ui.onDiggingMine) this.ui.onDiggingMine('continuous');
-                }, 500);
-            });
-            mineBtn.addEventListener('mouseup', () => clearTimeout(pressTimer));
-            mineBtn.addEventListener('mouseleave', () => clearTimeout(pressTimer));
-        }
-
         const redeemBtn = document.getElementById('dig-redeem-btn');
         if (redeemBtn) redeemBtn.onclick = () => { if (this.ui.onDiggingRedeem) this.ui.onDiggingRedeem(); };
 
@@ -761,6 +734,7 @@ export class DiggingManager {
         if (this.game.playerController) {
             this.originalCollidables = [...this.game.playerController.collidableObjects];
             this.originalCollisionMap = this.game.playerController.collisionMap;
+            this.game.playerController.setMode('digging');
         }
         
         await this.connectWebSocket();
@@ -777,9 +751,31 @@ export class DiggingManager {
             }
         }
         
-        document.querySelector('.ui-overlay').style.display = 'none';
+        const uiOverlay = document.querySelector('.ui-overlay');
+        if (uiOverlay) uiOverlay.style.display = 'block';
+
+        const topBar = document.querySelector('.top-bar');
+        if (topBar) topBar.style.display = 'none';
+
+        const chat = document.querySelector('.chat-container');
+        if (chat) chat.style.display = 'none';
+
+        const rightUi = document.querySelector('.right-ui');
+        if (rightUi) rightUi.style.display = 'none';
+
         document.getElementById('digging-ui-container').style.display = 'block';
         
+        if (this.game.isMobile) {
+            this.ui.toggleMobileControls(true);
+            const joystickZone = document.getElementById('joystick-zone');
+            if (joystickZone) joystickZone.style.display = 'block';
+            const jumpButton = document.getElementById('jump-button');
+            if (jumpButton) jumpButton.style.display = 'block';
+            if (this.game.playerController) {
+                this.game.playerController.setIsMobile(true);
+            }
+        }
+
         this.updatePlayerCounter();
         
         window.addEventListener('mousedown', this.onMouseDown);
@@ -1224,6 +1220,10 @@ export class DiggingManager {
             target.closest('.dig-upgrades-panel') ||
             target.closest('.dig-actions-panel') ||
             target.closest('#mobile-game-controls') ||
+            target.closest('#joystick-zone') ||
+            target.closest('#jump-button') ||
+            target.closest('.custom-joystick-base') ||
+            target.closest('.custom-joystick-thumb') ||
             target.closest('.panel-modal')
         );
     }
@@ -1278,11 +1278,14 @@ export class DiggingManager {
         const touch = event.changedTouches[0];
         if (!touch) return;
 
+        if (touch.clientX < window.innerWidth * 0.45 && touch.clientY > window.innerHeight * 0.3) {
+            return;
+        }
+
         this.touchIdentifier = touch.identifier;
         this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
 
-        if (event.cancelable) event.preventDefault();
         this.isMiningPressed = true;
         this.startMining();
     }
@@ -1744,6 +1747,7 @@ export class DiggingManager {
         this.remotePlayers.clear();
         
         if (this.game.playerController) {
+            this.game.playerController.setMode('explore');
             this.game.playerController.collidableObjects = this.originalCollidables;
             this.game.playerController.collisionMap = this.originalCollisionMap;
         }
@@ -1753,15 +1757,22 @@ export class DiggingManager {
         }
         
         document.getElementById('digging-ui-container').style.display = 'none';
-        document.querySelector('.ui-overlay').style.display = 'block';
+
+        const topBar = document.querySelector('.top-bar');
+        if (topBar) topBar.style.display = 'flex';
+
+        const chat = document.querySelector('.chat-container');
+        if (chat) chat.style.display = 'flex';
+
+        const rightUi = document.querySelector('.right-ui');
+        if (rightUi) rightUi.style.display = 'flex';
         
         if (this.game.isMobile) {
-            document.getElementById('joystick-zone').style.display = 'block';
-        }
-        
-        const jumpButton = document.getElementById('jump-button');
-        if (jumpButton) {
-            jumpButton.style.display = this.game.isMobile ? 'block' : 'none';
+            this.ui.toggleMobileControls(true);
+            const joystickZone = document.getElementById('joystick-zone');
+            if (joystickZone) joystickZone.style.display = 'block';
+            const jumpButton = document.getElementById('jump-button');
+            if (jumpButton) jumpButton.style.display = 'block';
         }
     }
     
