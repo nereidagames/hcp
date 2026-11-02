@@ -510,7 +510,6 @@ export class DiggingManager {
         this.collisionMap = new Map();
         
         this.playerPos = new THREE.Vector3(0, this.worldHeight - 1, 0);
-        this.originalPlayerPos = null;
         this.originalCollidables = [];
         this.originalCollisionMap = null;
         
@@ -726,10 +725,6 @@ export class DiggingManager {
     async startDiggingMode() {
         this.isActive = true;
         this.resetRound();
-        
-        if (this.game.characterManager?.character) {
-            this.originalPlayerPos = this.game.characterManager.character.position.clone();
-        }
         
         if (this.game.playerController) {
             this.originalCollidables = [...this.game.playerController.collidableObjects];
@@ -1701,14 +1696,6 @@ export class DiggingManager {
             if (this.game.characterManager.shadow) {
                 this.scene.remove(this.game.characterManager.shadow);
             }
-            this.game.scene.add(this.game.characterManager.character);
-            if (this.game.characterManager.shadow) {
-                this.game.scene.add(this.game.characterManager.shadow);
-            }
-        }
-        
-        if (this.game.characterManager?.character && this.originalPlayerPos) {
-            this.game.characterManager.character.position.copy(this.originalPlayerPos);
         }
         
         this.clearAllChunks();
