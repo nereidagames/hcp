@@ -1,35 +1,15 @@
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { LegsManager } from './LegsManager.js';
 
-const sharedLegGeometry = new THREE.BoxGeometry(0.25, 0.8, 0.25);
-const sharedBootGeometry = new THREE.BoxGeometry(0.25, 0.2, 0.3);
-const sharedLegMaterial = new THREE.MeshBasicMaterial({ color: 0x2c3e50 });
-const sharedBootMaterial = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
-
-export function createBaseCharacter(parentContainer) {
-    const legSeparation = 0.15;
-    const verticalOffset = -0.5; 
-    const bootHeight = 0.2;
-    const legHeight = 0.8;
-
-    const bootCenterY = (bootHeight / 2) + verticalOffset;
-    const legCenterY = (bootHeight + legHeight / 2) + verticalOffset;
-
-    const leftLeg = new THREE.Mesh(sharedLegGeometry, sharedLegMaterial);
-    leftLeg.position.set(-legSeparation, legCenterY, 0);
-    parentContainer.add(leftLeg);
-
-    const leftBoot = new THREE.Mesh(sharedBootGeometry, sharedBootMaterial);
-    leftBoot.position.set(-legSeparation, bootCenterY, 0.025);
-    parentContainer.add(leftBoot);
-
-    const rightLeg = new THREE.Mesh(sharedLegGeometry, sharedLegMaterial);
-    rightLeg.position.set(legSeparation, legCenterY, 0);
-    parentContainer.add(rightLeg);
-
-    const rightBoot = new THREE.Mesh(sharedBootGeometry, sharedBootMaterial);
-    rightBoot.position.set(legSeparation, bootCenterY, 0.025);
-    parentContainer.add(rightBoot);
+export function createBaseCharacter(parentContainer, bootColor = 0x2c3e50) {
+    LegsManager.preloadDefaultModel().then((modelScene) => {
+        LegsManager.attachLegs(parentContainer, modelScene, {
+            bootColor: bootColor,
+            scale: 1.0,
+            posY: -0.5
+        });
+    }).catch(() => {});
 }
 
 export class CharacterManager {
@@ -46,7 +26,7 @@ export class CharacterManager {
     this.lastVisibilityState = true;
   }
   
-  loadCharacter() {
+  loadCharacter(bootColor = 0x2c3e50) {
     if (this.character) {
         if (this.character.chatBubble) {
             if (this.character.chatBubble.element && this.character.chatBubble.element.parentNode) {
@@ -60,7 +40,7 @@ export class CharacterManager {
     }
 
     this.character = new THREE.Group();
-    createBaseCharacter(this.character);
+    createBaseCharacter(this.character, bootColor);
     
     this.skinContainer.scale.setScalar(0.125);
     this.skinContainer.position.y = 0.5; 
@@ -70,6 +50,21 @@ export class CharacterManager {
     this.character.position.set(0, 5, 0); 
     this.scene.add(this.character);
     this.setupShadow();
+  }
+
+  setBootColor(colorHex) {
+      if (!this.character) return;
+      const legs = this.character.getObjectByName('character_legs_root');
+      if (legs) {
+          legs.traverse((child) => {
+              if (child.isMesh && child.material) {
+                  const matName = (child.material.name || '').toLowerCase();
+                  if (matName.includes('color_') || matName.includes('tint')) {
+                      child.material.color.set(colorHex);
+                  }
+              }
+          });
+      }
   }
 
   clearSkinContainer() {
@@ -147,6 +142,8 @@ export class CharacterManager {
 
       if (this.lastVisibilityState !== shouldBeVisible) {
           this.skinContainer.visible = shouldBeVisible;
+          const legs = this.character.getObjectByName('character_legs_root');
+          if (legs) legs.visible = shouldBeVisible;
           if (this.shadow) {
               this.shadow.visible = shouldBeVisible;
           }
