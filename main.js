@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import Stats from 'three/addons/libs/stats.module.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js'; 
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createBaseCharacter } from './character.js';
 
 import { API_BASE_URL, STORAGE_KEYS } from './Config.js';
@@ -223,6 +224,20 @@ class BlockStarPlanetGame {
   }
 
   async startGame(user, token, thumbnail) {
+      const testLoader = new GLTFLoader();
+      testLoader.load('models/legs/Legs_bee_wings.glb', (gltf) => {
+          console.log("=== STRUKTURA MODELU BEE WINGS ===");
+          console.log("Animacje:", gltf.animations.map(a => a.name));
+          gltf.scene.traverse((child) => {
+              if (child.isMesh) {
+                  console.log(`[MESH]: "${child.name}" | [MATERIAŁ]: "${child.material ? child.material.name : 'brak'}"`);
+              }
+          });
+          console.log("===================================");
+      }, undefined, (err) => {
+          console.error("Błąd ładowania modelu:", err);
+      });
+
       this.audioManager.stopLoginMusic();
       this.audioManager.playNexusMusic();
 
