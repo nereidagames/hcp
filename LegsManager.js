@@ -45,32 +45,57 @@ class LegsManagerClass {
             });
         }
 
-        const legsClone = modelScene.clone(true);
-        legsClone.name = 'character_legs_root';
+        const legsRoot = new THREE.Group();
+        legsRoot.name = 'character_legs_root';
+
+        const rawMeshClone = modelScene.clone(true);
 
         const bootColor = options.bootColor !== undefined ? options.bootColor : 0x2c3e50;
-        const scale = options.scale !== undefined ? options.scale : 1.0;
-        const posY = options.posY !== undefined ? options.posY : -0.5;
 
-        legsClone.scale.setScalar(scale);
-        legsClone.position.set(0, posY, 0);
-
-        legsClone.traverse((child) => {
+        rawMeshClone.traverse((child) => {
             if (child.isMesh && child.material) {
                 child.material = child.material.clone();
                 child.castShadow = false;
                 child.receiveShadow = false;
 
                 const matName = (child.material.name || '').toLowerCase();
-
                 if (matName.includes('color_') || matName.includes('tint')) {
                     child.material.color.set(bootColor);
                 }
             }
         });
 
-        parentContainer.add(legsClone);
-        return legsClone;
+        // 1. Obrót modelu pionowo (poprawka osi z Unity/Blender)
+        // Jeśli model leżał na podłodze, obracamy go o 90 stopni
+        const rotX = options.rotX !== undefined ? options.rotX : 0;
+        const rotY = options.rotY !== undefined ? options.rotY : 0;
+        rawMeshClone.rotation.set(rotX, rotY, 0);
+        rawMeshClone.updateMatrixWorld(true);
+
+        // 2. Automatyczne zmierzenie wymiarów modelu
+        let box = new THREE.Box3().setFromObject(rawMeshClone);
+        let size = box.getSize(new THREE.Vector3());
+
+        // Docelowa wysokość nóg w naszej grze to 0.8 jednostki
+        const targetHeight = options.targetHeight || 0.8;
+        const currentHeight = Math.max(size.y, 0.001);
+        const autoScale = targetHeight / currentHeight;
+
+        rawMeshClone.scale.setScalar(autoScale);
+        rawMeshClone.updateMatrixWorld(true);
+
+        // 3. Wycentrowanie modelu w osi X i Z oraz postawienie stóp na Y = -0.5 (poziom podłoża)
+        box = new THREE.Box3().setFromObject(rawMeshClone);
+        const center = box.getCenter(new THREE.Vector3());
+
+        rawMeshClone.position.x = -center.x;
+        rawMeshClone.position.z = -center.z;
+        rawMeshClone.position.y = -box.min.y - 0.5;
+
+        legsRoot.add(rawMeshClone);
+        parentContainer.add(legsRoot);
+
+        return legsRoot;
     }
 }
 
