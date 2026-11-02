@@ -644,7 +644,7 @@ class BlockStarPlanetGame {
   setupPositionUpdateLoop() { 
       if (this.positionUpdateInterval) clearInterval(this.positionUpdateInterval); 
       this.positionUpdateInterval = setInterval(() => { 
-          if ((this.stateManager.currentState === 'MainMenu' || this.stateManager.currentState === 'ExploreMode') && this.characterManager && this.characterManager.character) { 
+          if (this.stateManager.currentState === 'MainMenu' && this.characterManager && this.characterManager.character) { 
               if(this.multiplayer) { 
                   this.multiplayer.sendMyPosition(this.characterManager.character.position, this.characterManager.character.quaternion); 
               } 
