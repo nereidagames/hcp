@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { LegsManager } from './LegsManager.js';
+import { STARTER_SKINS } from './StarterSkins.js';
 
 export function createBaseCharacter(parentContainer, bootColor = 0x2c3e50) {
     LegsManager.preloadDefaultModel().then((modelScene) => {
         LegsManager.attachLegs(parentContainer, modelScene, {
             bootColor: bootColor,
-            targetHeight: 0.8,
-            rotX: 0,
-            rotY: 0
+            targetHeight: 1.0,
+            rotX: -Math.PI / 2, // Pionowanie skrzydeł
+            rotY: Math.PI       // Skrzydła z tyłu, buty do przodu
         });
     }).catch(() => {});
 }
@@ -45,6 +46,11 @@ export class CharacterManager {
     
     this.skinContainer.scale.setScalar(0.125);
     this.skinContainer.position.y = 0.5; 
+    
+    // Na start nakładamy domyślny starter, aby gracz NIGDY nie był niewidoczny
+    if (STARTER_SKINS && STARTER_SKINS[0]) {
+        this.applySkin(STARTER_SKINS[0].blocks);
+    }
     
     this.character.add(this.skinContainer);
     
