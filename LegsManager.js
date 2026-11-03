@@ -49,7 +49,6 @@ class LegsManagerClass {
         legsRoot.name = 'character_legs_root';
 
         const rawMeshClone = modelScene.clone(true);
-
         const bootColor = options.bootColor !== undefined ? options.bootColor : 0x2c3e50;
 
         rawMeshClone.traverse((child) => {
@@ -65,26 +64,27 @@ class LegsManagerClass {
             }
         });
 
-        // 1. Obrót modelu pionowo (poprawka osi z Unity/Blender)
-        // Jeśli model leżał na podłodze, obracamy go o 90 stopni
-        const rotX = options.rotX !== undefined ? options.rotX : 0;
-        const rotY = options.rotY !== undefined ? options.rotY : 0;
-        rawMeshClone.rotation.set(rotX, rotY, 0);
+        // 1. Postawienie modelu pionowo (-90 stopni na X usuwa leżenie plackiem z Unity)
+        const rotX = options.rotX !== undefined ? options.rotX : -Math.PI / 2;
+        const rotY = options.rotY !== undefined ? options.rotY : Math.PI;
+        const rotZ = options.rotZ !== undefined ? options.rotZ : 0;
+        
+        rawMeshClone.rotation.set(rotX, rotY, rotZ);
         rawMeshClone.updateMatrixWorld(true);
 
-        // 2. Automatyczne zmierzenie wymiarów modelu
+        // 2. Dokładny pomiar stojącego pionowo modelu
         let box = new THREE.Box3().setFromObject(rawMeshClone);
         let size = box.getSize(new THREE.Vector3());
 
-        // Docelowa wysokość nóg w naszej grze to 0.8 jednostki
-        const targetHeight = options.targetHeight || 0.8;
+        // Docelowa wysokość nóg i skrzydeł (ok. 1.0 jednostki)
+        const targetHeight = options.targetHeight || 1.0;
         const currentHeight = Math.max(size.y, 0.001);
         const autoScale = targetHeight / currentHeight;
 
         rawMeshClone.scale.setScalar(autoScale);
         rawMeshClone.updateMatrixWorld(true);
 
-        // 3. Wycentrowanie modelu w osi X i Z oraz postawienie stóp na Y = -0.5 (poziom podłoża)
+        // 3. Wycentrowanie stóp na ziemi (Y = -0.5) pod klockowym tułowiem
         box = new THREE.Box3().setFromObject(rawMeshClone);
         const center = box.getCenter(new THREE.Vector3());
 
