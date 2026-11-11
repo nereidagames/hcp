@@ -4,12 +4,27 @@ import { LegsManager } from './LegsManager.js';
 import { STARTER_SKINS } from './StarterSkins.js';
 
 export function createBaseCharacter(parentContainer, bootColor = 0x2c3e50) {
+    // 1. Natychmiastowy tymczasowy dół, aby postać NIGDY nie była pusta / niewidoczna
+    const tempLegs = new THREE.Group();
+    tempLegs.name = 'character_legs_root';
+    const legMat = new THREE.MeshBasicMaterial({ color: bootColor });
+    const legGeo = new THREE.BoxGeometry(0.25, 0.8, 0.25);
+    
+    const leftLeg = new THREE.Mesh(legGeo, legMat);
+    leftLeg.position.set(-0.15, -0.1, 0);
+    tempLegs.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(legGeo, legMat);
+    rightLeg.position.set(0.15, -0.1, 0);
+    tempLegs.add(rightLeg);
+
+    parentContainer.add(tempLegs);
+
+    // 2. Asynchroniczna podmiana na właściwy model .glb skrzydeł i butów
     LegsManager.preloadDefaultModel().then((modelScene) => {
         LegsManager.attachLegs(parentContainer, modelScene, {
             bootColor: bootColor,
-            targetHeight: 1.0,
-            rotX: -Math.PI / 2, // Pionowanie skrzydeł
-            rotY: Math.PI       // Skrzydła z tyłu, buty do przodu
+            targetHeight: 0.85
         });
     }).catch(() => {});
 }
@@ -24,7 +39,6 @@ export class CharacterManager {
     this.materialsCache = {};
     this.tempCenter = new THREE.Vector3();
     this.sharedBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
-    this.skinMeshCache = {};
     this.lastVisibilityState = true;
   }
   
@@ -47,7 +61,7 @@ export class CharacterManager {
     this.skinContainer.scale.setScalar(0.125);
     this.skinContainer.position.y = 0.5; 
     
-    // Na start nakładamy domyślny starter, aby gracz NIGDY nie był niewidoczny
+    // Zawsze gwarantujemy obecność bloków tułowia, aby postać nigdy nie znikała
     if (STARTER_SKINS && STARTER_SKINS[0]) {
         this.applySkin(STARTER_SKINS[0].blocks);
     }
@@ -66,7 +80,7 @@ export class CharacterManager {
           legs.traverse((child) => {
               if (child.isMesh && child.material) {
                   const matName = (child.material.name || '').toLowerCase();
-                  if (matName.includes('color_') || matName.includes('tint')) {
+                  if (matName.includes('color_') || matName.includes('tint') || matName.includes('boot')) {
                       child.material.color.set(colorHex);
                   }
               }
@@ -79,15 +93,6 @@ export class CharacterManager {
         const child = this.skinContainer.children[0];
         if (child.geometry && child.geometry !== this.sharedBoxGeometry) {
             child.geometry.dispose();
-        }
-        if (child.material) {
-            if (Array.isArray(child.material)) {
-                child.material.forEach(m => {
-                    if (m !== this.materialsCache[m.userData?.texturePath]) {
-                        m.dispose();
-                    }
-                });
-            }
         }
         this.skinContainer.remove(child);
     }
