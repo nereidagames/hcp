@@ -33,68 +33,83 @@ class LegsManagerClass {
         });
     }
 
+    createStaticLegsGroup(sourceScene, bootColor) {
+        const root = new THREE.Group();
+        root.name = 'character_legs_root';
+
+        sourceScene.updateMatrixWorld(true);
+
+        sourceScene.traverse((child) => {
+            if (child.isMesh) {
+                const geo = child.geometry.clone();
+                const mat = child.material.clone();
+                mat.castShadow = false;
+                mat.receiveShadow = false;
+
+                const matName = (mat.name || '').toLowerCase();
+                if (matName.includes('color_') || matName.includes('tint') || matName.includes('boot')) {
+                    mat.color.set(bootColor);
+                }
+
+                const staticMesh = new THREE.Mesh(geo, mat);
+                
+                child.updateWorldMatrix(true, false);
+                staticMesh.applyMatrix4(child.matrixWorld);
+
+                root.add(staticMesh);
+            }
+        });
+
+        return root;
+    }
+
     attachLegs(parentContainer, modelScene, options = {}) {
         const oldLegs = parentContainer.getObjectByName('character_legs_root');
         if (oldLegs) {
             parentContainer.remove(oldLegs);
             oldLegs.traverse((c) => {
-                if (c.isMesh && c.material) {
-                    if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
-                    else c.material.dispose();
+                if (c.isMesh) {
+                    if (c.geometry) c.geometry.dispose();
+                    if (c.material) {
+                        if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+                        else c.material.dispose();
+                    }
                 }
             });
         }
 
-        const legsRoot = new THREE.Group();
-        legsRoot.name = 'character_legs_root';
-
-        const rawMeshClone = modelScene.clone(true);
         const bootColor = options.bootColor !== undefined ? options.bootColor : 0x2c3e50;
+        const legsRoot = this.createStaticLegsGroup(modelScene, bootColor);
 
-        rawMeshClone.traverse((child) => {
-            if (child.isMesh && child.material) {
-                child.material = child.material.clone();
-                child.castShadow = false;
-                child.receiveShadow = false;
-
-                const matName = (child.material.name || '').toLowerCase();
-                if (matName.includes('color_') || matName.includes('tint')) {
-                    child.material.color.set(bootColor);
-                }
-            }
-        });
-
-        // 1. Postawienie modelu pionowo (-90 stopni na X usuwa leżenie plackiem z Unity)
-        const rotX = options.rotX !== undefined ? options.rotX : -Math.PI / 2;
-        const rotY = options.rotY !== undefined ? options.rotY : Math.PI;
-        const rotZ = options.rotZ !== undefined ? options.rotZ : 0;
-        
-        rawMeshClone.rotation.set(rotX, rotY, rotZ);
-        rawMeshClone.updateMatrixWorld(true);
-
-        // 2. Dokładny pomiar stojącego pionowo modelu
-        let box = new THREE.Box3().setFromObject(rawMeshClone);
+        // 1. Sprawdzenie czy model leży plackiem (jeśli głębokość Z jest większa niż wysokość Y)
+        let box = new THREE.Box3().setFromObject(legsRoot);
         let size = box.getSize(new THREE.Vector3());
 
-        // Docelowa wysokość nóg i skrzydeł (ok. 1.0 jednostki)
-        const targetHeight = options.targetHeight || 1.0;
+        if (size.z > size.y * 1.2) {
+            legsRoot.rotation.x = -Math.PI / 2;
+            legsRoot.rotation.y = Math.PI;
+            legsRoot.updateMatrixWorld(true);
+            box = new THREE.Box3().setFromObject(legsRoot);
+            size = box.getSize(new THREE.Vector3());
+        }
+
+        // 2. Skalowanie do wzrostu nóg postaci (ok. 0.85 jednostki)
+        const targetHeight = options.targetHeight || 0.85;
         const currentHeight = Math.max(size.y, 0.001);
-        const autoScale = targetHeight / currentHeight;
+        const scaleFactor = targetHeight / currentHeight;
 
-        rawMeshClone.scale.setScalar(autoScale);
-        rawMeshClone.updateMatrixWorld(true);
+        legsRoot.scale.setScalar(scaleFactor);
+        legsRoot.updateMatrixWorld(true);
 
-        // 3. Wycentrowanie stóp na ziemi (Y = -0.5) pod klockowym tułowiem
-        box = new THREE.Box3().setFromObject(rawMeshClone);
+        // 3. Wyśrodkowanie pod postacią i oparcie butów o podłoże (Y = -0.5)
+        box = new THREE.Box3().setFromObject(legsRoot);
         const center = box.getCenter(new THREE.Vector3());
 
-        rawMeshClone.position.x = -center.x;
-        rawMeshClone.position.z = -center.z;
-        rawMeshClone.position.y = -box.min.y - 0.5;
+        legsRoot.position.x = -center.x;
+        legsRoot.position.z = -center.z;
+        legsRoot.position.y = -box.min.y - 0.5;
 
-        legsRoot.add(rawMeshClone);
         parentContainer.add(legsRoot);
-
         return legsRoot;
     }
 }
