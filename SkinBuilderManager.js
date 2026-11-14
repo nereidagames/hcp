@@ -91,9 +91,7 @@ export class SkinBuilderManager {
     this.createBuildPlatform();
     
     this.baseCharacterVisuals = new THREE.Group();
-    createBaseCharacter(this.baseCharacterVisuals);
-    this.baseCharacterVisuals.scale.setScalar(8);
-    this.baseCharacterVisuals.position.set(0, -4.0, 0);
+    createBaseCharacter(this.baseCharacterVisuals, 0x2c3e50, true);
     this.scene.add(this.baseCharacterVisuals);
 
     this.createPreviewBlock();
@@ -464,9 +462,7 @@ export class SkinBuilderManager {
     
     const box = new THREE.Box3();
     const thumbLegs = new THREE.Group();
-    createBaseCharacter(thumbLegs);
-    thumbLegs.scale.setScalar(8);
-    thumbLegs.position.set(0, -4.0, 0);
+    createBaseCharacter(thumbLegs, 0x2c3e50, true);
     thumbnailScene.add(thumbLegs);
     box.expandByObject(thumbLegs);
     
@@ -491,8 +487,7 @@ export class SkinBuilderManager {
     const dataURL = thumbnailRenderer.domElement.toDataURL('image/png');
     
     thumbLegs.traverse(c => {
-        if (c.isMesh && c.geometry) c.geometry.dispose();
-        if (c.isMesh && c.material) c.material.dispose();
+        if (c.isMesh && c.geometry && c.geometry !== this.sharedBoxGeometry) c.geometry.dispose();
     });
     
     while(thumbnailScene.children.length > 0){
@@ -573,9 +568,8 @@ export class SkinBuilderManager {
 
     if (this.baseCharacterVisuals) {
         this.baseCharacterVisuals.traverse(c => {
-            if (c.isMesh) {
-                if (c.geometry) c.geometry.dispose();
-                if (c.material) c.material.dispose();
+            if (c.isMesh && c.geometry && c.geometry !== this.sharedBoxGeometry) {
+                c.geometry.dispose();
             }
         });
         this.scene.remove(this.baseCharacterVisuals);
