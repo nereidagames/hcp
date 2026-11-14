@@ -3,28 +3,26 @@ import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { LegsManager } from './LegsManager.js';
 import { STARTER_SKINS } from './StarterSkins.js';
 
-export function createBaseCharacter(parentContainer, bootColor = 0x2c3e50) {
-    // 1. Natychmiastowy tymczasowy dół, aby postać NIGDY nie była pusta / niewidoczna
+export function createBaseCharacter(parentContainer, bootColor = 0x2c3e50, isBuilder = false) {
     const tempLegs = new THREE.Group();
     tempLegs.name = 'character_legs_root';
     const legMat = new THREE.MeshBasicMaterial({ color: bootColor });
-    const legGeo = new THREE.BoxGeometry(0.25, 0.8, 0.25);
+    const legGeo = new THREE.BoxGeometry(0.25, 0.6, 0.25);
     
     const leftLeg = new THREE.Mesh(legGeo, legMat);
-    leftLeg.position.set(-0.15, -0.1, 0);
+    leftLeg.position.set(-0.15, -0.075, 0);
     tempLegs.add(leftLeg);
 
     const rightLeg = new THREE.Mesh(legGeo, legMat);
-    rightLeg.position.set(0.15, -0.1, 0);
+    rightLeg.position.set(0.15, -0.075, 0);
     tempLegs.add(rightLeg);
 
     parentContainer.add(tempLegs);
 
-    // 2. Asynchroniczna podmiana na właściwy model .glb skrzydeł i butów
     LegsManager.preloadDefaultModel().then((modelScene) => {
         LegsManager.attachLegs(parentContainer, modelScene, {
             bootColor: bootColor,
-            targetHeight: 0.85
+            isBuilder: isBuilder
         });
     }).catch(() => {});
 }
@@ -56,12 +54,14 @@ export class CharacterManager {
     }
 
     this.character = new THREE.Group();
-    createBaseCharacter(this.character, bootColor);
+    createBaseCharacter(this.character, bootColor, false);
     
+    // Tułów i głowa: wysokość 1.0m (8 klocków * 0.125), zaczynają się na pasie (Y = +0.225)
+    // Spód stóp jest na Y = -0.375, a czubek głowy na Y = +1.225. Łącznie = 1.6m!
+    // Hitbox ma wysokość 0.75m (-0.375 do +0.375), więc od Y = +0.375 postać przenika sufity 1x1!
     this.skinContainer.scale.setScalar(0.125);
-    this.skinContainer.position.y = 0.5; 
+    this.skinContainer.position.set(0, 0.225, 0); 
     
-    // Zawsze gwarantujemy obecność bloków tułowia, aby postać nigdy nie znikała
     if (STARTER_SKINS && STARTER_SKINS[0]) {
         this.applySkin(STARTER_SKINS[0].blocks);
     }
@@ -146,7 +146,7 @@ export class CharacterManager {
   updateTransparency(camera) {
       if (!this.character) return;
 
-      const charCenter = this.tempCenter.set(this.character.position.x, this.character.position.y + 1.0, this.character.position.z);
+      const charCenter = this.tempCenter.set(this.character.position.x, this.character.position.y + 0.45, this.character.position.z);
       const dist = camera.position.distanceTo(charCenter);
 
       const fadeEndDist = 0.6;   
@@ -201,7 +201,7 @@ export class CharacterManager {
     div.textContent = message;
     
     const chatBubble = new CSS2DObject(div);
-    chatBubble.position.set(0, 1.9, 0); 
+    chatBubble.position.set(0, 1.6, 0); 
     
     this.character.add(chatBubble);
     this.character.chatBubble = chatBubble;
