@@ -57,7 +57,7 @@ export class CharacterManager {
     createBaseCharacter(this.character, bootColor, false);
     
     // Tułów i głowa: wysokość 1.0m (8 klocków * 0.125), zaczynają się na pasie (Y = +0.225)
-    // Spód stóp jest na Y = -0.375, a czubek głowy na Y = +1.225. Łącznie = 1.6m!
+    // Spód butów jest na Y = -0.375, a czubek głowy na Y = +1.225. Łącznie = 1.6m!
     // Hitbox ma wysokość 0.75m (-0.375 do +0.375), więc od Y = +0.375 postać przenika sufity 1x1!
     this.skinContainer.scale.setScalar(0.125);
     this.skinContainer.position.set(0, 0.225, 0); 
