@@ -78,15 +78,47 @@ class LegsManagerClass {
         const isBuilder = options.isBuilder === true;
         const legsRoot = this.createStaticLegsGroup(modelScene, bootColor);
 
-        // 1. Postawienie modelu pionowo (-90 stopni na X, 180 stopni na Y)
-        legsRoot.rotation.x = -Math.PI / 2;
-        legsRoot.rotation.y = Math.PI;
-        legsRoot.updateMatrixWorld(true);
-
+        // 1. Sprawdzenie orientacji: jeśli model leży plackiem (Z > Y), prostujemy go do pionu
         let box = new THREE.Box3().setFromObject(legsRoot);
         let size = box.getSize(new THREE.Vector3());
 
-        // 2. Skalowanie: pełna wysokość skrzydeł (1.55m w grze, 8x większe w kreatorze)
+        if (size.z > size.y * 1.3) {
+            legsRoot.rotation.x = -Math.PI / 2;
+            legsRoot.updateMatrixWorld(true);
+            box = new THREE.Box3().setFromObject(legsRoot);
+            size = box.getSize(new THREE.Vector3());
+        }
+
+        // 2. Wykrywanie przodu i tyłu: buty mają być z przodu (-Z), skrzydła z tyłu (+Z)
+        let bootsZ = 0;
+        let wingsZ = 0;
+        let foundBoots = false;
+        let foundWings = false;
+
+        legsRoot.traverse((child) => {
+            if (child.isMesh) {
+                const cBox = new THREE.Box3().setFromObject(child);
+                const cCenter = cBox.getCenter(new THREE.Vector3());
+                const matName = (child.material.name || '').toLowerCase();
+                if (matName.includes('color_') || matName.includes('boot')) {
+                    bootsZ = cCenter.z;
+                    foundBoots = true;
+                } else {
+                    wingsZ = cCenter.z;
+                    foundWings = true;
+                }
+            }
+        });
+
+        if (foundBoots && foundWings && wingsZ < bootsZ) {
+            legsRoot.rotation.y += Math.PI;
+            legsRoot.updateMatrixWorld(true);
+        }
+
+        // 3. Skalowanie: skrzydła w pełnej skali (1.55m w grze, 8x w kreatorze)
+        box = new THREE.Box3().setFromObject(legsRoot);
+        size = box.getSize(new THREE.Vector3());
+
         const targetHeight = isBuilder ? (1.55 * 8) : 1.55;
         const currentHeight = Math.max(size.y, 0.001);
         const scaleFactor = targetHeight / currentHeight;
@@ -94,21 +126,21 @@ class LegsManagerClass {
         legsRoot.scale.setScalar(scaleFactor);
         legsRoot.updateMatrixWorld(true);
 
-        // 3. Pozycjonowanie
+        // 4. Pozycjonowanie
         box = new THREE.Box3().setFromObject(legsRoot);
         const center = box.getCenter(new THREE.Vector3());
 
         if (isBuilder) {
             // W KREATORZE: Buty opierają się na Y = -4.8 (pod platformą),
-            // a skrzydła wznoszą się z tyłu (Z = -2.2) ponad platformę budowania
+            // a skrzydła wznoszą się z tyłu (Z = -2.5) za siatką budowania
             legsRoot.position.x = -center.x;
-            legsRoot.position.z = -center.z - 2.2;
+            legsRoot.position.z = -center.z - 2.5;
             legsRoot.position.y = -box.min.y - 4.8;
         } else {
-            // W GRZE: Spód butów styka się z dołem hitboxa (Y = -0.375),
-            // a skrzydła rozpościerają się za plecami postaci (Z = -0.28)
+            // W GRZE: Buty stoją na ziemi (Y = -0.375),
+            // a skrzydła wznoszą się z tyłu za plecami postaci
             legsRoot.position.x = -center.x;
-            legsRoot.position.z = -center.z - 0.28;
+            legsRoot.position.z = -center.z - 0.15;
             legsRoot.position.y = -box.min.y - 0.375;
         }
 
