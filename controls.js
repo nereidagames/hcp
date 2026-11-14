@@ -157,7 +157,7 @@ export class PlayerController {
     this.defaultGroundRestingY = this.groundRestingY;
 
     this.maxStepHeight = options.maxStepHeight || 1.05; 
-    this.playerDimensions = options.playerDimensions || new THREE.Vector3(0.5, 1.0, 0.5);
+    this.playerDimensions = options.playerDimensions || new THREE.Vector3(0.75, 0.75, 0.75);
 
     this.velocity = new THREE.Vector3();
     this.isOnGround = true;
@@ -208,10 +208,10 @@ export class PlayerController {
       this.velocity.y = 0;
       this.isOnGround = true;
       this.groundRestingY = -200;
-      this.playerDimensions.set(0.48, 1.0, 0.48);
+      this.playerDimensions.set(0.48, 0.75, 0.48);
     } else {
       this.groundRestingY = this.defaultGroundRestingY;
-      this.playerDimensions.set(0.5, 1.0, 0.5);
+      this.playerDimensions.set(0.75, 0.75, 0.75);
     }
   }
 
@@ -693,13 +693,13 @@ export class ThirdPersonCameraController {
         this.raycaster = new THREE.Raycaster();
 
         this.distance = options.distance || 5;
-        this.height = options.height || 2;
+        this.height = options.height || 0.6;
         this.rotationSpeed = options.rotationSpeed || 0.005;
         this.rotation = 0;
         this.isDragging = false;
         this.mousePosition = { x: 0, y: 0 };
         this.enabled = true;
-        this.pitch = 0.5;
+        this.pitch = 0.45;
         this.minPitch = -Math.PI / 2 + 0.001;
         this.maxPitch = Math.PI / 2 - 0.001;
         this.floorY = options.floorY || 0;
@@ -724,7 +724,7 @@ export class ThirdPersonCameraController {
         this.isDragging = false;
         this.cameraTouchId = null;
         this.rotation = 0;
-        this.pitch = 0.5;
+        this.pitch = 0.45;
         this.update(); 
     }
 
@@ -813,7 +813,7 @@ export class ThirdPersonCameraController {
         if (!this.enabled || !this.target) return 0;
         
         let currentDistance = this.distance;
-        const targetHeight = 1.0; 
+        const targetHeight = this.height; 
         
         const targetPosition = this.targetPosition.set(
             this.target.position.x, 
