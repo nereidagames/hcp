@@ -52,7 +52,6 @@ class LegsManagerClass {
                 }
 
                 const staticMesh = new THREE.Mesh(geo, mat);
-                
                 child.updateWorldMatrix(true, false);
                 staticMesh.applyMatrix4(child.matrixWorld);
 
@@ -68,46 +67,50 @@ class LegsManagerClass {
         if (oldLegs) {
             parentContainer.remove(oldLegs);
             oldLegs.traverse((c) => {
-                if (c.isMesh) {
-                    if (c.geometry) c.geometry.dispose();
-                    if (c.material) {
-                        if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
-                        else c.material.dispose();
-                    }
+                if (c.isMesh && c.material) {
+                    if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+                    else c.material.dispose();
                 }
             });
         }
 
         const bootColor = options.bootColor !== undefined ? options.bootColor : 0x2c3e50;
+        const isBuilder = options.isBuilder === true;
         const legsRoot = this.createStaticLegsGroup(modelScene, bootColor);
 
-        // 1. Sprawdzenie czy model leży plackiem (jeśli głębokość Z jest większa niż wysokość Y)
+        // 1. Postawienie modelu pionowo (-90 stopni na X, 180 stopni na Y)
+        legsRoot.rotation.x = -Math.PI / 2;
+        legsRoot.rotation.y = Math.PI;
+        legsRoot.updateMatrixWorld(true);
+
         let box = new THREE.Box3().setFromObject(legsRoot);
         let size = box.getSize(new THREE.Vector3());
 
-        if (size.z > size.y * 1.2) {
-            legsRoot.rotation.x = -Math.PI / 2;
-            legsRoot.rotation.y = Math.PI;
-            legsRoot.updateMatrixWorld(true);
-            box = new THREE.Box3().setFromObject(legsRoot);
-            size = box.getSize(new THREE.Vector3());
-        }
-
-        // 2. Skalowanie do wzrostu nóg postaci (ok. 0.85 jednostki)
-        const targetHeight = options.targetHeight || 0.85;
+        // 2. Skalowanie: pełna wysokość skrzydeł (1.55m w grze, 8x większe w kreatorze)
+        const targetHeight = isBuilder ? (1.55 * 8) : 1.55;
         const currentHeight = Math.max(size.y, 0.001);
         const scaleFactor = targetHeight / currentHeight;
 
         legsRoot.scale.setScalar(scaleFactor);
         legsRoot.updateMatrixWorld(true);
 
-        // 3. Wyśrodkowanie pod postacią i oparcie butów o podłoże (Y = -0.5)
+        // 3. Pozycjonowanie
         box = new THREE.Box3().setFromObject(legsRoot);
         const center = box.getCenter(new THREE.Vector3());
 
-        legsRoot.position.x = -center.x;
-        legsRoot.position.z = -center.z;
-        legsRoot.position.y = -box.min.y - 0.5;
+        if (isBuilder) {
+            // W KREATORZE: Buty opierają się na Y = -4.8 (pod platformą),
+            // a skrzydła wznoszą się z tyłu (Z = -2.2) ponad platformę budowania
+            legsRoot.position.x = -center.x;
+            legsRoot.position.z = -center.z - 2.2;
+            legsRoot.position.y = -box.min.y - 4.8;
+        } else {
+            // W GRZE: Spód butów styka się z dołem hitboxa (Y = -0.375),
+            // a skrzydła rozpościerają się za plecami postaci (Z = -0.28)
+            legsRoot.position.x = -center.x;
+            legsRoot.position.z = -center.z - 0.28;
+            legsRoot.position.y = -box.min.y - 0.375;
+        }
 
         parentContainer.add(legsRoot);
         return legsRoot;
