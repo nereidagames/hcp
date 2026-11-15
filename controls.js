@@ -4,6 +4,7 @@ export class VirtualJoystick {
   constructor(zoneElement, options = {}) {
     this.zone = zoneElement;
     this.maxRadius = options.maxRadius || 76;
+    this.deadzone = options.deadzone || 0.22;
     this.onMove = options.onMove || null;
     this.onEnd = options.onEnd || null;
     this.fixed = options.fixed || false;
@@ -73,6 +74,10 @@ export class VirtualJoystick {
     this.base.style.display = 'block';
     this.thumb.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
 
+    if (this.onMove) {
+      this.onMove({ x: 0, y: 0 });
+    }
+
     if (e.cancelable) e.preventDefault();
   }
 
@@ -81,21 +86,31 @@ export class VirtualJoystick {
     const deltaY = clientY - this.originY;
     const distance = Math.hypot(deltaX, deltaY);
 
-    let clampedX = deltaX;
-    let clampedY = deltaY;
+    let visualClampedX = deltaX;
+    let visualClampedY = deltaY;
 
     if (distance > this.maxRadius && distance > 0) {
-      clampedX = (deltaX / distance) * this.maxRadius;
-      clampedY = (deltaY / distance) * this.maxRadius;
+      visualClampedX = (deltaX / distance) * this.maxRadius;
+      visualClampedY = (deltaY / distance) * this.maxRadius;
     }
 
-    this.thumb.style.transform = `translate(-50%, -50%) translate(${clampedX}px, ${clampedY}px)`;
+    this.thumb.style.transform = `translate(-50%, -50%) translate(${visualClampedX}px, ${visualClampedY}px)`;
 
     if (this.onMove) {
-      this.onMove({
-        x: clampedX / this.maxRadius,
-        y: -clampedY / this.maxRadius
-      });
+      const normalizedDist = Math.min(1.0, distance / this.maxRadius);
+
+      if (normalizedDist <= this.deadzone) {
+        this.onMove({ x: 0, y: 0 });
+      } else {
+        const speedFactor = (normalizedDist - this.deadzone) / (1.0 - this.deadzone);
+        const dirX = deltaX / (distance || 1);
+        const dirY = deltaY / (distance || 1);
+
+        this.onMove({
+          x: dirX * speedFactor,
+          y: -dirY * speedFactor
+        });
+      }
     }
   }
 
@@ -333,6 +348,7 @@ export class PlayerController {
     const moveDirection = this.moveDirection;
     moveDirection.set(0, 0, 0);
     const isTyping = this.isTyping();
+    let inputMagnitude = 0;
 
     if (!this.isMobile && !isTyping) {
         this.forwardVector.set(0, 0, -1).applyAxisAngle(this.cameraAxis, cameraRotation);
@@ -342,28 +358,39 @@ export class PlayerController {
         if (this.keys['KeyS']) moveDirection.sub(this.forwardVector);
         if (this.keys['KeyA']) moveDirection.sub(this.rightVector);
         if (this.keys['KeyD']) moveDirection.add(this.rightVector);
+
+        if (moveDirection.lengthSq() > 0.001) {
+            moveDirection.normalize();
+            inputMagnitude = 1.0;
+        }
     } else if (this.isMobile) {
-        moveDirection.set(this.joystickDirection.x, 0, -this.joystickDirection.y);
-        moveDirection.applyAxisAngle(this.cameraAxis, cameraRotation);
+        const joyLen = this.joystickDirection.length();
+        if (joyLen > 0.001) {
+            moveDirection.set(this.joystickDirection.x / joyLen, 0, -this.joystickDirection.y / joyLen);
+            moveDirection.applyAxisAngle(this.cameraAxis, cameraRotation);
+            inputMagnitude = Math.min(1.0, joyLen);
+        }
     }
 
-    if (moveDirection.length() > 0) {
-      moveDirection.normalize();
-      const angle = Math.atan2(moveDirection.x, moveDirection.z);
-      this.player.rotation.y = angle;
+    if (inputMagnitude > 0.01) {
+      const targetAngle = Math.atan2(moveDirection.x, moveDirection.z);
+      let angleDiff = targetAngle - this.player.rotation.y;
+      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+      this.player.rotation.y += angleDiff * Math.min(1.0, 16.0 * timeStep);
     }
 
-    const targetVX = moveDirection.x * this.moveSpeed;
-    const targetVZ = moveDirection.z * this.moveSpeed;
+    const targetVX = moveDirection.x * this.moveSpeed * inputMagnitude;
+    const targetVZ = moveDirection.z * this.moveSpeed * inputMagnitude;
 
     if (this.isOnGround) {
-        this.velocity.x = targetVX;
-        this.velocity.z = targetVZ;
+        const groundFriction = inputMagnitude > 0.01 ? (24.0 * timeStep) : (18.0 * timeStep);
+        this.velocity.x += (targetVX - this.velocity.x) * Math.min(1.0, groundFriction);
+        this.velocity.z += (targetVZ - this.velocity.z) * Math.min(1.0, groundFriction);
     } else {
-        const hasInput = moveDirection.lengthSq() > 0.001;
-        const airControlFactor = hasInput ? (25.0 * timeStep) : (2.0 * timeStep);
-        this.velocity.x += (targetVX - this.velocity.x) * airControlFactor;
-        this.velocity.z += (targetVZ - this.velocity.z) * airControlFactor;
+        const airControlFactor = inputMagnitude > 0.01 ? (18.0 * timeStep) : (2.0 * timeStep);
+        this.velocity.x += (targetVX - this.velocity.x) * Math.min(1.0, airControlFactor);
+        this.velocity.z += (targetVZ - this.velocity.z) * Math.min(1.0, airControlFactor);
     }
 
     this.applyMovementAndCollisions(timeStep);
@@ -669,6 +696,7 @@ export class PlayerController {
 
         this.joystick = new VirtualJoystick(joystickZone, {
             maxRadius: 76,
+            deadzone: 0.22,
             fixed: false,
             onMove: (vector) => {
                 if (this.enabled) {
