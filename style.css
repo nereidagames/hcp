@@ -774,7 +774,6 @@ canvas { display: block; }
     user-select: none;
 }
 
-/* DŁUGOŚCI PASKÓW: Level najdłuższy, Monety krótsze, Diamenty najkrótsze */
 #level-container {
     width: 245px;
 }
@@ -787,7 +786,6 @@ canvas { display: block; }
     width: 135px;
 }
 
-/* Gwiazdka poziomu nachodząca z lewej */
 .level-star {
     position: absolute;
     left: 0;
@@ -809,7 +807,6 @@ canvas { display: block; }
     margin-top: 1px;
 }
 
-/* Ikony po lewej dla monet i diamentów */
 .hud-stat-icon {
     position: absolute;
     left: 0;
@@ -832,16 +829,15 @@ canvas { display: block; }
     background-image: url('icons/icon-diamond.png');
 }
 
-/* CAŁKOWICIE PROSTOKĄTNY CIEMNY PASEK BAZOWY (BEZ ZAOKRĄGLEŃ ROGÓW) */
 .hud-bar-pill {
     position: absolute;
     left: 20px;
-    right: 12px; /* Wsuwa się pod przycisk plusa, eliminując przerwę */
+    right: 12px;
     top: 4px;
     bottom: 4px;
     background: rgba(26, 42, 54, 0.92);
     border: 2px solid rgba(255, 255, 255, 0.8);
-    border-radius: 0 !important; /* BRAK ZAOKRĄGLEŃ ROGÓW */
+    border-radius: 0 !important;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -850,7 +846,6 @@ canvas { display: block; }
     z-index: 1;
 }
 
-/* ZIELONY PROSTOKĄTNY PASEK POSTĘPU POZIOMU (BEZ ZAOKRĄGLEŃ) */
 #level-bar-fill {
     position: absolute;
     left: 0;
@@ -858,7 +853,7 @@ canvas { display: block; }
     bottom: 0;
     width: 0%;
     background: linear-gradient(to bottom, #5de836 0%, #28a712 100%);
-    border-radius: 0 !important; /* BRAK ZAOKRĄGLEŃ ROGÓW */
+    border-radius: 0 !important;
     transition: width 0.4s ease-out;
 }
 
@@ -881,7 +876,6 @@ canvas { display: block; }
     padding-left: 10px;
 }
 
-/* BŁĘKITNY PRZYCISK Z PLUSEM PO PRAWEJ (NACHODZĄCY NA PASEK) */
 .hud-plus-btn {
     position: absolute;
     right: 0;
@@ -891,7 +885,7 @@ canvas { display: block; }
     height: 32px;
     background: linear-gradient(to bottom, #74b9ff, #0984e3);
     border: 2px solid white;
-    border-radius: 8px; /* Zaokrąglone rogi tylko na przycisku plusa */
+    border-radius: 8px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -901,7 +895,7 @@ canvas { display: block; }
     cursor: pointer;
     box-shadow: 0 3px 0 #0c2461, 0 3px 6px rgba(0,0,0,0.35);
     transition: transform 0.1s;
-    z-index: 5; /* Ponad paskiem */
+    z-index: 5;
 }
 
 .hud-plus-btn:active {
@@ -976,7 +970,6 @@ canvas { display: block; }
     background-image: url('icons/icon-jump2.png') !important;
 }
 
-/* Domyślny pływający joystick w grze */
 #joystick-zone { 
     position: fixed !important; 
     top: calc(191px * var(--ui-scale)); 
@@ -994,8 +987,8 @@ canvas { display: block; }
 
 .custom-joystick-base {
     position: fixed;
-    width: 196px; 
-    height: 196px; 
+    width: 176px; 
+    height: 176px; 
     border-radius: 50%;
     background: radial-gradient(circle, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.6) 100%);
     border: none;
@@ -1027,7 +1020,7 @@ canvas { display: block; }
 }
 
 /* ==========================================================================
-   STAŁY JOYSTICK W KREATORZE ŚWIATÓW (DUŻY I WIDOCZNY 1:1 Z BSP)
+   STAŁY JOYSTICK W KREATORZE ŚWIATÓW
    ========================================================================== */
 #build-joystick-zone {
     position: fixed !important;
@@ -1074,14 +1067,13 @@ canvas { display: block; }
     pointer-events: none !important;
 }
 
-/* Przesunięcie dolnego paska z uwzględnieniem dynamicznej skali --ui-scale */
 .build-bottom-bar.mobile-shifted {
-    padding-left: 290px !important; /* Fallback dla starszych silników WebView */
+    padding-left: 290px !important;
     padding-left: calc(175px / var(--ui-scale)) !important;
 }
 
 /* ==========================================================================
-   STANDARDOWE MODALE (Skalowane do ekranu przez var(--ui-scale))
+   STANDARDOWE MODALE
    ========================================================================== */
 .panel-modal { 
     position: fixed; 
@@ -1118,8 +1110,7 @@ canvas { display: block; }
 .panel-close-button { margin-top: 20px; background: #ff4757; padding: 10px 20px; border-radius: 8px; cursor: pointer; color: white; font-family: var(--font-main); }
 
 /* ==========================================================================
-   PEŁNOEKRANOWE PANELE (DOKŁADNIE POD GÓRNYM PASKIEM - 100% SZEROKOŚCI I WYSOKOŚCI)
-   Ściana, Przyjaciele, HighScores, Nagrody
+   PEŁNOEKRANOWE PANELE
    ========================================================================== */
 #wall-panel,
 #friends-panel,
@@ -1170,9 +1161,6 @@ canvas { display: block; }
     overflow: hidden !important;
 }
 
-/* ==========================================================================
-   POZIOMY Z-INDEX DLA PODGLĄDU SKINA I KOMENTARZY
-   ========================================================================== */
 #skin-details-modal {
     z-index: 31000 !important;
 }
