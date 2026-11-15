@@ -4,7 +4,7 @@ export class VirtualJoystick {
   constructor(zoneElement, options = {}) {
     this.zone = zoneElement;
     this.maxRadius = options.maxRadius || 76;
-    this.deadzone = options.deadzone || 0.22;
+    this.deadzone = options.deadzone || 0.15;
     this.onMove = options.onMove || null;
     this.onEnd = options.onEnd || null;
     this.fixed = options.fixed || false;
@@ -349,11 +349,12 @@ export class PlayerController {
     moveDirection.set(0, 0, 0);
     const isTyping = this.isTyping();
     let inputMagnitude = 0;
+    let backwardRatio = 0;
+
+    this.forwardVector.set(0, 0, -1).applyAxisAngle(this.cameraAxis, cameraRotation);
+    this.rightVector.set(1, 0, 0).applyAxisAngle(this.cameraAxis, cameraRotation);
 
     if (!this.isMobile && !isTyping) {
-        this.forwardVector.set(0, 0, -1).applyAxisAngle(this.cameraAxis, cameraRotation);
-        this.rightVector.set(1, 0, 0).applyAxisAngle(this.cameraAxis, cameraRotation);
-        
         if (this.keys['KeyW']) moveDirection.add(this.forwardVector);
         if (this.keys['KeyS']) moveDirection.sub(this.forwardVector);
         if (this.keys['KeyA']) moveDirection.sub(this.rightVector);
@@ -362,6 +363,10 @@ export class PlayerController {
         if (moveDirection.lengthSq() > 0.001) {
             moveDirection.normalize();
             inputMagnitude = 1.0;
+            const dotForward = moveDirection.dot(this.forwardVector);
+            if (dotForward < -0.01) {
+                backwardRatio = Math.min(1.0, -dotForward);
+            }
         }
     } else if (this.isMobile) {
         const joyLen = this.joystickDirection.length();
@@ -369,6 +374,11 @@ export class PlayerController {
             moveDirection.set(this.joystickDirection.x / joyLen, 0, -this.joystickDirection.y / joyLen);
             moveDirection.applyAxisAngle(this.cameraAxis, cameraRotation);
             inputMagnitude = Math.min(1.0, joyLen);
+
+            const dotForward = moveDirection.dot(this.forwardVector);
+            if (dotForward < -0.01) {
+                backwardRatio = Math.min(1.0, -dotForward);
+            }
         }
     }
 
@@ -380,8 +390,11 @@ export class PlayerController {
       this.player.rotation.y += angleDiff * Math.min(1.0, 16.0 * timeStep);
     }
 
-    const targetVX = moveDirection.x * this.moveSpeed * inputMagnitude;
-    const targetVZ = moveDirection.z * this.moveSpeed * inputMagnitude;
+    const speedMultiplier = 1.0 - (0.25 * backwardRatio);
+    const effectiveSpeed = this.moveSpeed * speedMultiplier * inputMagnitude;
+
+    const targetVX = moveDirection.x * effectiveSpeed;
+    const targetVZ = moveDirection.z * effectiveSpeed;
 
     if (this.isOnGround) {
         const groundFriction = inputMagnitude > 0.01 ? (24.0 * timeStep) : (18.0 * timeStep);
@@ -696,7 +709,7 @@ export class PlayerController {
 
         this.joystick = new VirtualJoystick(joystickZone, {
             maxRadius: 76,
-            deadzone: 0.22,
+            deadzone: 0.15,
             fixed: false,
             onMove: (vector) => {
                 if (this.enabled) {
