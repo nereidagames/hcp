@@ -4,7 +4,7 @@ export class VirtualJoystick {
   constructor(zoneElement, options = {}) {
     this.zone = zoneElement;
     this.maxRadius = options.maxRadius || 76;
-    this.deadzone = options.deadzone || 0.15;
+    this.deadzone = options.deadzone || 0.05;
     this.onMove = options.onMove || null;
     this.onEnd = options.onEnd || null;
     this.fixed = options.fixed || false;
