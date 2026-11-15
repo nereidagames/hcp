@@ -3,7 +3,7 @@ import * as THREE from 'three';
 export class VirtualJoystick {
   constructor(zoneElement, options = {}) {
     this.zone = zoneElement;
-    this.maxRadius = options.maxRadius || 76;
+    this.maxRadius = options.maxRadius || 80;
     this.deadzone = options.deadzone || 0.05;
     this.onMove = options.onMove || null;
     this.onEnd = options.onEnd || null;
